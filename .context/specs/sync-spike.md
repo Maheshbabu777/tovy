@@ -79,6 +79,8 @@ Command: `cd spike && npx playwright test` (web build served from `dist/`, two b
 
 ## Notes
 
+- Added 2026-10-01: the spike's GO held, but criteria 2 to 5 depended on timing. The plugin did not re-fetch after its realtime channel joined, so a change made in that gap was missed. Fixed in the real app with a catch-up, see `.context/decisions.md`. The condition on the beta library (pin it, rerun e2e on upgrade) stands.
+
 - Expo SDK is 57 (React Native 0.86). Routes live in `src/app/`.
 - Legend-State: Supabase sync only exists in v3, which is still beta (`3.0.0-beta.48`; v2 latest is 2.1.15). Risk for the verdict.
 - Legend-State v3 declares an optional peer `expo-sqlite ^15`, but SDK 57 ships expo-sqlite 57. Installed with `--legacy-peer-deps`. Phone persistence is untested until run in Expo Go.
