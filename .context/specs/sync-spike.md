@@ -1,6 +1,6 @@
 # Sync spike
 
-Status: draft
+Status: approved
 
 ## Problem
 
@@ -52,12 +52,22 @@ Risks:
 ## Progress
 
 - [ ] Supabase dev project created and keys added (human)
-- [ ] Spike app scaffolded
-- [ ] Migration and row security test
-- [ ] Sync layer
-- [ ] Notes screen
-- [ ] End-to-end tests
+- [x] Spike app scaffolded (builds for web, renders sign-in in Chromium, typecheck clean)
+- [x] Migration and row security test (criterion 7 passes on a local Postgres with stubs; rerun on Supabase when reachable)
+- [x] Sync layer (Legend-State syncedSupabase)
+- [x] Notes screen
+- [ ] End-to-end tests (written, not run: Supabase blocked by network policy)
 - [ ] Timing check
 - [ ] Verdict written
 
 ## Notes
+
+- Expo SDK is 57 (React Native 0.86). Routes live in `src/app/`.
+- Legend-State: Supabase sync only exists in v3, which is still beta (`3.0.0-beta.48`; v2 latest is 2.1.15). Risk for the verdict.
+- Legend-State v3 declares an optional peer `expo-sqlite ^15`, but SDK 57 ships expo-sqlite 57. Installed with `--legacy-peer-deps`. Phone persistence is untested until run in Expo Go.
+- Soft delete: the plugin expects a boolean `deleted` column, not the plan's `deleted_at`. The spike uses `deleted boolean`. Decide for the real schema after the verdict.
+- `select` is left off syncedSupabase because the typings need generated database types. Add them in phase 1.
+- Spike uses fixed persist name `notes`. The real app must clear local data on sign out.
+- Environment: `EXPO_PUBLIC_SUPABASE_URL` and `EXPO_PUBLIC_SUPABASE_ANON_KEY` are set from `SUPABASE_URL` and `SUPABASE_ANON_KEY` when building. The test user sign-up needs "Confirm email" turned off in Supabase Auth.
+- Blocked: the session network policy returns 403 for the Supabase host, so nothing has run against Supabase yet.
+- Lint not run: `expo lint` wants to install eslint and hits the same peer conflict. Fine for a throwaway spike.

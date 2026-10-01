@@ -18,18 +18,20 @@ Planned, not built yet: Expo (React Native, TypeScript) with Expo Router, Legend
 
 | Task | Command |
 |---|---|
-| Install | |
+| Install | `cd spike && npm install --legacy-peer-deps` |
 | Run locally | |
-| All tests | |
+| All tests | `cd spike && npm run test:e2e` (needs Supabase reachable) ; `bash supabase/tests/run-local.sh` (row security, local Postgres) |
 | One test file | |
 | Lint | |
-| Type check | |
-| Build | |
+| Type check | `cd spike && npm run typecheck` |
+| Build | `cd spike && EXPO_PUBLIC_SUPABASE_URL=$SUPABASE_URL EXPO_PUBLIC_SUPABASE_ANON_KEY=$SUPABASE_ANON_KEY npx expo export --platform web` |
 
 ## Layout
 
 <!-- One line per important folder or entry point. Pointers, not descriptions of the code. -->
 - `.context/project-plan.md` - the approved plan and slice list
+- `spike/` - throwaway Expo app for the sync spike (src/app screens, src/lib sync)
+- `supabase/migrations/` - schema; `supabase/tests/` - row security test and local runner
 
 ## Conventions
 
