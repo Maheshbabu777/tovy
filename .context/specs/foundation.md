@@ -1,6 +1,6 @@
 # Foundation
 
-Status: draft (waiting for approval of the plan)
+Status: draft
 
 ## Problem
 
