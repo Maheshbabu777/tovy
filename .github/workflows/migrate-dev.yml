@@ -11,7 +11,7 @@ on:
   workflow_dispatch:
     inputs:
       baseline:
-        description: "One time only: mark this migration version as already applied (for example 0001) before pushing"
+        description: 'One time only: mark this migration version as already applied (for example 0001) before pushing'
         required: false
 
 concurrency: migrate-dev
