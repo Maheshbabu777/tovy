@@ -65,7 +65,7 @@ Risks:
 - [x] 2 Quality commands
 - [x] 3 Row security test in CI form
 - [x] 4 CI workflow
-- [ ] 5 Migrations to dev
+- [ ] 5 Migrations to dev (workflow merged and baseline run green, `0002_notes_comment.sql` in PR to prove it end to end)
 - [x] 6 E2E move (done in slice 1)
 - [x] 7 README and env
 
