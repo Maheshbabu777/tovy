@@ -121,6 +121,14 @@ async function createUser(): Promise<{ email: string; password: string }> {
   return { email, password }
 }
 
+// Note titles the server returns for a signed-in user's token.
+async function serverTitlesOf(accessToken: string): Promise<string[]> {
+  const res = await fetch(`${SUPABASE_URL}/rest/v1/notes?select=title&deleted=eq.false`, {
+    headers: { apikey: ANON_KEY, authorization: `Bearer ${accessToken}` },
+  })
+  return ((await res.json()) as { title: string }[]).map((n) => n.title)
+}
+
 const titles = (p: Page) =>
   p
     .getByTestId('note')
@@ -307,5 +315,51 @@ test.describe('sync spike', () => {
     const still = await (await rest(owner.jwt, `notes?id=eq.${noteId}`)).json()
     expect(still).toHaveLength(1)
     expect(still[0].title).toBe('private-7')
+  })
+
+  test('7b: with no signed-in user, notes cannot be read or written', async () => {
+    // A signed-out visitor only has the public anon key.
+    const anon = (path: string, init: RequestInit = {}) =>
+      fetch(`${SUPABASE_URL}/rest/v1/${path}`, {
+        ...init,
+        headers: {
+          apikey: ANON_KEY,
+          authorization: `Bearer ${ANON_KEY}`,
+          'content-type': 'application/json',
+          prefer: 'return=representation',
+          ...init.headers,
+        },
+      })
+    const owner = await fetch(`${SUPABASE_URL}/auth/v1/token?grant_type=password`, {
+      method: 'POST',
+      headers: { apikey: ANON_KEY, 'content-type': 'application/json' },
+      body: JSON.stringify(user),
+    }).then((r) => r.json())
+    const noteId = crypto.randomUUID()
+    const created = await fetch(`${SUPABASE_URL}/rest/v1/notes`, {
+      method: 'POST',
+      headers: {
+        apikey: ANON_KEY,
+        authorization: `Bearer ${owner.access_token}`,
+        'content-type': 'application/json',
+      },
+      body: JSON.stringify({ id: noteId, title: 'private-7b' }),
+    })
+    expect(created.status).toBe(201)
+
+    expect(await (await anon('notes')).json()).toEqual([]) // reads nothing
+    expect(await (await anon(`notes?id=eq.${noteId}`)).json()).toEqual([]) // cannot see a known note
+    const insert = await anon('notes', {
+      method: 'POST',
+      body: JSON.stringify({ id: crypto.randomUUID(), title: 'x' }),
+    })
+    expect([401, 403]).toContain(insert.status) // cannot write
+    const patch = await anon(`notes?id=eq.${noteId}`, { method: 'PATCH', body: JSON.stringify({ title: 'hacked' }) })
+    expect(await patch.json()).toEqual([]) // cannot change
+    const del = await anon(`notes?id=eq.${noteId}`, { method: 'DELETE' })
+    expect(await del.json()).toEqual([]) // cannot delete
+
+    expect(await serverTitlesOf(owner.access_token)).toContain('private-7b') // still untouched
+    expect(await serverTitlesOf(owner.access_token)).not.toContain('hacked')
   })
 })
