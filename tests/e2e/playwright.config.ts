@@ -1,7 +1,7 @@
 import { defineConfig } from '@playwright/test'
 
 export default defineConfig({
-  testDir: './tests',
+  testDir: '.',
   testMatch: '*.e2e.ts',
   timeout: 120_000,
   workers: 1,
@@ -14,5 +14,10 @@ export default defineConfig({
     },
   },
   // Serves the exported web build: EXPO_PUBLIC_* vars set, then `npx expo export --platform web`.
-  webServer: { command: 'npx serve dist -s -l 8081', url: 'http://localhost:8081', reuseExistingServer: true },
+  webServer: {
+    command: 'npx serve dist -s -l 8081',
+    cwd: '../..',
+    url: 'http://localhost:8081',
+    reuseExistingServer: true,
+  },
 })

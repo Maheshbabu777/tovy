@@ -1,0 +1,105 @@
+# Foundation
+
+Status: approved
+
+## Problem
+
+The sync spike proved the stack, but it lives in a throwaway `spike/` folder with no lint, no format check, no unit tests and no CI, and its database migration had to be applied by hand in the Supabase editor. Every later feature needs a real app structure, automatic quality checks on each PR, and migrations that apply themselves, so mistakes are caught before they reach a phone or the database.
+
+This is Phase 1 of `.context/project-plan.md`, first part. Login and design tokens are split into their own specs (see open questions).
+
+## Acceptance criteria
+
+1. The app lives at the repo root in the structure from the plan (`app/`, `src/core/`, `src/features/`, `src/ui/`, `supabase/`, `tests/`). The spike's working code is moved there (sync layer to `src/core/sync/`, Supabase client to `src/core/db/`). The `spike/` folder is gone. `npx expo export --platform web` builds and the web app still signs in and lists notes.
+2. `npm run lint`, `npm run format:check`, `npm run typecheck` and `npm test` (unit tests) all exist and pass on a clean checkout, and are listed in the Commands table in `.context/project.md`.
+3. A GitHub Actions workflow runs lint, format check, typecheck, unit tests and the row-security SQL test on every pull request, and a PR with a deliberately failing check shows red.
+4. The row-security SQL test (user A cannot read or change user B's rows) runs in CI against a throwaway Postgres, so it no longer needs a manual run.
+5. When a PR merges to `main`, CI applies the new files in `supabase/migrations/` to the dev Supabase project with the Supabase CLI. A migration added in a test PR shows up in the dev database without anyone opening the Supabase editor.
+6. `README.md` follows the plan's scaffold (overview, getting started, how-to, reference) and `.env.example` lists every variable the app and CI need. A reader can get the app running from the README alone.
+7. The sync e2e suite (7 tests from the spike) moves to `tests/e2e/` and still passes against the dev project with the same command.
+
+## Out of scope
+
+- Google and email OTP login (next spec, `auth`).
+- `tokens.ts` and the `/dev/components` gallery (spec `design-tokens`).
+- Real Tovy tables (tasks, projects, progress logs). The `notes` table stays as the only table until Phase 2.
+- Running the e2e suite in CI (needs secrets and a live project). It stays a manual command for now.
+- A prod Supabase project and any prod deploy (decided 2026-10-01: dev only for now, create prod before real users depend on it).
+- Deploying the app anywhere (Cloudflare Pages, EAS). Only database migrations to dev are deployed.
+
+## Open questions
+
+- Split Phase 1 into three specs, `foundation`, `auth`, `design-tokens`? Answer: yes (2026-10-01).
+- Promote the spike into the real structure or start fresh? Answer: promote the spike (2026-10-01).
+- ESLint with the Expo config, Prettier, Jest with `jest-expo`? Answer: yes (2026-10-01).
+- One dev project only, or create prod now? Answer: dev only, no prod for now (2026-10-01). Changed from an earlier answer, so criterion 8 and the prod slice were removed.
+- For you to do, I can't (needed for criterion 5): add these GitHub Actions secrets: `SUPABASE_ACCESS_TOKEN`, `DEV_PROJECT_REF`, `DEV_DB_PASSWORD`. Answer: done, the three secrets are added in GitHub (2026-10-01). Not yet proven to work, slice 5 shows that.
+- Is one real unit test enough for criterion 2 now? There is little pure logic yet (the plan puts rules in Phase 5 and 7). I propose testing the notes store functions without persistence, and adding more as `src/core/` grows. (proposed) Answer: yes, one is enough (2026-10-01).
+
+## Plan
+
+Slices, each ends green and gets ticked below. Branch: `feat/foundation`. One PR at the end of each group of slices, small enough to review.
+
+1. **Move the app to the root (criterion 1).** `git mv` the spike into the plan's structure: `spike/src/app` to `app/`, `spike/src/lib/supabase.ts` to `src/core/db/`, the notes sync and persist plugins to `src/core/sync/`, assets and `app.json` to the root, rename the app from "Tovy spike" to "Tovy". Merge `spike/package.json` into a root `package.json`. Delete `spike/`. The e2e suite and Playwright config move to `tests/e2e/` in this same slice (slice 6 folded in, because this slice's proof needs the suite). Test: `npm run typecheck` and `npx expo export --platform web` pass, then the e2e command passes all 7 tests.
+2. **Quality commands (criterion 2).** ESLint flat config with `eslint-config-expo`, Prettier config, Jest with `jest-expo`, scripts `lint`, `format`, `format:check`, `typecheck`, `test`. One real unit test for the notes store (proposed). Fill the Commands table in `.context/project.md`. Test: all four commands pass on a fresh clone with `npm ci`, and each fails when I break a rule on purpose (shown in the evidence).
+3. **Row security test in CI form (criterion 4).** Turn `supabase/tests/run-local.sh` into one that works on a plain Postgres service container (no `runuser`), keep the stub file. Test: it passes locally and fails when I temporarily drop a policy.
+4. **CI workflow (criterion 3).** `.github/workflows/ci.yml` on pull requests: install, lint, format check, typecheck, unit tests, row security test. Test: a PR with a lint error shows red, the fix shows green.
+5. **Migrations to dev (criterion 5).** `.github/workflows/migrate-dev.yml` on push to `main`: Supabase CLI `link` and `db push` with the dev secrets. Test: a throwaway migration (a comment-only change to a function) in a test PR, then check it applied via the Supabase API.
+6. **E2E move (criterion 7). Done together with slice 1.** Move `spike/tests/sync.e2e.ts` and the Playwright config to `tests/e2e/`, update paths and the `test:e2e` script. Test: the 7 e2e tests pass with the same command.
+7. **README and env (criterion 6).** README from the plan's scaffold, `.env.example` for app and CI variables, remove the stale "applied by hand" gotcha from `project.md`. Test: I follow the README from a clean clone and it runs.
+
+Proof at the end: `.powers/scripts/verify.sh` evidence block pasted under Notes, and each criterion's pass or fail with its command.
+
+Risks:
+- Expo SDK 57 with `jest-expo` and ESLint 9 may need `--legacy-peer-deps` again. If they conflict, record the workaround in `project.md` and do not downgrade Expo.
+- Moving files can break Metro path resolution and the `app.json` entry. Slice 1 is verified by a web build before anything else changes.
+- The Supabase CLI in CI needs the database password and a network path from GitHub runners. If it fails, fall back to applying the SQL through the Management API and say so in the notes.
+- Row security test on a plain Postgres uses stubs for Supabase's `auth` schema. The real project test (REST, two users) already exists in the e2e suite and keeps covering that gap.
+
+## Progress
+
+- [x] Questions answered
+- [x] Plan written
+- [x] Spec and plan approved (human, 2026-10-01)
+- [x] 1 Move the app to the root (with slice 6, the e2e move)
+- [x] 2 Quality commands
+- [x] 3 Row security test in CI form
+- [x] 4 CI workflow
+- [ ] 5 Migrations to dev
+- [x] 6 E2E move (done in slice 1)
+- [x] 7 README and env
+
+## Evidence
+
+Slice 1 and 6 (criteria 1 and 7), on branch `feat/foundation`:
+
+- `npm run typecheck`: clean.
+- `EXPO_PUBLIC_SUPABASE_URL=$SUPABASE_URL EXPO_PUBLIC_SUPABASE_ANON_KEY=$SUPABASE_ANON_KEY npx expo export --platform web`: `Exported: dist`.
+- `npm run test:e2e`: 7 passed, three full runs in a row (31 to 32 s), plus criterion 2 alone three times (0.9 to 1.2 s).
+- Known: the very first full run after the move had one failure in test 2 (sync within 2 s). I did not capture its message and could not reproduce it in 6 later runs. If it comes back, capture the output before touching the test.
+
+Slice 2 (criterion 2), commit `4954c73`:
+
+- Fresh clone of `feat/foundation`, then `npm ci`, then `npm run lint`, `format:check`, `typecheck`, `test`: all four PASS.
+- Each fails when broken on purpose: lint reported `no-var` as an error and exited 1, `format:check` flagged a badly formatted file, `typecheck` reported TS2322 on a string assigned to a number, `npm test` reported Expected "WRONG", Received "renamed". All temporary breakage was removed.
+- Found and fixed while proving it: `tsconfig.json` was missing Jest types, `jest-expo` needed `@react-native/jest-preset` as a peer, and `uuid` v14 is ESM-only so Jest transforms it (see `package.json` jest config).
+- Added `.npmrc` with `legacy-peer-deps=true`, because Expo SDK 57 packages conflict on peers and plain `npm ci` fails without it.
+- The unit test uses a plain local store instead of the Supabase plugin, so it checks our add, rename and delete helpers only. Sync is covered by e2e.
+
+Slice 3 (criterion 4):
+
+- `supabase/tests/run.sh` (renamed from `run-local.sh`) uses `DATABASE_URL` when set, else a throwaway local Postgres. Local mode: `PASS: row security isolates users`, exit 0. `DATABASE_URL` mode on an empty database: same PASS, exit 0.
+- With the select policy temporarily changed to `using (true)`: `ERROR: FAIL: user B saw 1 of A's notes`, exit 3. The migration was restored afterwards.
+
+Slice 4 (criteria 3 and 4), PR #2:
+
+- Green: run on `190bed6` and on head `9e0a028`, both jobs (`lint, format, types, unit tests` and `row security test`) conclusion success.
+- Red: run on `f4dafae` failed in `format:check`, log line `[warn] .github/workflows/migrate-dev.yml`, `Process completed with exit code 1`. This was an accidental failure (I pushed an unformatted file), not the deliberate one the criterion describes. It does show the pipeline goes red on a bad change, and the next push fixed it.
+
+Slice 7 (criterion 6): `README.md` and `.env.example` added (`.gitignore` keeps `.env.example` trackable). `CI=1 npx expo start --web --port 8099` answered HTTP 200 with the app's HTML. Signing in is a manual step in the README.
+
+## Notes
+
+- The "applied by hand" gotcha in `.context/project.md` goes away when criterion 5 is proven.
+- Slice 5 needs a one-time baseline: the dev database already has `0001_notes.sql` from the manual run, so run the `migrate-dev` workflow once with `baseline=0001` before the first real push.
+- Legend-State stays pinned to the beta that passed the spike. Re-run the e2e suite on any upgrade.

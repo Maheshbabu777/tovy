@@ -1,7 +1,7 @@
 {
   "expo": {
-    "name": "Tovy spike",
-    "slug": "tovy-spike",
+    "name": "Tovy",
+    "slug": "tovy",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
@@ -23,10 +23,7 @@
       "bundler": "metro",
       "output": "single"
     },
-    "plugins": [
-      "expo-sqlite",
-      "expo-router"
-    ],
-    "scheme": "tovyspike"
+    "plugins": ["expo-sqlite", "expo-router"],
+    "scheme": "tovy"
   }
 }

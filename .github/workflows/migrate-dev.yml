@@ -1,0 +1,41 @@
+name: migrate-dev
+
+# Applies supabase/migrations to the dev project when migrations change on main.
+# Needs the repository secrets SUPABASE_ACCESS_TOKEN, DEV_PROJECT_REF and DEV_DB_PASSWORD.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - supabase/migrations/**
+  workflow_dispatch:
+    inputs:
+      baseline:
+        description: 'One time only: mark this migration version as already applied (for example 0001) before pushing'
+        required: false
+
+concurrency: migrate-dev
+
+permissions:
+  contents: read
+
+jobs:
+  migrate:
+    runs-on: ubuntu-latest
+    env:
+      SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+      SUPABASE_DB_PASSWORD: ${{ secrets.DEV_DB_PASSWORD }}
+      PROJECT_REF: ${{ secrets.DEV_PROJECT_REF }}
+      BASELINE: ${{ inputs.baseline }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: supabase/setup-cli@v1
+        with:
+          version: latest
+      - name: Link the dev project
+        run: supabase link --project-ref "$PROJECT_REF"
+      - name: Mark an already applied migration
+        if: ${{ inputs.baseline != '' }}
+        run: supabase migration repair --status applied "$BASELINE"
+      - name: Apply pending migrations
+        run: supabase db push

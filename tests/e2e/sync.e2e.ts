@@ -10,7 +10,10 @@ const SYNC_BUDGET_MS = 2000
 // "Offline" blocks only the backend (HTTP and websocket) so the page itself still loads and reloads.
 type Device = { context: BrowserContext; page: Page; setOffline: (v: boolean) => Promise<void> }
 
-async function newDevice(browser: import('@playwright/test').Browser, user: { email: string; password: string }): Promise<Device> {
+async function newDevice(
+  browser: import('@playwright/test').Browser,
+  user: { email: string; password: string },
+): Promise<Device> {
   const context = await browser.newContext()
   let offline = false
   const sockets: { close: () => void }[] = []
@@ -36,7 +39,12 @@ async function newDevice(browser: import('@playwright/test').Browser, user: { em
     server.on('close', () => ws.close())
     server.on('error', () => ws.close())
     ws.onClose(() => server.close())
-    sockets.push({ close: () => { ws.close(); server.close() } })
+    sockets.push({
+      close: () => {
+        ws.close()
+        server.close()
+      },
+    })
   })
   const page = await context.newPage()
   await page.goto('/')
@@ -72,12 +80,18 @@ async function createUser(): Promise<{ email: string; password: string }> {
       })
   const body: any = await res.json()
   if (!res.ok || !(body.access_token || body.id)) {
-    throw new Error(`user creation failed (without SUPABASE_API_KEY, turn off "Confirm email" in Supabase Auth): ${JSON.stringify(body)}`)
+    throw new Error(
+      `user creation failed (without SUPABASE_API_KEY, turn off "Confirm email" in Supabase Auth): ${JSON.stringify(body)}`,
+    )
   }
   return { email, password }
 }
 
-const titles = (p: Page) => p.getByTestId('note').locator('input').evaluateAll((els) => els.map((e) => (e as HTMLInputElement).value).sort())
+const titles = (p: Page) =>
+  p
+    .getByTestId('note')
+    .locator('input')
+    .evaluateAll((els) => els.map((e) => (e as HTMLInputElement).value).sort())
 const addNote = async (p: Page, title: string) => {
   await p.getByTestId('new-title').fill(title)
   await p.getByTestId('add').click()
@@ -93,7 +107,9 @@ async function expectTitles(p: Page, expected: string[], timeout = SYNC_BUDGET_M
 
 test.describe('sync spike', () => {
   let user: { email: string; password: string }
-  test.beforeAll(async () => { user = await createUser() })
+  test.beforeAll(async () => {
+    user = await createUser()
+  })
 
   test('2: offline edits show instantly and reach the other device within 2 s of reconnect', async ({ browser }) => {
     const a = await newDevice(browser, user)
@@ -123,13 +139,18 @@ test.describe('sync spike', () => {
     await waitSynced(a)
     await expect.poll(() => titles(b.page), { timeout: 10_000 }).toEqual(expect.arrayContaining(['x3', 'y3']))
 
-    await a.setOffline(true); await b.setOffline(true)
+    await a.setOffline(true)
+    await b.setOffline(true)
     await noteRow(a.page, 'x3').fill('x3-from-a')
     await noteRow(b.page, 'y3').fill('y3-from-b')
-    await a.setOffline(false); await b.setOffline(false)
-    await a.page.reload(); await b.page.reload()
+    await a.setOffline(false)
+    await b.setOffline(false)
+    await a.page.reload()
+    await b.page.reload()
     for (const p of [a.page, b.page]) {
-      await expect.poll(() => titles(p), { timeout: 10_000 }).toEqual(expect.arrayContaining(['x3-from-a', 'y3-from-b']))
+      await expect
+        .poll(() => titles(p), { timeout: 10_000 })
+        .toEqual(expect.arrayContaining(['x3-from-a', 'y3-from-b']))
     }
   })
 
@@ -140,16 +161,24 @@ test.describe('sync spike', () => {
     await waitSynced(a)
     await expect.poll(() => titles(b.page), { timeout: 10_000 }).toContain('shared-4')
 
-    await a.setOffline(true); await b.setOffline(true)
+    await a.setOffline(true)
+    await b.setOffline(true)
     await noteRow(a.page, 'shared-4').fill('shared-4-A')
     await noteRow(b.page, 'shared-4').fill('shared-4-B')
-    await a.setOffline(false); await b.setOffline(false)
-    await a.page.reload(); await b.page.reload()
-    await expect.poll(async () => {
-      const [ta, tb] = [await titles(a.page), await titles(b.page)]
-      const t4 = (t: string[]) => t.filter((x) => x.startsWith('shared-4')).join('|')
-      return t4(ta) === t4(tb) && t4(ta).length > 0
-    }, { timeout: 15_000 }).toBe(true)
+    await a.setOffline(false)
+    await b.setOffline(false)
+    await a.page.reload()
+    await b.page.reload()
+    await expect
+      .poll(
+        async () => {
+          const [ta, tb] = [await titles(a.page), await titles(b.page)]
+          const t4 = (t: string[]) => t.filter((x) => x.startsWith('shared-4')).join('|')
+          return t4(ta) === t4(tb) && t4(ta).length > 0
+        },
+        { timeout: 15_000 },
+      )
+      .toBe(true)
   })
 
   test('5: soft delete reaches other devices, including one that was offline', async ({ browser }) => {
@@ -198,7 +227,7 @@ test.describe('sync spike', () => {
     expect(worst).toBeLessThan(100)
   })
 
-  test('7: a second user cannot read or change the first user\'s notes', async () => {
+  test("7: a second user cannot read or change the first user's notes", async () => {
     const token = async (u: { email: string; password: string }) => {
       const res = await fetch(`${SUPABASE_URL}/auth/v1/token?grant_type=password`, {
         method: 'POST',
@@ -211,17 +240,32 @@ test.describe('sync spike', () => {
     const rest = (jwt: string, path: string, init: RequestInit = {}) =>
       fetch(`${SUPABASE_URL}/rest/v1/${path}`, {
         ...init,
-        headers: { apikey: ANON_KEY, authorization: `Bearer ${jwt}`, 'content-type': 'application/json', prefer: 'return=representation', ...init.headers },
+        headers: {
+          apikey: ANON_KEY,
+          authorization: `Bearer ${jwt}`,
+          'content-type': 'application/json',
+          prefer: 'return=representation',
+          ...init.headers,
+        },
       })
     const owner = await token(user)
     const other = await token(await createUser())
     const noteId = crypto.randomUUID()
-    expect((await rest(owner.jwt, 'notes', { method: 'POST', body: JSON.stringify({ id: noteId, title: 'private-7' }) })).status).toBe(201)
+    expect(
+      (await rest(owner.jwt, 'notes', { method: 'POST', body: JSON.stringify({ id: noteId, title: 'private-7' }) }))
+        .status,
+    ).toBe(201)
 
     expect(await (await rest(other.jwt, `notes?id=eq.${noteId}`)).json()).toEqual([]) // cannot read
-    const patched = await rest(other.jwt, `notes?id=eq.${noteId}`, { method: 'PATCH', body: JSON.stringify({ title: 'hacked' }) })
+    const patched = await rest(other.jwt, `notes?id=eq.${noteId}`, {
+      method: 'PATCH',
+      body: JSON.stringify({ title: 'hacked' }),
+    })
     expect(await patched.json()).toEqual([]) // cannot change
-    const spoof = await rest(other.jwt, 'notes', { method: 'POST', body: JSON.stringify({ id: crypto.randomUUID(), user_id: owner.id, title: 'spoof' }) })
+    const spoof = await rest(other.jwt, 'notes', {
+      method: 'POST',
+      body: JSON.stringify({ id: crypto.randomUUID(), user_id: owner.id, title: 'spoof' }),
+    })
     expect(spoof.status).toBe(403) // cannot write rows as the owner
     const del = await rest(other.jwt, `notes?id=eq.${noteId}`, { method: 'DELETE' })
     expect(await del.json()).toEqual([]) // cannot hard delete

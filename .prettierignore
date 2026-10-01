@@ -1,0 +1,7 @@
+dist
+.expo
+node_modules
+.powers
+test-results
+package-lock.json
+.context

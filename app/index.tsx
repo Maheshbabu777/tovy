@@ -2,8 +2,8 @@ import { useEffect, useState } from 'react'
 import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native'
 import { syncState } from '@legendapp/state'
 import { use$ } from '@legendapp/state/react'
-import { supabase } from '../lib/supabase'
-import { addNote, deleteNote, notes$, renameNote, type Note } from '../lib/notes'
+import { supabase } from '../src/core/db/supabase'
+import { addNote, deleteNote, notes$, renameNote, type Note } from '../src/core/sync/notes'
 
 // Test hook: lets the end-to-end tests read tap-to-render timings.
 const perf: number[] = []
@@ -39,8 +39,22 @@ function SignIn() {
 
   return (
     <View style={styles.pad}>
-      <TextInput testID="email" placeholder="email" value={email} onChangeText={setEmail} autoCapitalize="none" style={styles.input} />
-      <TextInput testID="password" placeholder="password" value={password} onChangeText={setPassword} secureTextEntry style={styles.input} />
+      <TextInput
+        testID="email"
+        placeholder="email"
+        value={email}
+        onChangeText={setEmail}
+        autoCapitalize="none"
+        style={styles.input}
+      />
+      <TextInput
+        testID="password"
+        placeholder="password"
+        value={password}
+        onChangeText={setPassword}
+        secureTextEntry
+        style={styles.input}
+      />
       <Pressable testID="sign-in" onPress={signIn} style={styles.button}>
         <Text>Sign in</Text>
       </Pressable>
@@ -64,7 +78,13 @@ function NotesScreen() {
     <ScrollView contentContainerStyle={styles.pad}>
       <Text testID="status">{!loaded ? 'loading' : pending > 0 ? `pending ${pending}` : 'synced'}</Text>
       <View style={styles.row}>
-        <TextInput testID="new-title" placeholder="New note" value={draft} onChangeText={setDraft} style={[styles.input, { flex: 1 }]} />
+        <TextInput
+          testID="new-title"
+          placeholder="New note"
+          value={draft}
+          onChangeText={setDraft}
+          style={[styles.input, { flex: 1 }]}
+        />
         <Pressable
           testID="add"
           style={styles.button}
