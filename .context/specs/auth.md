@@ -1,6 +1,6 @@
 # Auth
 
-Status: draft
+Status: approved
 
 Size: risky (sign-in, sessions and personal data). Needs plan approval and the security review in `.powers/on-demand/security-review.md`.
 
@@ -43,6 +43,8 @@ This is Phase 1 of `.context/project-plan.md`, second part, after `foundation`.
 
 Branch per slice group, named `feat/auth-...`. Each slice ends green and gets ticked below.
 
+Order (changed 2026-10-01 so work does not wait on email and Google setup): 1, then 6, then 5, which need none of it. Then 2, 3, 4, 7, 8 once the Resend, Supabase and Google setup is done. Slice numbers below stay as they are.
+
 1. **Sync tests start from a saved session (criterion 10, prepares criterion 7).** In `tests/e2e/sync.e2e.ts`, replace the sign-in clicks with a session injected before the page loads: create the user with the admin API, get a token with the password grant over REST, and write it where supabase-js keeps its session. All 7 tests still pass with the password screen still present. Test: `npm run test:e2e`, 7 passed.
 2. **Email code sign-in screen (criteria 1, 2, 7).** New `src/features/account/SignIn.tsx`: an email step calling `signInWithOtp`, then a code step calling `verifyOtp` with type `email`. Wrong or expired code shows the error text, resend has a short cooldown, and a rate limit error is shown as a message. Remove the password fields. Test: a new e2e test asks the admin API `generate_link` for the code, types it in, and sees the notes screen, plus a wrong code that stays signed out.
 3. **Session and PKCE (criterion 4).** Set `flowType: 'pkce'` and `detectSessionInUrl: true` on web in `src/core/db/supabase.ts`. Test: e2e signs in, reloads, still signed in.
@@ -66,8 +68,8 @@ Risks:
 
 - [x] Questions answered (except the setup tasks for you)
 - [x] Plan written
-- [ ] Spec and plan approved (human)
-- [ ] 1 Sync tests start from a saved session
+- [x] Spec and plan approved (human, 2026-10-01, with the slice order above)
+- [ ] 1 Sync tests start from a saved session (first)
 - [ ] 2 Email code sign-in screen
 - [ ] 3 Session and PKCE
 - [ ] 4 Google on web
