@@ -74,7 +74,7 @@ Risks:
 - [ ] 3 Session and PKCE
 - [ ] 4 Google on web
 - [ ] 5 Sign out and local data
-- [ ] 6 Signed-out access
+- [x] 6 Signed-out access
 - [ ] 7 Security review
 - [ ] 8 Docs and context
 
@@ -87,6 +87,12 @@ Slice 1 (criterion 10, prepares criterion 7), branch `feat/auth-session-tests`:
 - Theories rejected by experiment: a cursor skip (`changesSince: 'all'` gave 8 of 14, no better) and a forced ordering (a regression test with A pushing before B passed even before any fix).
 - Fix: `catchUpAfterRealtime()` re-syncs when a realtime channel reports `SUBSCRIBED`, and once more 1.5 s later. After it: test 3 alone 10 of 10, test 2 alone 5 of 5, four full runs of `npm run test:e2e` all 7 passed (31 to 34 s). Lint, format, typecheck and unit tests pass.
 - Not proven: that the catch-up closes every gap. It makes the window much smaller, and the plugin itself is a beta. Phase 2 sync design should decide on a lasting answer.
+
+Slice 6 (criterion 8), branch `feat/auth-signed-out-access`:
+
+- New test `7b` in `tests/e2e/sync.e2e.ts`: with only the public anon key, reading notes returns `[]`, a known note id returns `[]`, an insert is refused (HTTP 401), and update and delete change nothing. The owner's note is still there and untouched afterwards.
+- Control that the empty result is row security and not an empty table: the secret key (bypasses row security) counts 318 notes in dev, the anon key sees `[]`.
+- `npm run test:e2e`: 8 passed, twice in a row. Test `7b` alone passed 3 of 3. I did not weaken the real dev policy to watch it fail, so the control above is the evidence that the test can tell a visible note from a hidden one.
 
 ## Notes
 
