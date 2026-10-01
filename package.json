@@ -23,12 +23,16 @@
   },
   "devDependencies": {
     "@playwright/test": "^1.63.0",
+    "@types/jest": "^30.0.0",
     "@types/node": "^26.6.3",
     "@types/react": "~19.2.2",
     "@types/ws": "^7.4.7",
     "eslint": "^9.0.0",
     "eslint-config-expo": "~57.0.2",
     "https-proxy-agent": "^7.0.6",
+    "jest": "^30.5.2",
+    "jest-expo": "~57.0.5",
+    "prettier": "^3.9.9",
     "serve": "^14.2.6",
     "typescript": "~6.0.3",
     "ws": "^7.5.13"
@@ -39,7 +43,18 @@
     "ios": "expo start --ios",
     "web": "expo start --web",
     "typecheck": "tsc --noEmit",
-    "test:e2e": "playwright test -c tests/e2e"
+    "test:e2e": "playwright test -c tests/e2e",
+    "lint": "eslint .",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "test": "jest"
   },
-  "private": true
+  "private": true,
+  "jest": {
+    "preset": "jest-expo",
+    "testMatch": [
+      "<rootDir>/src/**/*.test.ts",
+      "<rootDir>/src/**/*.test.tsx"
+    ]
+  }
 }
