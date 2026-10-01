@@ -8,6 +8,8 @@ export default defineConfig({
   reporter: 'list',
   use: {
     baseURL: 'http://localhost:8081',
+    // The cloud sandbox only reaches Supabase through its HTTPS proxy, which Chromium does not pick up by itself.
+    ...(process.env.HTTPS_PROXY ? { proxy: { server: process.env.HTTPS_PROXY, bypass: 'localhost,127.0.0.1' }, ignoreHTTPSErrors: true } : {}),
     launchOptions: {
       executablePath: process.env.CHROMIUM_PATH ?? '/opt/pw-browsers/chromium-1194/chrome-linux/chrome',
       args: ['--no-sandbox'],

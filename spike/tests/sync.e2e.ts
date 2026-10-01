@@ -37,16 +37,24 @@ async function newDevice(browser: import('@playwright/test').Browser, user: { em
 }
 
 async function createUser(): Promise<{ email: string; password: string }> {
-  const email = `spike-${Date.now()}-${Math.floor(Math.random() * 1e6)}@example.com`
+  const email = `spike-${Date.now()}-${Math.floor(Math.random() * 1e6)}@gmail.com`
   const password = 'spike-password-123'
-  const res = await fetch(`${SUPABASE_URL}/auth/v1/signup`, {
-    method: 'POST',
-    headers: { apikey: ANON_KEY, 'content-type': 'application/json' },
-    body: JSON.stringify({ email, password }),
-  })
+  const adminKey = process.env.SUPABASE_API_KEY
+  // Prefer the admin API: it skips email confirmation and the email domain check.
+  const res = adminKey
+    ? await fetch(`${SUPABASE_URL}/auth/v1/admin/users`, {
+        method: 'POST',
+        headers: { apikey: adminKey, 'content-type': 'application/json' },
+        body: JSON.stringify({ email, password, email_confirm: true }),
+      })
+    : await fetch(`${SUPABASE_URL}/auth/v1/signup`, {
+        method: 'POST',
+        headers: { apikey: ANON_KEY, 'content-type': 'application/json' },
+        body: JSON.stringify({ email, password }),
+      })
   const body: any = await res.json()
-  if (!res.ok || !body.access_token) {
-    throw new Error(`signup failed (turn off "Confirm email" in Supabase Auth settings): ${JSON.stringify(body)}`)
+  if (!res.ok || !(body.access_token || body.id)) {
+    throw new Error(`user creation failed (without SUPABASE_API_KEY, turn off "Confirm email" in Supabase Auth): ${JSON.stringify(body)}`)
   }
   return { email, password }
 }
