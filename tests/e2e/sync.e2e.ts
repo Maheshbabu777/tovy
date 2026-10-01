@@ -5,6 +5,20 @@ import { HttpsProxyAgent } from 'https-proxy-agent'
 const SUPABASE_URL = process.env.SUPABASE_URL!
 const ANON_KEY = process.env.SUPABASE_ANON_KEY!
 const SYNC_BUDGET_MS = 2000
+// supabase-js keeps the session in localStorage under this key.
+const SESSION_KEY = `sb-${new URL(SUPABASE_URL).hostname.split('.')[0]}-auth-token`
+
+// Every device gets its own session (its own refresh token), like a real second device.
+async function getSession(user: { email: string; password: string }) {
+  const res = await fetch(`${SUPABASE_URL}/auth/v1/token?grant_type=password`, {
+    method: 'POST',
+    headers: { apikey: ANON_KEY, 'content-type': 'application/json' },
+    body: JSON.stringify(user),
+  })
+  const body = await res.json()
+  if (!res.ok || !body.access_token) throw new Error(`sign in for test failed: ${JSON.stringify(body)}`)
+  return body
+}
 
 // Two browser contexts = two devices: each has its own IndexedDB and session.
 // "Offline" blocks only the backend (HTTP and websocket) so the page itself still loads and reloads.
@@ -17,6 +31,9 @@ async function newDevice(
   const context = await browser.newContext()
   let offline = false
   const sockets: { close: () => void }[] = []
+  // Resolves when Supabase confirms the realtime subscription. Until then a change made on another device can be missed.
+  let realtimeJoined: () => void = () => {}
+  const realtimeReady = new Promise<void>((resolve) => (realtimeJoined = resolve))
   // Requests are made from Node (route.fetch), not from Chromium: in the cloud sandbox Chromium cannot reach Supabase
   // (POSTs fail with ERR_TOO_MANY_RETRIES) while Node can.
   await context.route(/supabase\.co/, async (route) => {
@@ -35,7 +52,10 @@ async function newDevice(
     const pending: (string | Buffer)[] = []
     ws.onMessage((m) => (server.readyState === WebSocket.OPEN ? server.send(m) : pending.push(m)))
     server.on('open', () => pending.splice(0).forEach((m) => server.send(m)))
-    server.on('message', (m: any, isBinary: boolean) => ws.send(isBinary ? m : m.toString()))
+    server.on('message', (m: any, isBinary: boolean) => {
+      if (!isBinary && m.toString().includes('Subscribed to PostgreSQL')) realtimeJoined()
+      ws.send(isBinary ? m : m.toString())
+    })
     server.on('close', () => ws.close())
     server.on('error', () => ws.close())
     ws.onClose(() => server.close())
@@ -46,12 +66,26 @@ async function newDevice(
       },
     })
   })
+  // Start the device signed in: write the session before the app loads, once per tab (reloads keep the app's own copy).
+  const session = await getSession(user)
+  await context.addInitScript(
+    ([key, value]) => {
+      if (!sessionStorage.getItem('e2e-session-seeded')) {
+        localStorage.setItem(key, value)
+        sessionStorage.setItem('e2e-session-seeded', '1')
+      }
+    },
+    [SESSION_KEY, JSON.stringify(session)],
+  )
   const page = await context.newPage()
   await page.goto('/')
-  await page.getByTestId('email').fill(user.email)
-  await page.getByTestId('password').fill(user.password)
-  await page.getByTestId('sign-in').click()
   await expect(page.getByTestId('status')).toHaveText('synced', { timeout: 15_000 })
+  await Promise.race([
+    realtimeReady,
+    new Promise<void>((_, reject) =>
+      setTimeout(() => reject(new Error('realtime never confirmed its subscription')), 15_000),
+    ),
+  ])
   return {
     context,
     page,
