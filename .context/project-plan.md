@@ -14,7 +14,7 @@ Second problem it solves: checklists treat a task as 0% or 100%, so partial work
 
 Why the two fit together: an append-only progress log is what an AI can safely write to ("API layer done, +20%"), and the approval inbox makes that trustworthy.
 
-Users and scale: people who already work through AI apps and juggle more than a checklist holds. Early testers are students. The Supabase free tier (50,000 monthly active users) covers the early scale. Pro ($25 a month) is needed before real users depend on it.
+Users and scale: people who already work through AI apps (any app that can connect to an MCP server) and juggle more than a checklist holds. Early testers are students. The Supabase free tier (50,000 monthly active users) covers the early scale. Pro ($25 a month) is needed before real users depend on it.
 
 v1 scope: quick tasks, deep tasks, routines, optional projects with an Inbox, Today screen with quick add, progress log, streak with freezes, heatmap, daily ring, reminders, the web app, and the MCP server with approval inbox, per-AI permissions and activity feed.
 
@@ -167,7 +167,7 @@ Eleven slices, each one spec in `.context/specs/` (created with `.powers/scripts
 **Phase 8: AI polish**
 - [ ] Connected apps screen (revoke, auto-approve), activity feed of reads and writes, prompt kit with copyable phrases ("add this to Tovy")
 - [ ] One push per batch when something lands in the inbox
-- [ ] Test each target AI app's connector support (which apps, which plans, mobile or not)
+- [ ] Test against several MCP clients (for example Claude, ChatGPT, MCP Inspector, one open-source client) and record which work, on which plans, mobile or not
 - [ ] Proof: a revoked app's token stops working immediately
 
 **Phase 9: polish and account**
@@ -222,9 +222,9 @@ TBD
 
 ## 6. Risks and tradeoffs
 
-**Risk: AI apps do not use Tovy reliably, or connector support differs by app and plan**
+**Risk: AI apps do not use Tovy reliably, or MCP support differs by app and plan**
 - Likelihood: Medium. Impact: High, because this is the core idea.
-- Mitigation: tool descriptions and server instructions say when to use each tool, a prompt kit gives users a line for their AI's custom instructions, explicit asks ("add this to Tovy") are the main path, and phase 8 tests each target app. The core app must still be good without AI.
+- Mitigation: tool descriptions and server instructions say when to use each tool, a prompt kit gives users a line for their AI's custom instructions, explicit asks ("add this to Tovy") are the main path, and phase 8 tests several MCP clients. We build to the open MCP and OAuth 2.1 standards, not to one app, so any compliant client can connect. The core app must still be good without AI.
 
 **Risk: the AI connection is a large security surface**
 - Likelihood: Medium. Impact: High.
@@ -250,7 +250,7 @@ TBD
 - Likelihood: Medium. Impact: High.
 - Mitigation: powers requires evidence for every acceptance criterion (command run and output printed), tests are never weakened to get green, and each slice ends with a demo the human can try on a real phone before approval.
 
-## Open questions for you
+## Decisions from the human
 
-1. Which AI apps matter most for the first test: Claude, ChatGPT, or both? It decides which connector setups we verify first in phase 8.
-2. Are you fine with the Android dev build (no Expo Go)? Google sign-in and Skia need it.
+- AI apps: any app that can connect to an MCP server. No single target app, so the server follows the open standard.
+- Platforms: web and Android first, App Store (iOS) later. Android needs a dev build rather than Expo Go.
