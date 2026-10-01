@@ -16,9 +16,9 @@ Why the two fit together: an append-only progress log is what an AI can safely w
 
 Users and scale: people who already work through AI apps (any app that can connect to an MCP server) and juggle more than a checklist holds. Early testers are students. The Supabase free tier (50,000 monthly active users) covers the early scale. Pro ($25 a month) is needed before real users depend on it.
 
-v1 scope: quick tasks, deep tasks, routines, optional projects with an Inbox, Today screen with quick add, progress log, streak with freezes, heatmap, daily ring, reminders, the web app, and the MCP server with approval inbox, per-AI permissions and activity feed.
+v1 scope: quick tasks, deep tasks, routines, optional projects with an Inbox, Today screen with quick add, own week and month calendar view with drag to reschedule, progress log, streak with freezes, heatmap, daily ring, reminders, the web app, and the MCP server with approval inbox, per-AI permissions and activity feed.
 
-Not in v1: XP and levels, achievements, weekly recap, widgets, calendar overlay or sync, document library, multi-AI chat, native iOS, sharing with other people.
+Not in v1: XP and levels, achievements, weekly recap, widgets, Google Calendar overlay or sync, document library, multi-AI chat, native iOS, sharing with other people.
 
 Done means: cold start under 1.5 s on a mid-range Android, tap response under 100 ms, a change on one device visible on another in under 2 s. One AI app adds a task through MCP, it shows as pending, you approve it on your phone, and it appears. The builder uses it daily without going back to another task app.
 
@@ -119,7 +119,7 @@ tovy/
 
 ## 4. Milestones and tasks
 
-Eleven slices, each one spec in `.context/specs/` (created with `.powers/scripts/new-spec.sh <slug>`), each finished only when its proof passes. The order follows dependencies, and the AI connection comes right after progress logging so the core idea is proven early, then grows as each feature lands.
+Twelve slices, each one spec in `.context/specs/` (created with `.powers/scripts/new-spec.sh <slug>`), each finished only when its proof passes. The order follows dependencies, and the AI connection comes right after progress logging so the core idea is proven early, then grows as each feature lands.
 
 **Phase 0: sync spike (go or no-go)**
 - [ ] One table, Expo app on a phone plus a browser build, local database on each, Supabase dev project in the middle
@@ -143,44 +143,57 @@ Eleven slices, each one spec in `.context/specs/` (created with `.powers/scripts
 - [ ] Today screen (routines, due, in progress), quick-add bar with date parsing, bottom sheet
 - [ ] Proof: tap under 100 ms on a mid-range Android, 500 tasks scroll smoothly
 
-**Phase 4: progress**
+**Phase 4: calendar view**
+- [ ] Own week and month views of dated tasks and routines
+- [ ] Drag a task to a day to reschedule
+- [ ] Proof: dragging a task to another day updates its due date on both devices
+
+**Phase 5: progress**
 - [ ] Progress log, auto and manual modes, equal subtask weights, server trigger
 - [ ] Proof: logging on one device updates task and ring on the other
 
-**Phase 5: AI connection (MCP and approval inbox), first version**
+**Phase 6: AI connection (MCP and approval inbox), first version**
 - [ ] Supabase Auth as OAuth 2.1 server, consent screen on web, token checks (signature, expiry, issuer, PKCE S256, client_id claim)
 - [ ] MCP Edge Function with the tools that exist so far: get_today, search_tasks, get_task, add_task, update_task, log_progress, complete_task
 - [ ] `ai_clients` and `ai_actions` tables, approval inbox with swipe actions, per-AI permissions, AI badge on items
 - [ ] Proof: one AI app adds a task, it shows as pending, you approve, it appears on the phone
 - [ ] Security review from `.powers/on-demand/security-review.md`
 
-**Phase 6: routines, streaks, heatmap**
+**Phase 7: routines, streaks, heatmap**
 - [ ] Routine check-ins and counts, `daily_activity`, streak and freezes, pg_cron day close
 - [ ] Add `check_in_routine` to the MCP tools
 - [ ] Proof: a simulated missed day spends a freeze, heatmap points never go negative
 
-**Phase 7: reminders**
+**Phase 8: reminders**
 - [ ] Local notifications from synced rows, repeat expansion from RRULE
 - [ ] Add `add_reminder` to the MCP tools (now all 9)
 - [ ] Proof: a reminder fires with the app closed, tested on several Android makers
 
-**Phase 8: AI polish**
+**Phase 9: AI polish**
 - [ ] Connected apps screen (revoke, auto-approve), activity feed of reads and writes, prompt kit with copyable phrases ("add this to Tovy")
 - [ ] One push per batch when something lands in the inbox
 - [ ] Test against several MCP clients (for example Claude, ChatGPT, MCP Inspector, one open-source client) and record which work, on which plans, mobile or not
 - [ ] Proof: a revoked app's token stops working immediately
 
-**Phase 9: polish and account**
+**Phase 10: polish and account**
 - [ ] Apply tokens, haptics, celebration, onboarding, profile
 - [ ] Export and delete account
 - [ ] Proof: Reduce Motion respected, account deletion removes all data and files
 
-**Phase 10: web app and release**
+**Phase 11: web app and release**
 - [ ] Sidebar and detail layout, keyboard shortcuts, IndexedDB
 - [ ] Landing page, privacy policy, APK build, Play Store closed test
 - [ ] Proof: same account on web shows the same data and works offline; testers installed and using it
 
 Design work (moodboard, tokens, Today and Task detail screens) runs beside phases 0 to 2 so it is ready for phase 3.
+
+## Hosting, domain and costs
+
+- Domain: `tovy.app`, claimed free for a year through the GitHub Student Developer Pack (Name.com), auto-renew off, DNS and hosting on Cloudflare. Until then everything runs on `tovy.pages.dev`.
+- Addresses: `tovy.app` is the landing page, APK download, privacy policy and terms (needed before the Play Store). `app.tovy.app` is the web app. `hello@tovy.app` forwards through Cloudflare Email Routing.
+- Student Pack perks worth claiming: the domain and Sentry. Other perks are skipped because Supabase and Cloudflare already cover hosting and monitoring.
+- Fixed costs later: Supabase Pro $25 a month before real users depend on it, Play Console $25 once, iOS $99 a year when iOS starts.
+- The MCP URL is pasted into AI apps, so move the API and MCP to a Supabase custom domain early (paid add-on).
 
 ## 5. README scaffold
 
@@ -224,11 +237,11 @@ TBD
 
 **Risk: AI apps do not use Tovy reliably, or MCP support differs by app and plan**
 - Likelihood: Medium. Impact: High, because this is the core idea.
-- Mitigation: tool descriptions and server instructions say when to use each tool, a prompt kit gives users a line for their AI's custom instructions, explicit asks ("add this to Tovy") are the main path, and phase 8 tests several MCP clients. We build to the open MCP and OAuth 2.1 standards, not to one app, so any compliant client can connect. The core app must still be good without AI.
+- Mitigation: tool descriptions and server instructions say when to use each tool, a prompt kit gives users a line for their AI's custom instructions, explicit asks ("add this to Tovy") are the main path, and phase 9 tests several MCP clients. We build to the open MCP and OAuth 2.1 standards, not to one app, so any compliant client can connect. The core app must still be good without AI.
 
 **Risk: the AI connection is a large security surface**
 - Likelihood: Medium. Impact: High.
-- Mitigation: no delete tool, every write goes through the approval inbox by default, strict token checks, row-level security on every call, rate limits, and a security review in phase 5.
+- Mitigation: no delete tool, every write goes through the approval inbox by default, strict token checks, row-level security on every call, rate limits, and a security review in phase 6.
 
 **Risk: the sync layer does not hold up**
 - Likelihood: Medium. Impact: High.
@@ -236,7 +249,7 @@ TBD
 
 **Risk: reminders stop firing after OS updates or battery saving**
 - Likelihood: High. Impact: High. This is the most common failure across competitor apps.
-- Mitigation: reminder reliability gets its own test plan in phase 7, tested on several Android makers, with in-app guidance for battery exemptions.
+- Mitigation: reminder reliability gets its own test plan in phase 8, tested on several Android makers, with in-app guidance for battery exemptions.
 
 **Risk: scope creep from the ideas parking lot**
 - Likelihood: High. Impact: Medium.
