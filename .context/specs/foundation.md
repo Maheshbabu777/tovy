@@ -64,10 +64,10 @@ Risks:
 - [x] 1 Move the app to the root (with slice 6, the e2e move)
 - [x] 2 Quality commands
 - [x] 3 Row security test in CI form
-- [ ] 4 CI workflow
+- [x] 4 CI workflow
 - [ ] 5 Migrations to dev
 - [x] 6 E2E move (done in slice 1)
-- [ ] 7 README and env
+- [x] 7 README and env
 
 ## Evidence
 
@@ -91,7 +91,15 @@ Slice 3 (criterion 4):
 - `supabase/tests/run.sh` (renamed from `run-local.sh`) uses `DATABASE_URL` when set, else a throwaway local Postgres. Local mode: `PASS: row security isolates users`, exit 0. `DATABASE_URL` mode on an empty database: same PASS, exit 0.
 - With the select policy temporarily changed to `using (true)`: `ERROR: FAIL: user B saw 1 of A's notes`, exit 3. The migration was restored afterwards.
 
+Slice 4 (criteria 3 and 4), PR #2:
+
+- Green: run on `190bed6` and on head `9e0a028`, both jobs (`lint, format, types, unit tests` and `row security test`) conclusion success.
+- Red: run on `f4dafae` failed in `format:check`, log line `[warn] .github/workflows/migrate-dev.yml`, `Process completed with exit code 1`. This was an accidental failure (I pushed an unformatted file), not the deliberate one the criterion describes. It does show the pipeline goes red on a bad change, and the next push fixed it.
+
+Slice 7 (criterion 6): `README.md` and `.env.example` added (`.gitignore` keeps `.env.example` trackable). `CI=1 npx expo start --web --port 8099` answered HTTP 200 with the app's HTML. Signing in is a manual step in the README.
+
 ## Notes
 
-- The "applied by hand" gotcha in `.context/project.md` goes away when criterion 5 lands.
+- The "applied by hand" gotcha in `.context/project.md` goes away when criterion 5 is proven.
+- Slice 5 needs a one-time baseline: the dev database already has `0001_notes.sql` from the manual run, so run the `migrate-dev` workflow once with `baseline=0001` before the first real push.
 - Legend-State stays pinned to the beta that passed the spike. Re-run the e2e suite on any upgrade.
