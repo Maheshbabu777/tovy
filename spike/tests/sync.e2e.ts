@@ -1,4 +1,6 @@
 import { test, expect, type BrowserContext, type Page } from '@playwright/test'
+import WebSocket from 'ws'
+import { HttpsProxyAgent } from 'https-proxy-agent'
 
 const SUPABASE_URL = process.env.SUPABASE_URL!
 const ANON_KEY = process.env.SUPABASE_ANON_KEY!
@@ -11,22 +13,30 @@ type Device = { context: BrowserContext; page: Page; setOffline: (v: boolean) =>
 async function newDevice(browser: import('@playwright/test').Browser, user: { email: string; password: string }): Promise<Device> {
   const context = await browser.newContext()
   let offline = false
-  await context.route(/supabase\.co/, (route) => (offline ? route.abort('internetdisconnected') : route.continue()))
-  // Websockets are controlled inside the page (not with routeWebSocket, whose Node-side connection ignores the sandbox proxy).
-  await context.addInitScript(() => {
-    const w = window as any
-    const Native = w.WebSocket
-    const open = new Set<WebSocket>()
-    const isOffline = () => sessionStorage.getItem('wsOffline') === '1' // survives reloads
-    w.__wsCutAll = () => open.forEach((s) => s.close())
-    w.WebSocket = class extends Native {
-      constructor(...args: any[]) {
-        super(...args)
-        open.add(this as any)
-        this.addEventListener('close', () => open.delete(this as any))
-        if (isOffline()) this.close()
-      }
+  const sockets: { close: () => void }[] = []
+  // Requests are made from Node (route.fetch), not from Chromium: in the cloud sandbox Chromium cannot reach Supabase
+  // (POSTs fail with ERR_TOO_MANY_RETRIES) while Node can.
+  await context.route(/supabase\.co/, async (route) => {
+    if (offline) return route.abort('internetdisconnected')
+    try {
+      await route.fulfill({ response: await route.fetch() })
+    } catch {
+      await route.abort('connectionfailed')
     }
+  })
+  // Playwright's own connectToServer() ignores the sandbox proxy, so the page <-> Supabase socket is bridged by hand.
+  const agent = process.env.HTTPS_PROXY ? new HttpsProxyAgent(process.env.HTTPS_PROXY) : undefined
+  await context.routeWebSocket(/supabase\.co/, (ws) => {
+    if (offline) return ws.close()
+    const server = new WebSocket(ws.url(), { agent })
+    const pending: (string | Buffer)[] = []
+    ws.onMessage((m) => (server.readyState === WebSocket.OPEN ? server.send(m) : pending.push(m)))
+    server.on('open', () => pending.splice(0).forEach((m) => server.send(m)))
+    server.on('message', (m: any, isBinary: boolean) => ws.send(isBinary ? m : m.toString()))
+    server.on('close', () => ws.close())
+    server.on('error', () => ws.close())
+    ws.onClose(() => server.close())
+    sockets.push({ close: () => { ws.close(); server.close() } })
   })
   const page = await context.newPage()
   await page.goto('/')
@@ -39,11 +49,7 @@ async function newDevice(browser: import('@playwright/test').Browser, user: { em
     page,
     setOffline: async (v) => {
       offline = v
-      await page.evaluate((off) => {
-        const w = window as any
-        sessionStorage.setItem('wsOffline', off ? '1' : '0')
-        if (off) w.__wsCutAll() // cut sockets that are already open
-      }, v)
+      if (v) while (sockets.length) sockets.pop()!.close() // cut sockets that are already open
     },
   }
 }
@@ -81,7 +87,8 @@ async function waitSynced(d: Device) {
   await expect(d.page.getByTestId('status')).toHaveText('synced', { timeout: 15_000 })
 }
 async function expectTitles(p: Page, expected: string[], timeout = SYNC_BUDGET_MS) {
-  await expect.poll(() => titles(p), { timeout }).toEqual([...expected].sort())
+  // poll every 50 ms so the measured sync time is not rounded up to the default back-off steps
+  await expect.poll(() => titles(p), { timeout, intervals: [50] }).toEqual([...expected].sort())
 }
 
 test.describe('sync spike', () => {
@@ -189,5 +196,38 @@ test.describe('sync spike', () => {
     console.log(`criterion 8: ${perf.length} local writes, worst ${worst.toFixed(1)} ms`)
     expect(perf.length).toBeGreaterThanOrEqual(10)
     expect(worst).toBeLessThan(100)
+  })
+
+  test('7: a second user cannot read or change the first user\'s notes', async () => {
+    const token = async (u: { email: string; password: string }) => {
+      const res = await fetch(`${SUPABASE_URL}/auth/v1/token?grant_type=password`, {
+        method: 'POST',
+        headers: { apikey: ANON_KEY, 'content-type': 'application/json' },
+        body: JSON.stringify(u),
+      })
+      const body: any = await res.json()
+      return { jwt: body.access_token as string, id: body.user.id as string }
+    }
+    const rest = (jwt: string, path: string, init: RequestInit = {}) =>
+      fetch(`${SUPABASE_URL}/rest/v1/${path}`, {
+        ...init,
+        headers: { apikey: ANON_KEY, authorization: `Bearer ${jwt}`, 'content-type': 'application/json', prefer: 'return=representation', ...init.headers },
+      })
+    const owner = await token(user)
+    const other = await token(await createUser())
+    const noteId = crypto.randomUUID()
+    expect((await rest(owner.jwt, 'notes', { method: 'POST', body: JSON.stringify({ id: noteId, title: 'private-7' }) })).status).toBe(201)
+
+    expect(await (await rest(other.jwt, `notes?id=eq.${noteId}`)).json()).toEqual([]) // cannot read
+    const patched = await rest(other.jwt, `notes?id=eq.${noteId}`, { method: 'PATCH', body: JSON.stringify({ title: 'hacked' }) })
+    expect(await patched.json()).toEqual([]) // cannot change
+    const spoof = await rest(other.jwt, 'notes', { method: 'POST', body: JSON.stringify({ id: crypto.randomUUID(), user_id: owner.id, title: 'spoof' }) })
+    expect(spoof.status).toBe(403) // cannot write rows as the owner
+    const del = await rest(other.jwt, `notes?id=eq.${noteId}`, { method: 'DELETE' })
+    expect(await del.json()).toEqual([]) // cannot hard delete
+
+    const still = await (await rest(owner.jwt, `notes?id=eq.${noteId}`)).json()
+    expect(still).toHaveLength(1)
+    expect(still[0].title).toBe('private-7')
   })
 })
