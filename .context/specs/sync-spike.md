@@ -1,0 +1,63 @@
+# Sync spike
+
+Status: draft
+
+## Problem
+
+Tovy must answer every tap in under 100 ms and work fully offline, so each device keeps its own local copy of the data and syncs through Supabase in the background. The whole stack rests on that working. Phase 0 proves it on one small table before anything else is built, and gives a go or no-go on Expo, Legend-State and Supabase.
+
+## Acceptance criteria
+
+1. A throwaway Expo app (phone via Expo Go, plus a web build) signs in with a test user and shows a list of notes from a local store, with add, edit and soft delete.
+2. Offline edit: with the network off, add one note and edit another on client A. The list updates instantly. After the network is back, client B shows both changes within 2 s.
+3. Offline conflict: client A and client B both edit different notes offline, then reconnect. Both end up with both edits, with no data lost.
+4. Same-row conflict: both edit the same note's title offline. After reconnect both clients show the same title (last write by server time wins).
+5. Soft delete: deleting a note on A removes it from B after sync. A client that was offline during the delete drops it on reconnect.
+6. Outbox survives restart: kill the app with unsynced changes, reopen, and the changes still sync.
+7. Row security: a second test user cannot read or change the first user's notes (SQL test).
+8. Local writes show in the UI in under 100 ms (measured and printed).
+9. Written verdict in `.context/decisions.md`: go, or no-go with the fallback (PowerSync) and why.
+
+## Out of scope
+
+- Real Tovy tables, screens, styling, login with Google, reminders, progress logic.
+- Server-computed derived numbers (progress, streaks).
+- Production Supabase project.
+
+## Open questions
+
+- Supabase dev project: you create it (Mumbai region) and give me the URL and anon key as environment secrets. I can't create it from here. Answer: pending.
+- Proof on a real phone: the cloud session can't hold a phone, so criteria 2 to 6 are automated with two browser clients (one forced offline), and you repeat criteria 2 and 3 once on your phone in Expo Go. Agreed? Answer: pending.
+
+## Plan
+
+Files to touch, in order (all under a throwaway `spike/` folder, deleted or folded in after the verdict):
+
+1. `spike/` Expo app with Expo Router, TypeScript. Check current Legend-State sync docs and Expo SDK version first.
+2. `supabase/migrations/0001_notes.sql`: `notes` table (id uuid from client, user_id, title, updated_at set by server trigger, deleted_at) with row security on `auth.uid()`.
+3. `supabase/tests/notes_rls.sql`: user A and B isolation (criterion 7).
+4. `spike/src/sync.ts`: Legend-State store persisted to SQLite on phone and IndexedDB on web, with Supabase sync, retries and soft delete.
+5. `spike/app/index.tsx`: the notes list with add, edit, delete and a small status line (synced, syncing, offline).
+6. `spike/tests/sync.e2e.ts`: Playwright, two browser contexts, one set offline, covering criteria 2 to 6.
+7. Timing: log tap to render time for local writes (criterion 8).
+8. Verdict in `.context/decisions.md` (criterion 9).
+
+Test per criterion: 1 manual plus Playwright smoke, 2 to 6 Playwright, 7 SQL test, 8 printed timing, 9 file review.
+
+Risks:
+- Legend-State's Supabase sync may not cover deletes or retries the way we need. If so, write a thin custom sync (criterion 6 and 5 are where this shows up). This is exactly what the spike is for.
+- Playwright offline mode is not identical to a phone losing signal, hence the one real phone check.
+- Expo Go limits: SQLite and the sync library need to work inside it. If not, move the spike to a dev build and record that.
+
+## Progress
+
+- [ ] Supabase dev project created and keys added (human)
+- [ ] Spike app scaffolded
+- [ ] Migration and row security test
+- [ ] Sync layer
+- [ ] Notes screen
+- [ ] End-to-end tests
+- [ ] Timing check
+- [ ] Verdict written
+
+## Notes
