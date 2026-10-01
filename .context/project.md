@@ -1,6 +1,6 @@
 # tovy
 
-Last verified: YYYY-MM-DD at commit <hash>
+Last verified: 2026-10-01 at commit 08d19f4
 
 ## What it is
 
@@ -12,7 +12,7 @@ XP and levels, achievements, weekly recap, widgets, calendar sync, document libr
 
 ## Stack
 
-Planned, not built yet: Expo (React Native, TypeScript) with Expo Router, Legend-State local store, Supabase (Mumbai), Cloudflare Pages, EAS.
+Built: Expo (React Native, TypeScript) with Expo Router, Legend-State v3 beta local store, Supabase dev project, GitHub Actions CI. Planned, not built: Cloudflare Pages, EAS, a prod Supabase project.
 
 ## Commands
 
@@ -37,13 +37,16 @@ Planned, not built yet: Expo (React Native, TypeScript) with Expo Router, Legend
 ## Conventions
 
 <!-- Only ones you can see in the code or the human told you. -->
-- 
+- Prettier decides style: no semicolons, single quotes, 120 columns (`.prettierrc.json`). CI fails on `npm run format:check`.
+- Commit subjects are `type: description` and a hook checks them. PRs are squash merged into `main` from a named branch (`feat/...`, `docs/...`), never from a random one.
+- Platform-specific code uses `.web.ts` files next to the native one (for example `persistPlugin.web.ts`).
+- Schema changes are numbered files in `supabase/migrations/`, one change per file.
 
 ## Gotchas
 
 <!-- One line each, with a file path. Things that cost time to discover. -->
 - Cloud sandbox: Chromium cannot reach Supabase, Node can, so tests fetch from Node and bridge the websocket by hand (`tests/e2e/sync.e2e.ts`).
-- `supabase/migrations/*.sql` must be applied by hand in the Supabase SQL editor. The app shows `synced` even if the table is missing (`src/core/sync/notes.ts`).
+- Migrations reach the dev project only when they merge to `main` (`.github/workflows/migrate-dev.yml`). Never edit the dashboard by hand. The app shows `synced` even if the table is missing (`src/core/sync/notes.ts`).
 
 ## Ask the human
 

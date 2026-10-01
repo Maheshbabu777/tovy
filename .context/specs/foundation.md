@@ -1,6 +1,6 @@
 # Foundation
 
-Status: approved
+Status: done
 
 ## Problem
 
@@ -65,7 +65,7 @@ Risks:
 - [x] 2 Quality commands
 - [x] 3 Row security test in CI form
 - [x] 4 CI workflow
-- [ ] 5 Migrations to dev (workflow merged and baseline run green, `0002_notes_comment.sql` in PR to prove it end to end)
+- [x] 5 Migrations to dev
 - [x] 6 E2E move (done in slice 1)
 - [x] 7 README and env
 
@@ -97,6 +97,13 @@ Slice 4 (criteria 3 and 4), PR #2:
 - Red: run on `f4dafae` failed in `format:check`, log line `[warn] .github/workflows/migrate-dev.yml`, `Process completed with exit code 1`. This was an accidental failure (I pushed an unformatted file), not the deliberate one the criterion describes. It does show the pipeline goes red on a bad change, and the next push fixed it.
 
 Slice 7 (criterion 6): `README.md` and `.env.example` added (`.gitignore` keeps `.env.example` trackable). `CI=1 npx expo start --web --port 8099` answered HTTP 200 with the app's HTML. Signing in is a manual step in the README.
+
+Slice 5 (criterion 5), PR #3 and run 36911111570:
+
+- One-time baseline: `migrate-dev` run 36910864398 (manual, `baseline=0001`), all steps success: link, repair, `db push`. This also showed the three GitHub secrets are valid.
+- Before PR #3, the dev API schema had no description on `notes`. After merging `0002_notes_comment.sql` to `main`, the `migrate-dev` run 36911111570 started by itself (event `push`), conclusion success, with the baseline step skipped. Reading `/rest/v1/` with the secret key then returned `Sync spike notes. Replaced by real Tovy tables in phase 2.`. Nobody opened the Supabase editor.
+
+Result: criteria 1 to 7 verified. Untested: running e2e in CI (out of scope), and the unexplained single failure of e2e test 2 noted above.
 
 ## Notes
 
