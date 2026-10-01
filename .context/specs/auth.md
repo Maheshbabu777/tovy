@@ -73,7 +73,7 @@ Risks:
 - [ ] 2 Email code sign-in screen
 - [ ] 3 Session and PKCE
 - [ ] 4 Google on web
-- [ ] 5 Sign out and local data
+- [x] 5 Sign out and local data
 - [x] 6 Signed-out access
 - [ ] 7 Security review
 - [ ] 8 Docs and context
@@ -93,6 +93,16 @@ Slice 6 (criterion 8), branch `feat/auth-signed-out-access`:
 - New test `7b` in `tests/e2e/sync.e2e.ts`: with only the public anon key, reading notes returns `[]`, a known note id returns `[]`, an insert is refused (HTTP 401), and update and delete change nothing. The owner's note is still there and untouched afterwards.
 - Control that the empty result is row security and not an empty table: the secret key (bypasses row security) counts 318 notes in dev, the anon key sees `[]`.
 - `npm run test:e2e`: 8 passed, twice in a row. Test `7b` alone passed 3 of 3. I did not weaken the real dev policy to watch it fail, so the control above is the evidence that the test can tell a visible note from a hidden one.
+
+Slice 5 (criteria 5 and 6), branch `feat/auth-sign-out`:
+
+- Sign out is `supabase.auth.signOut({ scope: 'local' })` (this device only, the default would sign out every device). Before it, the app reads the live pending count (`numPendingSets` and `getPendingChanges()`) and, if above zero, shows the note with Cancel and Sign out anyway.
+- Local data is now **one store per user** (`createNotesStore(userId)` in `src/core/sync/notes.ts`, its own IndexedDB database on web), created at sign in and disposed at sign out with `syncState(notes$).reset()`. `reset()` clears the local copy and stops realtime, and does not delete anything on the server.
+- New e2e tests: `so1` (synced sign out shows no warning, the server keeps the note, the next user on the same page and after a reload sees none of the first user's notes), `so2` (unsaved edit warns, Cancel keeps everything, tapped right after the edit), `so3` (Sign out anyway discards only the unsaved edit, the saved note comes back after signing in again). New unit test: two users' stores are independent.
+- How it was found, in order (each fix reduced the failure rate, only the last removed it): emptying the store with the screen still mounted re-fetched the old user's notes (so1 failed); clearing from the root after sign out was still racy because the plugin saves in the background and a late write recreated the row in the local database, which survived a reload (so1 leaked about 1 run in 4); a per-user store removed the class of bug. Also found: `waitSynced` can pass on a stale "synced" label, so tests that need a note saved first wait for the server to hold it.
+- Result: `npm run test:e2e` 11 tests, 12 full runs all passed (0 failures); `so1` alone 30 of 30; `so2` and `so3` together 10 of 10. Lint, format, typecheck and 3 unit tests pass.
+- Risk to decide in the security review (slice 7): a local sign out does not revoke the refresh token on the server. And if the session is lost without the user choosing (revoked or refresh failure), the same disposal discards unsaved edits without a warning.
+- Not proven: native (SQLite) storage per user. The code path is the same, but only the web build is tested here. Check on a phone before relying on it.
 
 ## Notes
 

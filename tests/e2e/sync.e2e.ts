@@ -129,6 +129,25 @@ async function serverTitlesOf(accessToken: string): Promise<string[]> {
   return ((await res.json()) as { title: string }[]).map((n) => n.title)
 }
 
+// What the server holds for a user, read directly (not through the app).
+async function serverTitles(u: { email: string; password: string }): Promise<string[]> {
+  const login = await fetch(`${SUPABASE_URL}/auth/v1/token?grant_type=password`, {
+    method: 'POST',
+    headers: { apikey: ANON_KEY, 'content-type': 'application/json' },
+    body: JSON.stringify(u),
+  })
+  const { access_token } = await login.json()
+  return serverTitlesOf(access_token)
+}
+
+// Signs in through the sign-in screen (used after a sign out, when the seeded session is gone).
+async function signInThroughScreen(p: Page, u: { email: string; password: string }) {
+  await p.getByTestId('email').fill(u.email)
+  await p.getByTestId('password').fill(u.password)
+  await p.getByTestId('sign-in').click()
+  await expect(p.getByTestId('status')).toHaveText('synced', { timeout: 15_000 })
+}
+
 const titles = (p: Page) =>
   p
     .getByTestId('note')
@@ -361,5 +380,60 @@ test.describe('sync spike', () => {
 
     expect(await serverTitlesOf(owner.access_token)).toContain('private-7b') // still untouched
     expect(await serverTitlesOf(owner.access_token)).not.toContain('hacked')
+  })
+
+  test('so1: signing out when everything is saved shows no warning and the next user sees none of the notes', async ({
+    browser,
+  }) => {
+    const userB = await createUser()
+    const a = await newDevice(browser, user)
+    await addNote(a.page, 'private-so1')
+    await waitSynced(a)
+    await expect.poll(() => serverTitles(user), { timeout: 10_000 }).toContain('private-so1') // really saved
+
+    await a.page.getByTestId('sign-out').click()
+    await expect(a.page.getByTestId('unsynced-note')).toHaveCount(0) // nothing to warn about
+    await expect(a.page.getByTestId('email')).toBeVisible() // back on the sign-in screen
+    expect(await serverTitles(user)).toContain('private-so1') // signing out deletes nothing on the server
+
+    await signInThroughScreen(a.page, userB)
+    expect(await titles(a.page)).toEqual([]) // the next user sees none of the first user's notes
+    await a.page.reload()
+    await expect(a.page.getByTestId('status')).toHaveText('synced', { timeout: 15_000 })
+    expect(await titles(a.page)).toEqual([]) // and none came back from the device's local copy
+  })
+
+  test('so2: signing out with unsaved edits warns, and cancel keeps everything', async ({ browser }) => {
+    const a = await newDevice(browser, user)
+    await a.setOffline(true)
+    await addNote(a.page, 'unsynced-so2')
+    // No waiting for the "pending" label first: tapping Sign out right after an edit must still warn.
+    await a.page.getByTestId('sign-out').click()
+    await expect(a.page.getByTestId('unsynced-note')).toContainText('1 change is not saved to the server yet')
+    await a.page.getByTestId('cancel-sign-out').click()
+    await expect(a.page.getByTestId('unsynced-note')).toHaveCount(0)
+    await expect(a.page.getByTestId('email')).toHaveCount(0) // still signed in
+    expect(await titles(a.page)).toContain('unsynced-so2') // the edit is still there
+  })
+
+  test('so3: signing out anyway discards unsaved edits and nothing else', async ({ browser }) => {
+    const a = await newDevice(browser, user)
+    await addNote(a.page, 'saved-so3')
+    await waitSynced(a)
+    await expect.poll(() => serverTitles(user), { timeout: 10_000 }).toContain('saved-so3') // really saved
+    await a.setOffline(true)
+    await addNote(a.page, 'unsynced-so3')
+    await expect(a.page.getByTestId('status')).toHaveText('pending 1')
+
+    await a.page.getByTestId('sign-out').click()
+    await a.page.getByTestId('confirm-sign-out').click()
+    await expect(a.page.getByTestId('email')).toBeVisible()
+
+    await a.setOffline(false)
+    await signInThroughScreen(a.page, user)
+    // "synced" can show before the first fetch of the new session arrives, so wait for the saved note to come back
+    await expect.poll(() => titles(a.page), { timeout: 10_000 }).toContain('saved-so3')
+    expect(await titles(a.page)).not.toContain('unsynced-so3') // what never reached the server is gone
+    expect(await serverTitles(user)).not.toContain('unsynced-so3')
   })
 })
