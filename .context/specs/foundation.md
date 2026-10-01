@@ -17,7 +17,6 @@ This is Phase 1 of `.context/project-plan.md`, first part. Login and design toke
 5. When a PR merges to `main`, CI applies the new files in `supabase/migrations/` to the dev Supabase project with the Supabase CLI. A migration added in a test PR shows up in the dev database without anyone opening the Supabase editor.
 6. `README.md` follows the plan's scaffold (overview, getting started, how-to, reference) and `.env.example` lists every variable the app and CI need. A reader can get the app running from the README alone.
 7. The sync e2e suite (7 tests from the spike) moves to `tests/e2e/` and still passes against the dev project with the same command.
-8. A separate prod Supabase project (Mumbai) exists, and pushing a release tag like `v0.1.0` applies the migrations to prod through CI. Merging to `main` never touches prod. A test tag shows the migration in prod and nothing else changes.
 
 ## Out of scope
 
@@ -25,15 +24,16 @@ This is Phase 1 of `.context/project-plan.md`, first part. Login and design toke
 - `tokens.ts` and the `/dev/components` gallery (spec `design-tokens`).
 - Real Tovy tables (tasks, projects, progress logs). The `notes` table stays as the only table until Phase 2.
 - Running the e2e suite in CI (needs secrets and a live project). It stays a manual command for now.
-- Deploying the app anywhere (Cloudflare Pages, EAS). Only database migrations are deployed.
+- A prod Supabase project and any prod deploy (decided 2026-10-01: dev only for now, create prod before real users depend on it).
+- Deploying the app anywhere (Cloudflare Pages, EAS). Only database migrations to dev are deployed.
 
 ## Open questions
 
 - Split Phase 1 into three specs, `foundation`, `auth`, `design-tokens`? Answer: yes (2026-10-01).
 - Promote the spike into the real structure or start fresh? Answer: promote the spike (2026-10-01).
 - ESLint with the Expo config, Prettier, Jest with `jest-expo`? Answer: yes (2026-10-01).
-- One dev project only, or create prod now? Answer: create prod now too (2026-10-01). This added criterion 8.
-- For you to do, I can't (needed for criteria 5 and 8): create the prod Supabase project in Mumbai, and add these GitHub Actions secrets: `SUPABASE_ACCESS_TOKEN`, `DEV_PROJECT_REF`, `DEV_DB_PASSWORD`, `PROD_PROJECT_REF`, `PROD_DB_PASSWORD`. Answer: pending.
+- One dev project only, or create prod now? Answer: dev only, no prod for now (2026-10-01). Changed from an earlier answer, so criterion 8 and the prod slice were removed.
+- For you to do, I can't (needed for criterion 5): add these GitHub Actions secrets: `SUPABASE_ACCESS_TOKEN`, `DEV_PROJECT_REF`, `DEV_DB_PASSWORD`. Answer: pending.
 - Is one real unit test enough for criterion 2 now? There is little pure logic yet (the plan puts rules in Phase 5 and 7). I propose testing the notes store functions without persistence, and adding more as `src/core/` grows. (proposed) Answer: pending.
 
 ## Plan
@@ -46,8 +46,7 @@ Slices, each ends green and gets ticked below. Branch: `feat/foundation`. One PR
 4. **CI workflow (criterion 3).** `.github/workflows/ci.yml` on pull requests: install, lint, format check, typecheck, unit tests, row security test. Test: a PR with a lint error shows red, the fix shows green.
 5. **Migrations to dev (criterion 5).** `.github/workflows/migrate-dev.yml` on push to `main`: Supabase CLI `link` and `db push` with the dev secrets. Test: a throwaway migration (a comment-only change to a function) in a test PR, then check it applied via the Supabase API.
 6. **E2E move (criterion 7).** Move `spike/tests/sync.e2e.ts` and the Playwright config to `tests/e2e/`, update paths and the `test:e2e` script. Test: the 7 e2e tests pass with the same command.
-7. **Prod migrations on tag (criterion 8).** `.github/workflows/migrate-prod.yml` on tags `v*`, using the prod secrets. Needs the prod project from you first. Test: a `v0.0.1` tag applies the notes migration to prod, and a merge to `main` alone does not.
-8. **README and env (criterion 6).** README from the plan's scaffold, `.env.example` for app and CI variables, remove the stale "applied by hand" gotcha from `project.md`. Test: I follow the README from a clean clone and it runs.
+7. **README and env (criterion 6).** README from the plan's scaffold, `.env.example` for app and CI variables, remove the stale "applied by hand" gotcha from `project.md`. Test: I follow the README from a clean clone and it runs.
 
 Proof at the end: `.powers/scripts/verify.sh` evidence block pasted under Notes, and each criterion's pass or fail with its command.
 
@@ -55,7 +54,6 @@ Risks:
 - Expo SDK 57 with `jest-expo` and ESLint 9 may need `--legacy-peer-deps` again. If they conflict, record the workaround in `project.md` and do not downgrade Expo.
 - Moving files can break Metro path resolution and the `app.json` entry. Slice 1 is verified by a web build before anything else changes.
 - The Supabase CLI in CI needs the database password and a network path from GitHub runners. If it fails, fall back to applying the SQL through the Management API and say so in the notes.
-- Applying migrations to prod automatically is irreversible. That is why prod only runs on tags, never on merge, and the first prod run happens with you watching.
 - Row security test on a plain Postgres uses stubs for Supabase's `auth` schema. The real project test (REST, two users) already exists in the e2e suite and keeps covering that gap.
 
 ## Progress
@@ -69,8 +67,7 @@ Risks:
 - [ ] 4 CI workflow
 - [ ] 5 Migrations to dev
 - [ ] 6 E2E move
-- [ ] 7 Prod migrations on tag (needs prod project and secrets from the human)
-- [ ] 8 README and env
+- [ ] 7 README and env
 
 ## Notes
 
