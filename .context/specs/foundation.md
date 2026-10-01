@@ -63,7 +63,7 @@ Risks:
 - [x] Spec and plan approved (human, 2026-10-01)
 - [x] 1 Move the app to the root (with slice 6, the e2e move)
 - [x] 2 Quality commands
-- [ ] 3 Row security test in CI form
+- [x] 3 Row security test in CI form
 - [ ] 4 CI workflow
 - [ ] 5 Migrations to dev
 - [x] 6 E2E move (done in slice 1)
@@ -85,6 +85,11 @@ Slice 2 (criterion 2), commit `4954c73`:
 - Found and fixed while proving it: `tsconfig.json` was missing Jest types, `jest-expo` needed `@react-native/jest-preset` as a peer, and `uuid` v14 is ESM-only so Jest transforms it (see `package.json` jest config).
 - Added `.npmrc` with `legacy-peer-deps=true`, because Expo SDK 57 packages conflict on peers and plain `npm ci` fails without it.
 - The unit test uses a plain local store instead of the Supabase plugin, so it checks our add, rename and delete helpers only. Sync is covered by e2e.
+
+Slice 3 (criterion 4):
+
+- `supabase/tests/run.sh` (renamed from `run-local.sh`) uses `DATABASE_URL` when set, else a throwaway local Postgres. Local mode: `PASS: row security isolates users`, exit 0. `DATABASE_URL` mode on an empty database: same PASS, exit 0.
+- With the select policy temporarily changed to `using (true)`: `ERROR: FAIL: user B saw 1 of A's notes`, exit 3. The migration was restored afterwards.
 
 ## Notes
 

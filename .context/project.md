@@ -21,7 +21,7 @@ Planned, not built yet: Expo (React Native, TypeScript) with Expo Router, Legend
 | Install | `npm ci` (the `.npmrc` sets legacy-peer-deps) |
 | Run locally | `npx expo start` (scan the QR code with Expo Go, or press w for web) |
 | Unit tests | `npm test` |
-| All tests | `npm test` ; `npm run test:e2e` (needs Supabase reachable and a fresh `expo export`) ; `bash supabase/tests/run-local.sh` (row security, local Postgres) |
+| All tests | `npm test` ; `npm run test:e2e` (needs Supabase reachable and a fresh `expo export`) ; `bash supabase/tests/run.sh` (row security, local Postgres) |
 | One test | `npm run test:e2e -- -g "2:"` |
 | Lint | `npm run lint` ; format: `npm run format:check` (fix with `npm run format`) |
 | Type check | `npm run typecheck` |
@@ -32,7 +32,7 @@ Planned, not built yet: Expo (React Native, TypeScript) with Expo Router, Legend
 <!-- One line per important folder or entry point. Pointers, not descriptions of the code. -->
 - `.context/project-plan.md` - the approved plan and slice list
 - `app/` - Expo Router screens; `src/core/db/` Supabase client; `src/core/sync/` notes store and sync; `tests/e2e/` Playwright sync tests
-- `supabase/migrations/` - schema; `supabase/tests/` - row security test and local runner
+- `supabase/migrations/` - schema; `supabase/tests/` - row security test and runner (uses `DATABASE_URL` or a throwaway local Postgres)
 
 ## Conventions
 
