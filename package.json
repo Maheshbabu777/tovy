@@ -1,5 +1,5 @@
 {
-  "name": "spike",
+  "name": "tovy",
   "version": "1.0.0",
   "main": "expo-router/entry",
   "dependencies": {
@@ -39,7 +39,7 @@
     "ios": "expo start --ios",
     "web": "expo start --web",
     "typecheck": "tsc --noEmit",
-    "test:e2e": "playwright test"
+    "test:e2e": "playwright test -c tests/e2e"
   },
   "private": true
 }

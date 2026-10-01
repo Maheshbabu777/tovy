@@ -61,13 +61,22 @@ Risks:
 - [x] Questions answered
 - [x] Plan written
 - [x] Spec and plan approved (human, 2026-10-01)
-- [ ] 1 Move the app to the root
+- [x] 1 Move the app to the root (with slice 6, the e2e move)
 - [ ] 2 Quality commands
 - [ ] 3 Row security test in CI form
 - [ ] 4 CI workflow
 - [ ] 5 Migrations to dev
-- [ ] 6 E2E move
+- [x] 6 E2E move (done in slice 1)
 - [ ] 7 README and env
+
+## Evidence
+
+Slice 1 and 6 (criteria 1 and 7), on branch `feat/foundation`:
+
+- `npm run typecheck`: clean.
+- `EXPO_PUBLIC_SUPABASE_URL=$SUPABASE_URL EXPO_PUBLIC_SUPABASE_ANON_KEY=$SUPABASE_ANON_KEY npx expo export --platform web`: `Exported: dist`.
+- `npm run test:e2e`: 7 passed, three full runs in a row (31 to 32 s), plus criterion 2 alone three times (0.9 to 1.2 s).
+- Known: the very first full run after the move had one failure in test 2 (sync within 2 s). I did not capture its message and could not reproduce it in 6 later runs. If it comes back, capture the output before touching the test.
 
 ## Notes
 

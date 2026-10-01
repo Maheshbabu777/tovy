@@ -1,7 +1,7 @@
 {
   "expo": {
-    "name": "Tovy spike",
-    "slug": "tovy-spike",
+    "name": "Tovy",
+    "slug": "tovy",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
@@ -27,6 +27,6 @@
       "expo-sqlite",
       "expo-router"
     ],
-    "scheme": "tovyspike"
+    "scheme": "tovy"
   }
 }

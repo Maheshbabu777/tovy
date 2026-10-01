@@ -1,7 +1,7 @@
 import { v4 as uuidv4 } from 'uuid'
 import { observable } from '@legendapp/state'
 import { configureSyncedSupabase, syncedSupabase } from '@legendapp/state/sync-plugins/supabase'
-import { supabase } from './supabase'
+import { supabase } from '../db/supabase'
 import { persistPlugin } from './persistPlugin'
 
 configureSyncedSupabase({

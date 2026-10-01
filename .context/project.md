@@ -18,19 +18,19 @@ Planned, not built yet: Expo (React Native, TypeScript) with Expo Router, Legend
 
 | Task | Command |
 |---|---|
-| Install | `cd spike && npm install --legacy-peer-deps` |
+| Install | `npm install --legacy-peer-deps` |
 | Run locally | |
-| All tests | `cd spike && npm run test:e2e` (needs Supabase reachable) ; `bash supabase/tests/run-local.sh` (row security, local Postgres) |
-| One test | `cd spike && npx playwright test -g "2:"` (needs a fresh `expo export` after app changes) |
+| All tests | `npm run test:e2e` (needs Supabase reachable and a fresh `expo export`) ; `bash supabase/tests/run-local.sh` (row security, local Postgres) |
+| One test | `npm run test:e2e -- -g "2:"` |
 | Lint | |
-| Type check | `cd spike && npm run typecheck` |
-| Build | `cd spike && EXPO_PUBLIC_SUPABASE_URL=$SUPABASE_URL EXPO_PUBLIC_SUPABASE_ANON_KEY=$SUPABASE_ANON_KEY npx expo export --platform web` |
+| Type check | `npm run typecheck` |
+| Build | `EXPO_PUBLIC_SUPABASE_URL=$SUPABASE_URL EXPO_PUBLIC_SUPABASE_ANON_KEY=$SUPABASE_ANON_KEY npx expo export --platform web` |
 
 ## Layout
 
 <!-- One line per important folder or entry point. Pointers, not descriptions of the code. -->
 - `.context/project-plan.md` - the approved plan and slice list
-- `spike/` - throwaway Expo app for the sync spike (src/app screens, src/lib sync)
+- `app/` - Expo Router screens; `src/core/db/` Supabase client; `src/core/sync/` notes store and sync; `tests/e2e/` Playwright sync tests
 - `supabase/migrations/` - schema; `supabase/tests/` - row security test and local runner
 
 ## Conventions
@@ -41,8 +41,8 @@ Planned, not built yet: Expo (React Native, TypeScript) with Expo Router, Legend
 ## Gotchas
 
 <!-- One line each, with a file path. Things that cost time to discover. -->
-- Cloud sandbox: Chromium cannot reach Supabase, Node can, so tests fetch from Node and bridge the websocket by hand (`spike/tests/sync.e2e.ts`).
-- `supabase/migrations/*.sql` must be applied by hand in the Supabase SQL editor. The app shows `synced` even if the table is missing (`spike/src/lib/notes.ts`).
+- Cloud sandbox: Chromium cannot reach Supabase, Node can, so tests fetch from Node and bridge the websocket by hand (`tests/e2e/sync.e2e.ts`).
+- `supabase/migrations/*.sql` must be applied by hand in the Supabase SQL editor. The app shows `synced` even if the table is missing (`src/core/sync/notes.ts`).
 
 ## Ask the human
 

@@ -2,7 +2,7 @@
 import { observablePersistIndexedDB } from '@legendapp/state/persist-plugins/indexeddb'
 
 export const persistPlugin = observablePersistIndexedDB({
-  databaseName: 'tovy-spike',
+  databaseName: 'tovy',
   version: 1,
   tableNames: ['notes'],
 })

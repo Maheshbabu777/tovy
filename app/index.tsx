@@ -2,8 +2,8 @@ import { useEffect, useState } from 'react'
 import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native'
 import { syncState } from '@legendapp/state'
 import { use$ } from '@legendapp/state/react'
-import { supabase } from '../lib/supabase'
-import { addNote, deleteNote, notes$, renameNote, type Note } from '../lib/notes'
+import { supabase } from '../src/core/db/supabase'
+import { addNote, deleteNote, notes$, renameNote, type Note } from '../src/core/sync/notes'
 
 // Test hook: lets the end-to-end tests read tap-to-render timings.
 const perf: number[] = []
