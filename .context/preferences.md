@@ -1,0 +1,33 @@
+# Preferences for this project
+
+How the human wants work done in this repo. This beats any general rule in the powers playbook.
+
+These start as the human's personal defaults. Change them per project as needed.
+
+Agents: add a line only when the human states a standing preference for this project in their own words ("from now on...", "always...", "in this repo..."). Write it close to how they said it, with the date. Never add a preference you inferred. Edit or remove lines only when the human asks.
+
+## Enforced by scripts
+
+<!-- Read by scripts/check-commit.sh. Delete a line to fall back to the default shown. -->
+- commit-types: feat fix chore docs refactor test style perf ci build revert
+- commit-max-subject: 72
+- commit-max-body-lines: 3
+
+## Commits and PRs
+
+- Subject is `type: description`, lowercase after the prefix, no period at the end.
+- A body only when the why isn't obvious, and then a line or two, never a paragraph.
+- PR titles use the same format. PR bodies explain why, not just what.
+
+## Code
+
+- Practical working code over theoretical perfection. Don't over-engineer.
+
+## Writing
+
+- No em dashes or en dashes in anything a human reads. Use periods, commas or hyphens.
+- No sycophantic openers.
+
+## Working style
+
+- 
