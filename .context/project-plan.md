@@ -58,12 +58,12 @@ Done means: cold start under 1.5 s on a mid-range Android, tap response under 10
 - Options considered: Supabase Auth with Google plus email OTP; Firebase Auth; passwords.
 - Recommendation: Supabase Auth, Google sign-in and email OTP, also the OAuth 2.1 server for MCP.
 - Reasoning: one system for app sign-in and AI connections, row-level security keys off `auth.uid()`.
-- Tradeoff: native Google sign-in on Android needs a dev build, not Expo Go.
+- Tradeoff: native Google sign-in needs a dev build, but browser-based sign-in works in Expo Go.
 
 **Decision: UI and animation libraries**
 - Recommendation: Reanimated 4 plus Gesture Handler, React Native Skia for rings and heatmap, FlashList, Gorhom Bottom Sheet, expo-haptics, Lottie or Rive for the ring-closed burst, Geist font bundled with expo-font.
 - Reasoning: matches the UI tab's motion rules (transform and opacity only, on the UI thread, 60 fps on a mid-range Android).
-- Tradeoff: Skia and Reanimated add app size and need a dev build. Shared-element transitions need a support check at spec time, with a fast zoom-fade as fallback.
+- Tradeoff: Skia and Reanimated add app size. Expo Go bundles them, so verify each library against Expo Go at spec time. Shared-element transitions need a support check at spec time, with a fast zoom-fade as fallback.
 
 **Decision: hosting and tooling**
 - Recommendation: Cloudflare Pages for web and landing page, EAS Build and Update for Android, GitHub Actions for CI and migrations (Supabase CLI), Sentry (Student Pack) and PostHog for monitoring, `tovy.app` from the Student Pack with auto-renew off.
@@ -199,7 +199,7 @@ works offline. Android and web first.
 2. Install: `npm install`
 3. Copy `.env.example` to `.env` and add the dev Supabase URL and anon key
 4. Start local Supabase: `npx supabase start`
-5. Run: `npx expo start` (Android needs a dev build: `npx expo run:android`)
+5. Run: `npx expo start`, then scan the QR code with Expo Go (a dev build is only needed for push and native sign-in)
 
 ## How-to guides
 - Run tests: `npm test`, and `npx supabase test db` for row-security tests
@@ -253,4 +253,5 @@ TBD
 ## Decisions from the human
 
 - AI apps: any app that can connect to an MCP server. No single target app, so the server follows the open standard.
-- Platforms: web and Android first, App Store (iOS) later. Android needs a dev build rather than Expo Go.
+- Platforms: web and Android first, App Store (iOS) later.
+- Frontend first: build and review the UI in Expo Go for fast iteration. Move to an EAS dev build only when a phase needs it: reminders and push on Android, native Google sign-in, and the release check.
