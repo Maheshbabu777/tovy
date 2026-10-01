@@ -18,11 +18,12 @@ Planned, not built yet: Expo (React Native, TypeScript) with Expo Router, Legend
 
 | Task | Command |
 |---|---|
-| Install | `npm install --legacy-peer-deps` |
-| Run locally | |
-| All tests | `npm run test:e2e` (needs Supabase reachable and a fresh `expo export`) ; `bash supabase/tests/run-local.sh` (row security, local Postgres) |
+| Install | `npm ci` (the `.npmrc` sets legacy-peer-deps) |
+| Run locally | `npx expo start` (scan the QR code with Expo Go, or press w for web) |
+| Unit tests | `npm test` |
+| All tests | `npm test` ; `npm run test:e2e` (needs Supabase reachable and a fresh `expo export`) ; `bash supabase/tests/run-local.sh` (row security, local Postgres) |
 | One test | `npm run test:e2e -- -g "2:"` |
-| Lint | |
+| Lint | `npm run lint` ; format: `npm run format:check` (fix with `npm run format`) |
 | Type check | `npm run typecheck` |
 | Build | `EXPO_PUBLIC_SUPABASE_URL=$SUPABASE_URL EXPO_PUBLIC_SUPABASE_ANON_KEY=$SUPABASE_ANON_KEY npx expo export --platform web` |
 
