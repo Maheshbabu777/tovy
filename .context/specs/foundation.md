@@ -62,7 +62,7 @@ Risks:
 - [x] Plan written
 - [x] Spec and plan approved (human, 2026-10-01)
 - [x] 1 Move the app to the root (with slice 6, the e2e move)
-- [ ] 2 Quality commands
+- [x] 2 Quality commands
 - [ ] 3 Row security test in CI form
 - [ ] 4 CI workflow
 - [ ] 5 Migrations to dev
@@ -77,6 +77,14 @@ Slice 1 and 6 (criteria 1 and 7), on branch `feat/foundation`:
 - `EXPO_PUBLIC_SUPABASE_URL=$SUPABASE_URL EXPO_PUBLIC_SUPABASE_ANON_KEY=$SUPABASE_ANON_KEY npx expo export --platform web`: `Exported: dist`.
 - `npm run test:e2e`: 7 passed, three full runs in a row (31 to 32 s), plus criterion 2 alone three times (0.9 to 1.2 s).
 - Known: the very first full run after the move had one failure in test 2 (sync within 2 s). I did not capture its message and could not reproduce it in 6 later runs. If it comes back, capture the output before touching the test.
+
+Slice 2 (criterion 2), commit `4954c73`:
+
+- Fresh clone of `feat/foundation`, then `npm ci`, then `npm run lint`, `format:check`, `typecheck`, `test`: all four PASS.
+- Each fails when broken on purpose: lint reported `no-var` as an error and exited 1, `format:check` flagged a badly formatted file, `typecheck` reported TS2322 on a string assigned to a number, `npm test` reported Expected "WRONG", Received "renamed". All temporary breakage was removed.
+- Found and fixed while proving it: `tsconfig.json` was missing Jest types, `jest-expo` needed `@react-native/jest-preset` as a peer, and `uuid` v14 is ESM-only so Jest transforms it (see `package.json` jest config).
+- Added `.npmrc` with `legacy-peer-deps=true`, because Expo SDK 57 packages conflict on peers and plain `npm ci` fails without it.
+- The unit test uses a plain local store instead of the Supabase plugin, so it checks our add, rename and delete helpers only. Sync is covered by e2e.
 
 ## Notes
 
