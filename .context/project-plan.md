@@ -2,21 +2,25 @@
 
 Source: the "Life OS" design doc (backend, UI, competitors, build order tabs). Planned with the myframework structure, built with the powers workflow in `.powers/`. Status: draft for approval, nothing built yet.
 
-Assumptions (change any of these and the plan shifts): solo developer, Android and web first, iOS later, about 10 to 15 hours a week, first testers are students.
+Working model: the human directs and approves, Claude writes the code. Each slice is one spec in `.context/specs/`, approved before code, finished only when its proof passes.
 
 ## 1. Project brief
 
-Tovy is a local-first task and routine app where every task carries real partial progress. A task can be 70% done with a log of each step, so a day of effort counts even when nothing is ticked off. Streaks forgive a missed day (2 freezes a month) and the heatmap counts progress points, not completed checkboxes.
+**Core problem: productivity and AI live in different places.** People now spend their day inside AI apps (Claude, ChatGPT and others), where they decide, plan and commit to things. Their tasks live somewhere else, so every commitment made in a chat is copied by hand into a task app, or forgotten. Tovy closes that gap: any AI app the user connects can read their day and add tasks, log progress and check in routines, and the user stays in control through an approval inbox.
 
-Core problem: checklists treat a task as 0% or 100%, so partial work disappears and streaks break on days that were not wasted. None of Any.do, TickTick, Todoist, Things 3 or Microsoft To Do model partial progress with history.
+Tovy is a local-first task and routine app built for that. It is not a chatbot and not a replacement for the AI apps. It is the place where what you committed to in AI chats actually gets done and tracked.
 
-Users and scale: anyone who juggles more than a checklist holds. Launch scale is 12 closed testers, then a few thousand users. The Supabase free tier (50,000 monthly active users) covers this. Pro ($25 a month) is needed before real users depend on it.
+Second problem it solves: checklists treat a task as 0% or 100%, so partial work disappears and streaks break on days that were not wasted. Tovy tasks carry real partial progress with a log, streaks forgive a missed day (2 freezes a month), and the heatmap counts progress points, not ticked checkboxes. None of Any.do, TickTick, Todoist, Things 3 or Microsoft To Do model partial progress, and none are built around being driven by AI apps.
 
-v1 scope: quick tasks, deep tasks, routines, optional projects with an Inbox, Today screen with quick add, progress log, streak with freezes, heatmap, daily ring, reminders, web app, and an MCP server with an approval inbox and per-AI permissions.
+Why the two fit together: an append-only progress log is what an AI can safely write to ("API layer done, +20%"), and the approval inbox makes that trustworthy.
+
+Users and scale: people who already work through AI apps and juggle more than a checklist holds. Early testers are students. The Supabase free tier (50,000 monthly active users) covers the early scale. Pro ($25 a month) is needed before real users depend on it.
+
+v1 scope: quick tasks, deep tasks, routines, optional projects with an Inbox, Today screen with quick add, progress log, streak with freezes, heatmap, daily ring, reminders, the web app, and the MCP server with approval inbox, per-AI permissions and activity feed.
 
 Not in v1: XP and levels, achievements, weekly recap, widgets, calendar overlay or sync, document library, multi-AI chat, native iOS, sharing with other people.
 
-Done means: used daily for 14 days. Cold start under 1.5 s on a mid-range Android, tap response under 100 ms, a change on one device visible on another in under 2 s. One AI app adds a task through MCP and you approve it on your phone.
+Done means: cold start under 1.5 s on a mid-range Android, tap response under 100 ms, a change on one device visible on another in under 2 s. One AI app adds a task through MCP, it shows as pending, you approve it on your phone, and it appears. The builder uses it daily without going back to another task app.
 
 ## 2. Tech stack (decisions)
 
@@ -31,6 +35,12 @@ Done means: used daily for 14 days. Cold start under 1.5 s on a mid-range Androi
 - Recommendation: Legend-State, with the sync spike (slice 0) as the go or no-go.
 - Reasoning: every tap must answer in under 100 ms, so reads and writes hit the local store. Append-only logs avoid most conflicts. Legend-State is free and supports both SQLite and IndexedDB.
 - Tradeoff: the sync layer is ours to maintain. If slice 0 fails, PowerSync is the fallback, at the cost of another service and its pricing.
+
+**Decision: AI connection**
+- Options considered: remote MCP server over Streamable HTTP as a Supabase Edge Function; a custom per-AI integration (separate plugin for each app); a REST API only.
+- Recommendation: one remote MCP server, with Supabase Auth as the OAuth 2.1 server and an approval inbox for writes.
+- Reasoning: Claude, ChatGPT and other apps that support custom connectors all speak MCP, so one server reaches all of them. Every call runs as the user under row-level security.
+- Tradeoff: connector support varies by app and plan, and the user must paste the MCP URL once. Move to a Supabase custom domain early because that URL is pasted into AI apps.
 
 **Decision: backend**
 - Options considered: managed Supabase (Mumbai); raw AWS (RDS, Cognito, Lambda, S3); a self-hosted VPS.
@@ -109,14 +119,14 @@ tovy/
 
 ## 4. Milestones and tasks
 
-Eleven slices from the design doc, each one spec in `.context/specs/` (created with `.powers/scripts/new-spec.sh <slug>`), each finished only when its proof passes. Estimates assume about 12 hours a week, so a "week" below is a solo part-time week. Total: about 16 weeks to the closed test starting.
+Eleven slices, each one spec in `.context/specs/` (created with `.powers/scripts/new-spec.sh <slug>`), each finished only when its proof passes. The order follows dependencies, and the AI connection comes right after progress logging so the core idea is proven early, then grows as each feature lands.
 
-**Phase 0: sync spike (est. 1 week), go or no-go**
+**Phase 0: sync spike (go or no-go)**
 - [ ] One table, Expo app on a phone plus a browser build, local database on each, Supabase dev project in the middle
 - [ ] Edit offline on the phone, reconnect, browser shows it
-- [ ] Record the result in `.context/decisions.md`. If it fails, switch stack before slice 1
+- [ ] Record the result in `.context/decisions.md`. If it fails, switch stack before phase 1
 
-**Phase 1: foundation (est. 1.5 weeks)**
+**Phase 1: foundation**
 - [ ] Repo, Expo and Router, lint, format, type-check, CI
 - [ ] Dev Supabase project, Supabase CLI, core migrations with row-level security
 - [ ] Google and email OTP login
@@ -124,44 +134,51 @@ Eleven slices from the design doc, each one spec in `.context/specs/` (created w
 - [ ] `tokens.ts` and a `/dev/components` gallery
 - [ ] Proof: a user cannot read another user's rows (SQL test in CI)
 
-**Phase 2: tasks and sync (est. 2 weeks)**
+**Phase 2: tasks and sync**
 - [ ] Create, edit, soft delete with 5 s undo, subtasks, projects and Inbox
 - [ ] Outbox with retry, last-write-wins by server `updated_at`
 - [ ] Proof: edit in airplane mode, reconnect, two devices converge
 
-**Phase 3: Today and quick add (est. 1.5 weeks)**
+**Phase 3: Today and quick add**
 - [ ] Today screen (routines, due, in progress), quick-add bar with date parsing, bottom sheet
 - [ ] Proof: tap under 100 ms on a mid-range Android, 500 tasks scroll smoothly
 
-**Phase 4: progress (est. 1.5 weeks)**
+**Phase 4: progress**
 - [ ] Progress log, auto and manual modes, equal subtask weights, server trigger
 - [ ] Proof: logging on one device updates task and ring on the other
 
-**Phase 5: routines, streaks, heatmap (est. 2 weeks)**
+**Phase 5: AI connection (MCP and approval inbox), first version**
+- [ ] Supabase Auth as OAuth 2.1 server, consent screen on web, token checks (signature, expiry, issuer, PKCE S256, client_id claim)
+- [ ] MCP Edge Function with the tools that exist so far: get_today, search_tasks, get_task, add_task, update_task, log_progress, complete_task
+- [ ] `ai_clients` and `ai_actions` tables, approval inbox with swipe actions, per-AI permissions, AI badge on items
+- [ ] Proof: one AI app adds a task, it shows as pending, you approve, it appears on the phone
+- [ ] Security review from `.powers/on-demand/security-review.md`
+
+**Phase 6: routines, streaks, heatmap**
 - [ ] Routine check-ins and counts, `daily_activity`, streak and freezes, pg_cron day close
+- [ ] Add `check_in_routine` to the MCP tools
 - [ ] Proof: a simulated missed day spends a freeze, heatmap points never go negative
 
-**Phase 6: reminders (est. 1 week)**
+**Phase 7: reminders**
 - [ ] Local notifications from synced rows, repeat expansion from RRULE
-- [ ] Proof: a reminder fires with the app closed, tested on two Android versions
+- [ ] Add `add_reminder` to the MCP tools (now all 9)
+- [ ] Proof: a reminder fires with the app closed, tested on several Android makers
 
-**Phase 7: polish and account (est. 1.5 weeks)**
+**Phase 8: AI polish**
+- [ ] Connected apps screen (revoke, auto-approve), activity feed of reads and writes, prompt kit with copyable phrases ("add this to Tovy")
+- [ ] One push per batch when something lands in the inbox
+- [ ] Test each target AI app's connector support (which apps, which plans, mobile or not)
+- [ ] Proof: a revoked app's token stops working immediately
+
+**Phase 9: polish and account**
 - [ ] Apply tokens, haptics, celebration, onboarding, profile
 - [ ] Export and delete account
 - [ ] Proof: Reduce Motion respected, account deletion removes all data and files
 
-**Phase 8: web app (est. 1.5 weeks)**
+**Phase 10: web app and release**
 - [ ] Sidebar and detail layout, keyboard shortcuts, IndexedDB
-- [ ] Proof: same account on web shows the same data and works offline
-
-**Phase 9: MCP and approval inbox (est. 2 weeks)**
-- [ ] Supabase Auth as OAuth 2.1 server, consent screen, 9 tools, `ai_clients` and `ai_actions`
-- [ ] Approval inbox, per-AI permissions, activity feed
-- [ ] Proof: one AI app adds a task, it shows as pending, you approve, it appears on the phone
-
-**Phase 10: release (est. 1 week)**
 - [ ] Landing page, privacy policy, APK build, Play Store closed test
-- [ ] Proof: 12 testers opted in for 14 continuous days
+- [ ] Proof: same account on web shows the same data and works offline; testers installed and using it
 
 Design work (moodboard, tokens, Today and Task detail screens) runs beside phases 0 to 2 so it is ready for phase 3.
 
@@ -173,8 +190,9 @@ Design work (moodboard, tokens, Today and Task detail screens) runs beside phase
 > Tasks that count the effort, not just the checkbox.
 
 ## Overview
-Tovy is a local-first task and routine app. Tasks carry partial progress with a log,
-streaks forgive a missed day, and everything works offline. Android and web first.
+Tovy is a local-first task and routine app that connects to the AI apps you already use.
+Tasks carry partial progress with a log, streaks forgive a missed day, and everything
+works offline. Android and web first.
 
 ## Getting started
 1. Clone with submodules: `git clone --recurse-submodules <repo-url>`
@@ -192,7 +210,7 @@ streaks forgive a missed day, and everything works offline. Android and web firs
 ## Reference
 - Environment variables: see `.env.example`
 - Data model: `supabase/migrations/`
-- MCP tools: `supabase/functions/mcp/`
+- MCP tools and how to connect an AI app: `supabase/functions/mcp/`
 
 ## Architecture and decisions
 The phone is the primary copy of the data and Supabase is the synced, secured copy.
@@ -204,35 +222,35 @@ TBD
 
 ## 6. Risks and tradeoffs
 
-**Risk: the sync layer does not hold up**
-- Likelihood: Medium. Impact: High.
-- Mitigation: slice 0 is a go or no-go before anything else exists. Fallback is PowerSync. Append-only logs keep the conflict surface small.
-
-**Risk: reminders stop firing after OS updates or battery saving**
-- Likelihood: High. Impact: High. This is the most common failure across competitor apps.
-- Mitigation: reminder reliability gets its own test plan in phase 6, tested on several Android makers. The settings screen guides users through battery exemptions.
-
-**Risk: scope creep from the ideas parking lot and the MCP feature**
-- Likelihood: High. Impact: Medium.
-- Mitigation: v1 and not-in-v1 lists are frozen above. New ideas go to the parking lot and are reviewed weekly. MCP (phase 9) is the first thing to cut if the schedule slips, since the core loop works without it.
+**Risk: AI apps do not use Tovy reliably, or connector support differs by app and plan**
+- Likelihood: Medium. Impact: High, because this is the core idea.
+- Mitigation: tool descriptions and server instructions say when to use each tool, a prompt kit gives users a line for their AI's custom instructions, explicit asks ("add this to Tovy") are the main path, and phase 8 tests each target app. The core app must still be good without AI.
 
 **Risk: the AI connection is a large security surface**
 - Likelihood: Medium. Impact: High.
-- Mitigation: no delete tool, every write goes through an approval inbox by default, token checks (signature, expiry, issuer, PKCE S256, client_id claim), row-level security on every call, and a security review from `.powers/on-demand/security-review.md` before phase 9 ships.
+- Mitigation: no delete tool, every write goes through the approval inbox by default, strict token checks, row-level security on every call, rate limits, and a security review in phase 5.
 
-**Risk: solo time and a knowledge gap in Reanimated, Skia and Supabase triggers**
-- Likelihood: Medium. Impact: Medium.
-- Mitigation: the estimates above are for part-time work and will drift. Keep slices small, proof-driven, and re-estimate after phase 2.
+**Risk: the sync layer does not hold up**
+- Likelihood: Medium. Impact: High.
+- Mitigation: phase 0 is a go or no-go before anything else exists. Fallback is PowerSync. Append-only logs keep the conflict surface small, and they are also what AI writes land in.
+
+**Risk: reminders stop firing after OS updates or battery saving**
+- Likelihood: High. Impact: High. This is the most common failure across competitor apps.
+- Mitigation: reminder reliability gets its own test plan in phase 7, tested on several Android makers, with in-app guidance for battery exemptions.
+
+**Risk: scope creep from the ideas parking lot**
+- Likelihood: High. Impact: Medium.
+- Mitigation: the v1 and not-in-v1 lists are frozen above. New ideas go to the parking lot first and are reviewed at the end of each phase.
 
 **Risk: derived numbers disagree between phone and server (progress, streak, day boundary)**
 - Likelihood: Medium. Impact: Medium.
 - Mitigation: one rules module in `src/core/rules/` with unit tests, mirrored in SQL with the same test cases. Server values win on pull. Time zones tested explicitly.
 
-**Risk: Play Store closed test needs 12 testers for 14 days**
-- Likelihood: Medium. Impact: Medium.
-- Mitigation: recruit testers during phase 7, not at the end. Ship the APK from the website first so early feedback does not depend on the Play Store.
+**Risk: nothing is hand-checked because the human does not write code**
+- Likelihood: Medium. Impact: High.
+- Mitigation: powers requires evidence for every acceptance criterion (command run and output printed), tests are never weakened to get green, and each slice ends with a demo the human can try on a real phone before approval.
 
 ## Open questions for you
 
-1. Is solo, about 12 hours a week, right? It sets every estimate above.
-2. Are you comfortable with a dev build for Android (no Expo Go)? Google sign-in and Skia need it.
+1. Which AI apps matter most for the first test: Claude, ChatGPT, or both? It decides which connector setups we verify first in phase 8.
+2. Are you fine with the Android dev build (no Expo Go)? Google sign-in and Skia need it.

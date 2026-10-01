@@ -4,7 +4,7 @@ Last verified: YYYY-MM-DD at commit <hash>
 
 ## What it is
 
-Tovy is a local-first task and routine app with real partial progress per task, streaks with freezes and an effort heatmap. Android and web first. Full plan: `.context/project-plan.md`.
+Tovy is a local-first task and routine app that connects to the AI apps people already use (via MCP, with an approval inbox), with real partial progress per task, streaks with freezes and an effort heatmap. Android and web first. Full plan: `.context/project-plan.md`.
 
 ## Out of scope
 
