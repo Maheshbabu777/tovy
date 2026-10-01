@@ -1,6 +1,6 @@
 # Tovy project plan
 
-Source: the "Life OS" design doc (backend, UI, competitors, build order tabs). Planned with the myframework structure, built with the powers workflow in `.powers/`. Status: draft for approval, nothing built yet.
+Source: the "Life OS" design doc (backend, UI, competitors, build order tabs). Planned with the myframework structure, built with the powers workflow in `.powers/`. Status: approved. Phase 0 (sync spike) and the foundation spec are done, see `.context/specs/`.
 
 Working model: the human directs and approves, Claude writes the code. Each slice is one spec in `.context/specs/`, approved before code, finished only when its proof passes.
 
