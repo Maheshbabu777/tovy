@@ -29,15 +29,15 @@ This is Phase 1 of `.context/project-plan.md`, second part, after `foundation`.
 - Profile screen, export and delete account (Phase 10).
 - Supabase Auth as the OAuth server for AI apps (Phase 6).
 - Native Google sign-in, Apple sign-in, phone numbers, passwords, two-factor.
-- A custom domain and custom email sender (later, before real users).
+- A custom domain (later, before testers who are not the owner). A custom email sender is in scope now, see the open questions.
 
 ## Open questions
 
 - Remove the password sign-in completely? Answer: yes, remove it (2026-10-01). The sync e2e tests then start from a saved session and a separate test covers the email code flow.
 - What happens to unsynced edits at sign out? Answer: show a note that something is not synced yet and let the user sign out anyway if they want (2026-10-01). That became criterion 6. The edits are then lost, because they never reached the database.
 - Google on a phone if Expo Go cannot return reliably? Answer: move it to the dev build spec (2026-10-01).
-- Leave Supabase's built in email sender for now? Answer: yes, set up a custom sender before real users (2026-10-01). Tests get the code from the admin API, not an inbox.
-- For you to do, I can't (needed for criteria 1, 2 and 3): (a) create a Google Cloud OAuth client (type web) and enter its client ID and secret in Supabase, Authentication, Providers, Google. You enter the secret yourself and I never see it. (b) Set Supabase Auth URL configuration: site URL and the redirect allow-list, which needs `http://localhost:8081` for tests and the local web build. (c) Edit the Supabase "Magic Link" email template so it shows the code, `{{ .Token }}`. Answer: pending.
+- Leave Supabase's built in email sender for now? Answer: no. Since 2026-06-03 new free projects cannot edit auth email templates on the built in sender, so the emailed code needs a custom SMTP sender (decided 2026-10-01). Start with Resend using `onboarding@resend.dev`, which only delivers to the owner's own address until a domain is verified. Tests still get the code from the admin API, not an inbox.
+- For you to do, I can't (needed for criteria 1, 2 and 3): (a) create a Google Cloud OAuth client (type web) and enter its client ID and secret in Supabase, Authentication, Providers, Google. You enter the secret yourself and I never see it. (b) Set Supabase Auth URL configuration: site URL and the redirect allow-list, which needs `http://localhost:8081` for tests and the local web build. (c) Connect custom SMTP (Resend) under Authentication, Emails, then edit the "Magic Link" email template so it shows the code, `{{ .Token }}` (locked until custom SMTP is on). Answer: pending.
 
 ## Plan
 
@@ -55,11 +55,11 @@ Branch per slice group, named `feat/auth-...`. Each slice ends green and gets ti
 Proof at the end: `.powers/scripts/verify.sh` evidence block, each criterion pass or fail with its command, and your manual results for Google on web and the email code on a phone.
 
 Risks:
-- Supabase's built in email sender is limited to a few emails an hour. Humans trying the real flow can hit it. Tests are safe because they use `generate_link`.
+- Resend without a verified domain only delivers to the owner's own address. Other testers cannot receive codes until a domain exists. Tests are safe because they use `generate_link`.
 - Google sign-in cannot be automated. Criterion 3 is partly your manual check.
 - `numPendingSets` may not mean what I expect, or `clearPersist()` may not clear the IndexedDB data. If so, I write a small counter in our own code and delete the database by name. I find that out in slice 5, before building the screen on it.
 - Turning on `detectSessionInUrl` for web can fight with Expo Router's routing on return from Google. If so, handle the code exchange explicitly on a callback route.
-- The email template must show `{{ .Token }}`. If it is left as a link, the code step will have nothing to type. This is on your setup list.
+- The email template must show `{{ .Token }}`. If it is left as a link, the code step will have nothing to type. Editing the template needs custom SMTP first, both are on your setup list.
 - Removing the password path means the sync tests no longer exercise the real sign-in UI. The new email code test in slice 2 covers that.
 
 ## Progress
