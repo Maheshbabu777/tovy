@@ -69,7 +69,7 @@ Risks:
 - [x] Questions answered (except the setup tasks for you)
 - [x] Plan written
 - [x] Spec and plan approved (human, 2026-10-01, with the slice order above)
-- [ ] 1 Sync tests start from a saved session (first)
+- [x] 1 Sync tests start from a saved session (first)
 - [ ] 2 Email code sign-in screen
 - [ ] 3 Session and PKCE
 - [ ] 4 Google on web
@@ -77,6 +77,16 @@ Risks:
 - [ ] 6 Signed-out access
 - [ ] 7 Security review
 - [ ] 8 Docs and context
+
+## Evidence
+
+Slice 1 (criterion 10, prepares criterion 7), branch `feat/auth-session-tests`:
+
+- `tests/e2e/sync.e2e.ts` now starts each device from its own saved session (password grant over REST, written to localStorage before the app loads) and waits for the realtime subscription to be confirmed. The password screen is still in the app and is untouched.
+- This exposed a real sync gap. Before the fix, test 3 passed 8 of 10 alone, and full runs failed in 2, 1 and 3 tests of 7. Server data was always complete, one device just never received the other's edit.
+- Theories rejected by experiment: a cursor skip (`changesSince: 'all'` gave 8 of 14, no better) and a forced ordering (a regression test with A pushing before B passed even before any fix).
+- Fix: `catchUpAfterRealtime()` re-syncs when a realtime channel reports `SUBSCRIBED`, and once more 1.5 s later. After it: test 3 alone 10 of 10, test 2 alone 5 of 5, four full runs of `npm run test:e2e` all 7 passed (31 to 34 s). Lint, format, typecheck and unit tests pass.
+- Not proven: that the catch-up closes every gap. It makes the window much smaller, and the plugin itself is a beta. Phase 2 sync design should decide on a lasting answer.
 
 ## Notes
 

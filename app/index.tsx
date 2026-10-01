@@ -3,7 +3,7 @@ import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-
 import { syncState } from '@legendapp/state'
 import { use$ } from '@legendapp/state/react'
 import { supabase } from '../src/core/db/supabase'
-import { addNote, deleteNote, notes$, renameNote, type Note } from '../src/core/sync/notes'
+import { addNote, catchUpAfterRealtime, deleteNote, notes$, renameNote, type Note } from '../src/core/sync/notes'
 
 // Test hook: lets the end-to-end tests read tap-to-render timings.
 const perf: number[] = []
@@ -69,6 +69,8 @@ function NotesScreen() {
   const pending = use$(state.numPendingSets) ?? 0
   const loaded = use$(state.isPersistLoaded)
   const [draft, setDraft] = useState('')
+
+  useEffect(() => catchUpAfterRealtime(), [])
 
   const list = Object.values(notes ?? {})
     .filter((n) => n && !n.deleted)

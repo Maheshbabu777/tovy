@@ -1,5 +1,5 @@
 import { v4 as uuidv4 } from 'uuid'
-import { observable } from '@legendapp/state'
+import { observable, syncState } from '@legendapp/state'
 import { configureSyncedSupabase, syncedSupabase } from '@legendapp/state/sync-plugins/supabase'
 import { supabase } from '../db/supabase'
 import { persistPlugin } from './persistPlugin'
@@ -44,4 +44,23 @@ export function renameNote(id: string, title: string) {
 
 export function deleteNote(id: string) {
   notes$[id].delete()
+}
+
+// The Supabase sync plugin does not fetch again after its realtime channel joins, so a change another device saves
+// between the first load and the join is never seen. This opens a channel of our own and syncs once it is joined
+// (and once more shortly after, in case the plugin's channel joined later). Call it while signed in.
+export function catchUpAfterRealtime(): () => void {
+  let later: ReturnType<typeof setTimeout> | undefined
+  const channel = supabase
+    .channel('notes-catch-up')
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'notes' }, () => {})
+    .subscribe((status) => {
+      if (status !== 'SUBSCRIBED') return
+      void syncState(notes$).sync()
+      later = setTimeout(() => void syncState(notes$).sync(), 1500)
+    })
+  return () => {
+    clearTimeout(later)
+    void supabase.removeChannel(channel)
+  }
 }

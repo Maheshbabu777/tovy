@@ -76,7 +76,7 @@ Slice 1 and 6 (criteria 1 and 7), on branch `feat/foundation`:
 - `npm run typecheck`: clean.
 - `EXPO_PUBLIC_SUPABASE_URL=$SUPABASE_URL EXPO_PUBLIC_SUPABASE_ANON_KEY=$SUPABASE_ANON_KEY npx expo export --platform web`: `Exported: dist`.
 - `npm run test:e2e`: 7 passed, three full runs in a row (31 to 32 s), plus criterion 2 alone three times (0.9 to 1.2 s).
-- Known: the very first full run after the move had one failure in test 2 (sync within 2 s). I did not capture its message and could not reproduce it in 6 later runs. If it comes back, capture the output before touching the test.
+- Known, later explained: the occasional failure in the sync tests (first seen in test 2 after the move) was a missed realtime change, not a one-off. See `.context/decisions.md` (2026-10-01, catch-up after realtime).
 
 Slice 2 (criterion 2), commit `4954c73`:
 
