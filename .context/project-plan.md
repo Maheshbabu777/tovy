@@ -66,7 +66,7 @@ Done means: cold start under 1.5 s on a mid-range Android, tap response under 10
 - Tradeoff: Skia and Reanimated add app size. Expo Go bundles them, so verify each library against Expo Go at spec time. Shared-element transitions need a support check at spec time, with a fast zoom-fade as fallback.
 
 **Decision: hosting and tooling**
-- Recommendation: Cloudflare Pages for web and landing page, EAS Build and Update for Android, GitHub Actions for CI and migrations (Supabase CLI), Sentry (Student Pack) and PostHog for monitoring, `tovy.app` from the Student Pack with auto-renew off.
+- Recommendation: Cloudflare Pages for web and landing page, EAS Build and Update for Android, GitHub Actions for CI and migrations (Supabase CLI), Sentry (Student Pack) and PostHog for monitoring. No domain yet: use `tovy.pages.dev` until one is chosen.
 - Tradeoff: the Student Pack covers the domain and Sentry only. Costs that matter later are Supabase Pro ($25 a month), Play Console ($25 once) and iOS ($99 a year).
 
 ## 3. Folder structure
@@ -189,11 +189,10 @@ Design work (moodboard, tokens, Today and Task detail screens) runs beside phase
 
 ## Hosting, domain and costs
 
-- Domain: `tovy.app`, claimed free for a year through the GitHub Student Developer Pack (Name.com), auto-renew off, DNS and hosting on Cloudflare. Until then everything runs on `tovy.pages.dev`.
-- Addresses: `tovy.app` is the landing page, APK download, privacy policy and terms (needed before the Play Store). `app.tovy.app` is the web app. `hello@tovy.app` forwards through Cloudflare Email Routing.
-- Student Pack perks worth claiming: the domain and Sentry. Other perks are skipped because Supabase and Cloudflare already cover hosting and monitoring.
+- Domain: none yet. We build and test on free Cloudflare addresses (`tovy.pages.dev` for the landing page and web app) and decide on a domain later. Keep the domain in config, never hard-coded, so swapping it is one change.
+- What needs a real domain eventually: the privacy policy URL (required before the Play Store), the landing page and APK download, a support email, and a clean MCP URL for AI apps (a Supabase custom domain, paid add-on).
+- Student Pack perk worth claiming now: Sentry. A free domain from the pack is optional if we choose one. Other perks are skipped because Supabase and Cloudflare already cover hosting and monitoring.
 - Fixed costs later: Supabase Pro $25 a month before real users depend on it, Play Console $25 once, iOS $99 a year when iOS starts.
-- The MCP URL is pasted into AI apps, so move the API and MCP to a Supabase custom domain early (paid add-on).
 
 ## 5. README scaffold
 
