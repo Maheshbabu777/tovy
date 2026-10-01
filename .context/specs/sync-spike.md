@@ -1,6 +1,6 @@
 # Sync spike
 
-Status: approved
+Status: in progress
 
 ## Problem
 
@@ -51,15 +51,31 @@ Risks:
 
 ## Progress
 
-- [x] Supabase dev project created and keys added (human). Keys reach the session as `SUPABASE_URL`, `SUPABASE_ANON_KEY`, `SUPABASE_API_KEY`
-- [x] Spike app scaffolded (builds for web, renders sign-in in Chromium, typecheck clean)
-- [x] Migration and row security test (criterion 7 passes on a local Postgres with stubs; rerun on Supabase when reachable)
+- [x] Supabase dev project created and keys added. Keys reach the session as `SUPABASE_URL`, `SUPABASE_ANON_KEY`, `SUPABASE_API_KEY`
+- [x] Spike app scaffolded (builds for web, typecheck clean)
+- [x] Migration applied to the Supabase project (by the human, SQL editor)
 - [x] Sync layer (Legend-State syncedSupabase)
 - [x] Notes screen
-- [ ] Apply `supabase/migrations/0001_notes.sql` to the Supabase project (human, SQL editor). Table is missing: REST returns PGRST205. Blocks criteria 2 to 6
-- [ ] End-to-end tests (run against Supabase: criterion 8 passes, worst 11.7 ms over 10 writes; 2 to 6 blocked by the missing table)
-- [ ] Timing check
-- [ ] Verdict written
+- [x] End-to-end tests against Supabase: 7 passed in 28 s, three runs in a row (see Evidence)
+- [x] Timing check (criterion 8)
+- [x] Verdict written in `.context/decisions.md`
+- [ ] Criteria 1 to 3 once on a real phone in Expo Go (human)
+
+## Evidence
+
+Command: `cd spike && npx playwright test` (web build served from `dist/`, two browser contexts, one forced offline). Typecheck: `npm run typecheck`, clean.
+
+| # | Result | Output |
+|---|---|---|
+| 1 | pass on web, phone not done | sign-in, list, add, edit, delete in every test |
+| 2 | pass | 0.9 to 1.3 s from reconnect to B showing both edits, including a page reload |
+| 3 | pass | both devices end with both edits |
+| 4 | pass | both devices end with the same title |
+| 5 | pass | delete reaches B, and a device offline during the delete drops the note on reconnect |
+| 6 | pass | offline add survives a reload and reaches B later |
+| 7 | pass | REST check with two real users: no read, no update, no spoofed insert, no hard delete. Also passed earlier as SQL on local Postgres |
+| 8 | pass | 10 writes, worst 12 to 15 ms |
+| 9 | done | `.context/decisions.md` |
 
 ## Notes
 
@@ -70,7 +86,7 @@ Risks:
 - `select` is left off syncedSupabase because the typings need generated database types. Add them in phase 1.
 - Spike uses fixed persist name `notes`. The real app must clear local data on sign out.
 - Environment: `EXPO_PUBLIC_SUPABASE_URL` and `EXPO_PUBLIC_SUPABASE_ANON_KEY` are set from `SUPABASE_URL` and `SUPABASE_ANON_KEY` when building. The test user sign-up needs "Confirm email" turned off in Supabase Auth.
-- Supabase is reachable now. The browser needs the sandbox proxy (`playwright.config.ts` sets it from `HTTPS_PROXY`). Test users are made through the admin API with `SUPABASE_API_KEY`, because Supabase rejects example.com emails.
 - The notes screen shows `synced` even when the table does not exist, so a missing migration fails silently. Surface sync errors in the status line.
-- Playwright `routeWebSocket` connects from Node and ignores the sandbox proxy, so offline is now simulated by wrapping `WebSocket` in the page. Unproven until the table exists.
+- Cloud sandbox: Chromium cannot reach Supabase (POSTs fail with `ERR_TOO_MANY_RETRIES`, with or without the proxy) but Node can. So the tests make Supabase requests from Node (`route.fetch`) and bridge the realtime websocket by hand with `ws` and `https-proxy-agent`, because Playwright's `connectToServer()` ignores the proxy. Test users are made with the admin API (`SUPABASE_API_KEY`), since Supabase rejects example.com emails.
+- Criterion 2 time is measured with 50 ms polling. The default `expect.poll` back-off rounds it up to about 2.0 s.
 - Lint not run: `expo lint` wants to install eslint and hits the same peer conflict. Fine for a throwaway spike.
