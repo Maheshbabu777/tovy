@@ -1,6 +1,6 @@
 # Foundation
 
-Status: draft
+Status: approved
 
 ## Problem
 
@@ -33,19 +33,19 @@ This is Phase 1 of `.context/project-plan.md`, first part. Login and design toke
 - Promote the spike into the real structure or start fresh? Answer: promote the spike (2026-10-01).
 - ESLint with the Expo config, Prettier, Jest with `jest-expo`? Answer: yes (2026-10-01).
 - One dev project only, or create prod now? Answer: dev only, no prod for now (2026-10-01). Changed from an earlier answer, so criterion 8 and the prod slice were removed.
-- For you to do, I can't (needed for criterion 5): add these GitHub Actions secrets: `SUPABASE_ACCESS_TOKEN`, `DEV_PROJECT_REF`, `DEV_DB_PASSWORD`. Answer: pending.
-- Is one real unit test enough for criterion 2 now? There is little pure logic yet (the plan puts rules in Phase 5 and 7). I propose testing the notes store functions without persistence, and adding more as `src/core/` grows. (proposed) Answer: pending.
+- For you to do, I can't (needed for criterion 5): add these GitHub Actions secrets: `SUPABASE_ACCESS_TOKEN`, `DEV_PROJECT_REF`, `DEV_DB_PASSWORD`. Answer: done, the three secrets are added in GitHub (2026-10-01). Not yet proven to work, slice 5 shows that.
+- Is one real unit test enough for criterion 2 now? There is little pure logic yet (the plan puts rules in Phase 5 and 7). I propose testing the notes store functions without persistence, and adding more as `src/core/` grows. (proposed) Answer: yes, one is enough (2026-10-01).
 
 ## Plan
 
 Slices, each ends green and gets ticked below. Branch: `feat/foundation`. One PR at the end of each group of slices, small enough to review.
 
-1. **Move the app to the root (criterion 1).** `git mv` the spike into the plan's structure: `spike/src/app` to `app/`, `spike/src/lib/supabase.ts` to `src/core/db/`, the notes sync and persist plugins to `src/core/sync/`, assets and `app.json` to the root, rename the app from "Tovy spike" to "Tovy". Merge `spike/package.json` into a root `package.json`. Delete `spike/`. Test: `npm run typecheck` and `npx expo export --platform web` pass, then the e2e command (slice 6) still signs in and lists notes.
+1. **Move the app to the root (criterion 1).** `git mv` the spike into the plan's structure: `spike/src/app` to `app/`, `spike/src/lib/supabase.ts` to `src/core/db/`, the notes sync and persist plugins to `src/core/sync/`, assets and `app.json` to the root, rename the app from "Tovy spike" to "Tovy". Merge `spike/package.json` into a root `package.json`. Delete `spike/`. The e2e suite and Playwright config move to `tests/e2e/` in this same slice (slice 6 folded in, because this slice's proof needs the suite). Test: `npm run typecheck` and `npx expo export --platform web` pass, then the e2e command passes all 7 tests.
 2. **Quality commands (criterion 2).** ESLint flat config with `eslint-config-expo`, Prettier config, Jest with `jest-expo`, scripts `lint`, `format`, `format:check`, `typecheck`, `test`. One real unit test for the notes store (proposed). Fill the Commands table in `.context/project.md`. Test: all four commands pass on a fresh clone with `npm ci`, and each fails when I break a rule on purpose (shown in the evidence).
 3. **Row security test in CI form (criterion 4).** Turn `supabase/tests/run-local.sh` into one that works on a plain Postgres service container (no `runuser`), keep the stub file. Test: it passes locally and fails when I temporarily drop a policy.
 4. **CI workflow (criterion 3).** `.github/workflows/ci.yml` on pull requests: install, lint, format check, typecheck, unit tests, row security test. Test: a PR with a lint error shows red, the fix shows green.
 5. **Migrations to dev (criterion 5).** `.github/workflows/migrate-dev.yml` on push to `main`: Supabase CLI `link` and `db push` with the dev secrets. Test: a throwaway migration (a comment-only change to a function) in a test PR, then check it applied via the Supabase API.
-6. **E2E move (criterion 7).** Move `spike/tests/sync.e2e.ts` and the Playwright config to `tests/e2e/`, update paths and the `test:e2e` script. Test: the 7 e2e tests pass with the same command.
+6. **E2E move (criterion 7). Done together with slice 1.** Move `spike/tests/sync.e2e.ts` and the Playwright config to `tests/e2e/`, update paths and the `test:e2e` script. Test: the 7 e2e tests pass with the same command.
 7. **README and env (criterion 6).** README from the plan's scaffold, `.env.example` for app and CI variables, remove the stale "applied by hand" gotcha from `project.md`. Test: I follow the README from a clean clone and it runs.
 
 Proof at the end: `.powers/scripts/verify.sh` evidence block pasted under Notes, and each criterion's pass or fail with its command.
@@ -60,7 +60,7 @@ Risks:
 
 - [x] Questions answered
 - [x] Plan written
-- [ ] Spec and plan approved (human)
+- [x] Spec and plan approved (human, 2026-10-01)
 - [ ] 1 Move the app to the root
 - [ ] 2 Quality commands
 - [ ] 3 Row security test in CI form
