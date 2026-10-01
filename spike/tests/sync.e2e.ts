@@ -1,4 +1,6 @@
 import { test, expect, type BrowserContext, type Page } from '@playwright/test'
+import WebSocket from 'ws'
+import { HttpsProxyAgent } from 'https-proxy-agent'
 
 const SUPABASE_URL = process.env.SUPABASE_URL!
 const ANON_KEY = process.env.SUPABASE_ANON_KEY!
@@ -6,19 +8,35 @@ const SYNC_BUDGET_MS = 2000
 
 // Two browser contexts = two devices: each has its own IndexedDB and session.
 // "Offline" blocks only the backend (HTTP and websocket) so the page itself still loads and reloads.
-type Device = { context: BrowserContext; page: Page; setOffline: (v: boolean) => void }
+type Device = { context: BrowserContext; page: Page; setOffline: (v: boolean) => Promise<void> }
 
 async function newDevice(browser: import('@playwright/test').Browser, user: { email: string; password: string }): Promise<Device> {
   const context = await browser.newContext()
   let offline = false
-  const sockets: import('@playwright/test').WebSocketRoute[] = []
-  await context.route(/supabase\.co/, (route) => (offline ? route.abort('internetdisconnected') : route.continue()))
-  await context.routeWebSocket(/supabase\.co/, (ws) => {
-    if (offline) ws.close()
-    else {
-      sockets.push(ws)
-      ws.connectToServer()
+  const sockets: { close: () => void }[] = []
+  // Requests are made from Node (route.fetch), not from Chromium: in the cloud sandbox Chromium cannot reach Supabase
+  // (POSTs fail with ERR_TOO_MANY_RETRIES) while Node can.
+  await context.route(/supabase\.co/, async (route) => {
+    if (offline) return route.abort('internetdisconnected')
+    try {
+      await route.fulfill({ response: await route.fetch() })
+    } catch {
+      await route.abort('connectionfailed')
     }
+  })
+  // Playwright's own connectToServer() ignores the sandbox proxy, so the page <-> Supabase socket is bridged by hand.
+  const agent = process.env.HTTPS_PROXY ? new HttpsProxyAgent(process.env.HTTPS_PROXY) : undefined
+  await context.routeWebSocket(/supabase\.co/, (ws) => {
+    if (offline) return ws.close()
+    const server = new WebSocket(ws.url(), { agent })
+    const pending: (string | Buffer)[] = []
+    ws.onMessage((m) => (server.readyState === WebSocket.OPEN ? server.send(m) : pending.push(m)))
+    server.on('open', () => pending.splice(0).forEach((m) => server.send(m)))
+    server.on('message', (m: any, isBinary: boolean) => ws.send(isBinary ? m : m.toString()))
+    server.on('close', () => ws.close())
+    server.on('error', () => ws.close())
+    ws.onClose(() => server.close())
+    sockets.push({ close: () => { ws.close(); server.close() } })
   })
   const page = await context.newPage()
   await page.goto('/')
@@ -29,7 +47,7 @@ async function newDevice(browser: import('@playwright/test').Browser, user: { em
   return {
     context,
     page,
-    setOffline: (v) => {
+    setOffline: async (v) => {
       offline = v
       if (v) while (sockets.length) sockets.pop()!.close() // cut sockets that are already open
     },
@@ -37,16 +55,24 @@ async function newDevice(browser: import('@playwright/test').Browser, user: { em
 }
 
 async function createUser(): Promise<{ email: string; password: string }> {
-  const email = `spike-${Date.now()}-${Math.floor(Math.random() * 1e6)}@example.com`
+  const email = `spike-${Date.now()}-${Math.floor(Math.random() * 1e6)}@gmail.com`
   const password = 'spike-password-123'
-  const res = await fetch(`${SUPABASE_URL}/auth/v1/signup`, {
-    method: 'POST',
-    headers: { apikey: ANON_KEY, 'content-type': 'application/json' },
-    body: JSON.stringify({ email, password }),
-  })
+  const adminKey = process.env.SUPABASE_API_KEY
+  // Prefer the admin API: it skips email confirmation and the email domain check.
+  const res = adminKey
+    ? await fetch(`${SUPABASE_URL}/auth/v1/admin/users`, {
+        method: 'POST',
+        headers: { apikey: adminKey, 'content-type': 'application/json' },
+        body: JSON.stringify({ email, password, email_confirm: true }),
+      })
+    : await fetch(`${SUPABASE_URL}/auth/v1/signup`, {
+        method: 'POST',
+        headers: { apikey: ANON_KEY, 'content-type': 'application/json' },
+        body: JSON.stringify({ email, password }),
+      })
   const body: any = await res.json()
-  if (!res.ok || !body.access_token) {
-    throw new Error(`signup failed (turn off "Confirm email" in Supabase Auth settings): ${JSON.stringify(body)}`)
+  if (!res.ok || !(body.access_token || body.id)) {
+    throw new Error(`user creation failed (without SUPABASE_API_KEY, turn off "Confirm email" in Supabase Auth): ${JSON.stringify(body)}`)
   }
   return { email, password }
 }
@@ -61,7 +87,8 @@ async function waitSynced(d: Device) {
   await expect(d.page.getByTestId('status')).toHaveText('synced', { timeout: 15_000 })
 }
 async function expectTitles(p: Page, expected: string[], timeout = SYNC_BUDGET_MS) {
-  await expect.poll(() => titles(p), { timeout }).toEqual([...expected].sort())
+  // poll every 50 ms so the measured sync time is not rounded up to the default back-off steps
+  await expect.poll(() => titles(p), { timeout, intervals: [50] }).toEqual([...expected].sort())
 }
 
 test.describe('sync spike', () => {
@@ -75,13 +102,13 @@ test.describe('sync spike', () => {
     await waitSynced(a)
     await expectTitles(b.page, ['base-2'], 10_000)
 
-    a.setOffline(true)
+    await a.setOffline(true)
     await addNote(a.page, 'offline-add-2')
     await a.page.locator('input[value="base-2"]').fill('offline-edit-2')
     await expectTitles(a.page, ['offline-add-2', 'offline-edit-2'], 300) // instant on A
     await expectTitles(b.page, ['base-2'], 500) // B has not seen it yet
 
-    a.setOffline(false)
+    await a.setOffline(false)
     const t0 = Date.now()
     await a.page.reload() // reconnect: app restarts its sync
     await expectTitles(b.page, ['offline-add-2', 'offline-edit-2'])
@@ -96,10 +123,10 @@ test.describe('sync spike', () => {
     await waitSynced(a)
     await expect.poll(() => titles(b.page), { timeout: 10_000 }).toEqual(expect.arrayContaining(['x3', 'y3']))
 
-    a.setOffline(true); b.setOffline(true)
+    await a.setOffline(true); await b.setOffline(true)
     await noteRow(a.page, 'x3').fill('x3-from-a')
     await noteRow(b.page, 'y3').fill('y3-from-b')
-    a.setOffline(false); b.setOffline(false)
+    await a.setOffline(false); await b.setOffline(false)
     await a.page.reload(); await b.page.reload()
     for (const p of [a.page, b.page]) {
       await expect.poll(() => titles(p), { timeout: 10_000 }).toEqual(expect.arrayContaining(['x3-from-a', 'y3-from-b']))
@@ -113,10 +140,10 @@ test.describe('sync spike', () => {
     await waitSynced(a)
     await expect.poll(() => titles(b.page), { timeout: 10_000 }).toContain('shared-4')
 
-    a.setOffline(true); b.setOffline(true)
+    await a.setOffline(true); await b.setOffline(true)
     await noteRow(a.page, 'shared-4').fill('shared-4-A')
     await noteRow(b.page, 'shared-4').fill('shared-4-B')
-    a.setOffline(false); b.setOffline(false)
+    await a.setOffline(false); await b.setOffline(false)
     await a.page.reload(); await b.page.reload()
     await expect.poll(async () => {
       const [ta, tb] = [await titles(a.page), await titles(b.page)]
@@ -132,14 +159,14 @@ test.describe('sync spike', () => {
     await waitSynced(a)
     await expect.poll(() => titles(b.page), { timeout: 10_000 }).toContain('doomed-5')
 
-    b.setOffline(true)
+    await b.setOffline(true)
     const rowA = a.page.getByTestId('note').filter({ has: a.page.locator('input[value="doomed-5"]') })
     await rowA.locator('[data-testid^="delete-"]').click()
     await waitSynced(a)
     expect(await titles(a.page)).not.toContain('doomed-5')
     expect(await titles(b.page)).toContain('doomed-5') // B was offline, still shows it
 
-    b.setOffline(false)
+    await b.setOffline(false)
     await b.page.reload()
     await expect.poll(() => titles(b.page), { timeout: 10_000 }).not.toContain('doomed-5')
   })
@@ -147,25 +174,60 @@ test.describe('sync spike', () => {
   test('6: unsynced changes survive an app restart and sync later', async ({ browser }) => {
     const a = await newDevice(browser, user)
     const b = await newDevice(browser, user)
-    a.setOffline(true)
+    await a.setOffline(true)
     await addNote(a.page, 'survivor-6')
     await a.page.reload() // restart while still offline
     await expect.poll(() => titles(a.page), { timeout: 10_000 }).toContain('survivor-6')
     expect(await titles(b.page)).not.toContain('survivor-6')
 
-    a.setOffline(false)
+    await a.setOffline(false)
     await a.page.reload()
     await expect.poll(() => titles(b.page), { timeout: 15_000 }).toContain('survivor-6')
   })
 
   test('8: local writes render in under 100 ms', async ({ browser }) => {
     const a = await newDevice(browser, user)
-    a.setOffline(true)
+    await a.setOffline(true)
     for (let i = 0; i < 10; i++) await addNote(a.page, `perf-${i}`)
+    // each sample is pushed on the next animation frame, so wait for the last one
+    await expect.poll(() => a.page.evaluate(() => (globalThis as any).__perf.length)).toBeGreaterThanOrEqual(10)
     const perf: number[] = await a.page.evaluate(() => (globalThis as any).__perf)
     const worst = Math.max(...perf)
     console.log(`criterion 8: ${perf.length} local writes, worst ${worst.toFixed(1)} ms`)
     expect(perf.length).toBeGreaterThanOrEqual(10)
     expect(worst).toBeLessThan(100)
+  })
+
+  test('7: a second user cannot read or change the first user\'s notes', async () => {
+    const token = async (u: { email: string; password: string }) => {
+      const res = await fetch(`${SUPABASE_URL}/auth/v1/token?grant_type=password`, {
+        method: 'POST',
+        headers: { apikey: ANON_KEY, 'content-type': 'application/json' },
+        body: JSON.stringify(u),
+      })
+      const body: any = await res.json()
+      return { jwt: body.access_token as string, id: body.user.id as string }
+    }
+    const rest = (jwt: string, path: string, init: RequestInit = {}) =>
+      fetch(`${SUPABASE_URL}/rest/v1/${path}`, {
+        ...init,
+        headers: { apikey: ANON_KEY, authorization: `Bearer ${jwt}`, 'content-type': 'application/json', prefer: 'return=representation', ...init.headers },
+      })
+    const owner = await token(user)
+    const other = await token(await createUser())
+    const noteId = crypto.randomUUID()
+    expect((await rest(owner.jwt, 'notes', { method: 'POST', body: JSON.stringify({ id: noteId, title: 'private-7' }) })).status).toBe(201)
+
+    expect(await (await rest(other.jwt, `notes?id=eq.${noteId}`)).json()).toEqual([]) // cannot read
+    const patched = await rest(other.jwt, `notes?id=eq.${noteId}`, { method: 'PATCH', body: JSON.stringify({ title: 'hacked' }) })
+    expect(await patched.json()).toEqual([]) // cannot change
+    const spoof = await rest(other.jwt, 'notes', { method: 'POST', body: JSON.stringify({ id: crypto.randomUUID(), user_id: owner.id, title: 'spoof' }) })
+    expect(spoof.status).toBe(403) // cannot write rows as the owner
+    const del = await rest(other.jwt, `notes?id=eq.${noteId}`, { method: 'DELETE' })
+    expect(await del.json()).toEqual([]) // cannot hard delete
+
+    const still = await (await rest(owner.jwt, `notes?id=eq.${noteId}`)).json()
+    expect(still).toHaveLength(1)
+    expect(still[0].title).toBe('private-7')
   })
 })

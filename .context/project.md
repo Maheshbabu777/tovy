@@ -21,7 +21,7 @@ Planned, not built yet: Expo (React Native, TypeScript) with Expo Router, Legend
 | Install | `cd spike && npm install --legacy-peer-deps` |
 | Run locally | |
 | All tests | `cd spike && npm run test:e2e` (needs Supabase reachable) ; `bash supabase/tests/run-local.sh` (row security, local Postgres) |
-| One test file | |
+| One test | `cd spike && npx playwright test -g "2:"` (needs a fresh `expo export` after app changes) |
 | Lint | |
 | Type check | `cd spike && npm run typecheck` |
 | Build | `cd spike && EXPO_PUBLIC_SUPABASE_URL=$SUPABASE_URL EXPO_PUBLIC_SUPABASE_ANON_KEY=$SUPABASE_ANON_KEY npx expo export --platform web` |
@@ -41,7 +41,8 @@ Planned, not built yet: Expo (React Native, TypeScript) with Expo Router, Legend
 ## Gotchas
 
 <!-- One line each, with a file path. Things that cost time to discover. -->
-- 
+- Cloud sandbox: Chromium cannot reach Supabase, Node can, so tests fetch from Node and bridge the websocket by hand (`spike/tests/sync.e2e.ts`).
+- `supabase/migrations/*.sql` must be applied by hand in the Supabase SQL editor. The app shows `synced` even if the table is missing (`spike/src/lib/notes.ts`).
 
 ## Ask the human
 

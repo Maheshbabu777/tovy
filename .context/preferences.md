@@ -19,6 +19,11 @@ Agents: add a line only when the human states a standing preference for this pro
 - A body only when the why isn't obvious, and then a line or two, never a paragraph.
 - PR titles use the same format. PR bodies explain why, not just what.
 
+## Branches
+
+- Don't create random branch names like `claude/...something`. Everything needs to be meaningful: name a branch after the work, e.g. `feat/sync-spike`. (2026-10-01)
+- Keep the repo clean and structured. Create PRs and merge things. (2026-10-01)
+
 ## Code
 
 - Practical working code over theoretical perfection. Don't over-engineer.
