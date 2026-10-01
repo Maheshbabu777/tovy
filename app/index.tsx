@@ -39,8 +39,22 @@ function SignIn() {
 
   return (
     <View style={styles.pad}>
-      <TextInput testID="email" placeholder="email" value={email} onChangeText={setEmail} autoCapitalize="none" style={styles.input} />
-      <TextInput testID="password" placeholder="password" value={password} onChangeText={setPassword} secureTextEntry style={styles.input} />
+      <TextInput
+        testID="email"
+        placeholder="email"
+        value={email}
+        onChangeText={setEmail}
+        autoCapitalize="none"
+        style={styles.input}
+      />
+      <TextInput
+        testID="password"
+        placeholder="password"
+        value={password}
+        onChangeText={setPassword}
+        secureTextEntry
+        style={styles.input}
+      />
       <Pressable testID="sign-in" onPress={signIn} style={styles.button}>
         <Text>Sign in</Text>
       </Pressable>
@@ -64,7 +78,13 @@ function NotesScreen() {
     <ScrollView contentContainerStyle={styles.pad}>
       <Text testID="status">{!loaded ? 'loading' : pending > 0 ? `pending ${pending}` : 'synced'}</Text>
       <View style={styles.row}>
-        <TextInput testID="new-title" placeholder="New note" value={draft} onChangeText={setDraft} style={[styles.input, { flex: 1 }]} />
+        <TextInput
+          testID="new-title"
+          placeholder="New note"
+          value={draft}
+          onChangeText={setDraft}
+          style={[styles.input, { flex: 1 }]}
+        />
         <Pressable
           testID="add"
           style={styles.button}
