@@ -3,6 +3,7 @@
 // The real sync against Supabase is covered by the e2e suite (tests/e2e).
 import { createNotesStore } from './notes'
 
+jest.mock('./syncConfig', () => ({}))
 jest.mock('@legendapp/state/sync-plugins/supabase', () => ({
   configureSyncedSupabase: jest.fn(),
   syncedSupabase: () => ({}),
