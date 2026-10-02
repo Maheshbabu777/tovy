@@ -62,10 +62,10 @@ export type TodayGroups = {
   doneToday: Task[]
 }
 
-const byCreated = (a: Task, b: Task) =>
+export const byCreated = (a: Task, b: Task) =>
   (a.created_at ?? '~').localeCompare(b.created_at ?? '~') || a.id.localeCompare(b.id)
 // Earlier first, a task with a time before one without on the same day, then oldest first.
-const byDue = (a: Task, b: Task) =>
+export const byDue = (a: Task, b: Task) =>
   (a.due_date ?? '').localeCompare(b.due_date ?? '') ||
   (a.due_time ?? '99:99').localeCompare(b.due_time ?? '99:99') ||
   byCreated(a, b)

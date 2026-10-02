@@ -302,14 +302,23 @@ export function createTasksStore(userId: string) {
       projects$[id].color.set(color)
     },
 
-    // Deleting a project keeps its tasks: they move to "No project".
-    deleteProject(id: string) {
+    // Deleting a project keeps its tasks: they move to "No project". `undo` puts the project and those tasks back.
+    deleteProject(id: string): { undo: () => void } {
+      const project = { ...(projects$[id].peek() as Project) }
+      const moved = liveTasks()
+        .filter((t) => t.project_id === id)
+        .map((t) => t.id)
       batch(() => {
-        liveTasks()
-          .filter((t) => t.project_id === id)
-          .forEach((t) => tasks$[t.id].project_id.set(null))
+        moved.forEach((i) => tasks$[i].project_id.set(null))
         projects$[id].deleted.set(true)
       })
+      const restore = () =>
+        batch(() => {
+          if (projects$[id].peek()) projects$[id].deleted.set(false)
+          else projects$[id].set({ ...project, deleted: false })
+          moved.forEach((i) => tasks$[i].peek() && tasks$[i].project_id.set(id))
+        })
+      return { undo: restore }
     },
 
     // The Supabase sync plugin does not fetch again after its realtime channel joins, so a change another device saves
