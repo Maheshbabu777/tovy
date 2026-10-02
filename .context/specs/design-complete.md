@@ -27,7 +27,7 @@ Phase 1 is its own pull request (migration and row security test), merged first.
 ## Progress
 
 - [x] Approved (human, 2026-10-02: go all in and complete the design)
-- [ ] 1 Database
+- [x] 1 Database
 - [ ] 2 Inbox
 - [ ] 3 Projects
 - [ ] 4 Profile

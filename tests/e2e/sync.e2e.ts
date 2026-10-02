@@ -164,6 +164,28 @@ async function serverTitles(u: { email: string; password: string }): Promise<str
   return serverTitlesOf(access_token)
 }
 
+// Reads and writes the person's own rows straight on the server (what a connected app's proposal looks like to them).
+async function asUser(u: { email: string; password: string }) {
+  const login = await fetch(`${SUPABASE_URL}/auth/v1/token?grant_type=password`, {
+    method: 'POST',
+    headers: { apikey: ANON_KEY, 'content-type': 'application/json' },
+    body: JSON.stringify(u),
+  })
+  const { access_token } = await login.json()
+  const headers = { apikey: ANON_KEY, authorization: `Bearer ${access_token}`, 'content-type': 'application/json' }
+  return {
+    get: async (path: string) => (await fetch(`${SUPABASE_URL}/rest/v1/${path}`, { headers })).json() as Promise<any[]>,
+    post: async (table: string, rows: object[]) => {
+      const res = await fetch(`${SUPABASE_URL}/rest/v1/${table}`, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify(rows),
+      })
+      if (!res.ok) throw new Error(`${table}: ${res.status} ${await res.text()}`)
+    },
+  }
+}
+
 // Live tasks (title and project) and live project names the server holds for a user, read directly.
 async function serverRows(u: { email: string; password: string }) {
   const login = await fetch(`${SUPABASE_URL}/auth/v1/token?grant_type=password`, {
@@ -492,6 +514,80 @@ test.describe('sync spike', () => {
         timeout: 15_000,
       })
       .toBe(projectId)
+  })
+
+  test('i1: proposals from AI apps wait in the Inbox until approved, rejected or approved all', async ({ browser }) => {
+    const u = await createUser()
+    const api = await asUser(u)
+    const a = await newDevice(browser, u)
+    await addNote(a.page, 'inbox-target')
+    await expect.poll(async () => (await api.get('tasks?select=id,title')).length, { timeout: 15_000 }).toBe(1)
+    const [target] = await api.get('tasks?select=id')
+    await api.post('proposals', [
+      {
+        app_name: 'Claude',
+        kind: 'add_task',
+        title: 'Add task: Prepare sprint review',
+        task_id: null,
+        before: {},
+        after: { title: 'Prepare sprint review' },
+      },
+      {
+        app_name: 'Claude',
+        kind: 'update_progress',
+        title: 'inbox-target to 60%',
+        task_id: target.id,
+        before: { progress: 0 },
+        after: { progress: 60 },
+      },
+      {
+        app_name: 'ChatGPT',
+        kind: 'reschedule',
+        title: 'Move inbox-target to Friday',
+        task_id: target.id,
+        before: {},
+        after: { due_date: '2030-01-04' },
+      },
+    ])
+
+    // the badge counts what is waiting, wherever you are
+    await expect(a.page.getByTestId('inbox-badge').first()).toHaveText('3', { timeout: 15_000 })
+    await a.page.getByTestId('tab-inbox').click()
+    await expect(a.page.getByText('3 waiting for your approval')).toBeVisible()
+    await expect(a.page.getByTestId('group-Claude')).toBeVisible()
+    await expect(a.page.getByTestId('group-ChatGPT')).toBeVisible()
+
+    // the detail sheet shows before and after, and approving applies the change
+    await a.page.locator('[data-testid^="open-proposal-"]').filter({ hasText: 'to 60%' }).click()
+    await expect(a.page.getByTestId('change-before')).toHaveText('0%')
+    await expect(a.page.getByTestId('change-after')).toHaveText('60%')
+    await a.page.getByTestId('sheet-approve').click()
+    await expect(a.page.getByTestId('toast')).toContainText('Approved')
+    await expect(a.page.getByTestId('inbox-badge').first()).toHaveText('2')
+    await expect
+      .poll(async () => (await api.get('tasks?select=progress,kind'))[0], { timeout: 15_000 })
+      .toEqual({
+        progress: 60,
+        kind: 'deep',
+      })
+
+    // reject has an Undo
+    await a.page.locator('[data-testid^="reject-"]').last().click()
+    await expect(a.page.getByTestId('toast')).toContainText('Rejected')
+    await expect(a.page.getByText('1 waiting for your approval')).toBeVisible()
+    await a.page.getByTestId('toast-undo').click()
+    await expect(a.page.getByText('2 waiting for your approval')).toBeVisible()
+
+    // approve all applies the rest
+    await a.page.getByTestId('approve-all').click()
+    await expect(a.page.getByText('You are all caught up')).toBeVisible()
+    await expect(a.page.getByTestId('inbox-badge')).toHaveCount(0)
+    await expect
+      .poll(async () => (await api.get('proposals?select=status')).map((p) => p.status), { timeout: 15_000 })
+      .toEqual(['approved', 'approved', 'approved'])
+    const tasks = await api.get('tasks?select=title,due_date')
+    expect(tasks.map((t) => t.title).sort()).toEqual(['Prepare sprint review', 'inbox-target'])
+    expect(tasks.find((t) => t.title === 'inbox-target')?.due_date).toBe('2030-01-04')
   })
 
   test('c1: a user signs in with an emailed code and stays signed in after a reload', async ({ browser }) => {

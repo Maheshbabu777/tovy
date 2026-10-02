@@ -16,6 +16,7 @@ export type Task = {
   due_time: string | null // HH:MM, only with a due date
   kind: TaskKind
   done_at: string | null
+  progress?: number // 0 to 100, how far a deep task is (the server default is 0)
   project_id: string | null // null means "No project"
   parent_id: string | null // null means a top level task
   deleted?: boolean
@@ -28,6 +29,29 @@ export type Project = {
   user_id?: string
   name: string
   color: string
+  deleted?: boolean
+  created_at?: string | null
+  updated_at?: string | null
+}
+
+export type ProposalKind = 'add_task' | 'update_progress' | 'reschedule'
+export type ProposalStatus = 'pending' | 'approved' | 'rejected'
+
+// What a connected AI app asks for. Nothing in the person's tasks changes until they approve it.
+//   add_task:        after = { title, due_date?, due_time?, project_id? }
+//   update_progress: before = { progress }, after = { progress }, task_id
+//   reschedule:      before = { due_date, due_time? }, after = { due_date, due_time? }, task_id
+export type Proposal = {
+  id: string
+  user_id?: string
+  app_name: string
+  kind: ProposalKind
+  title: string
+  task_id: string | null
+  before: Record<string, unknown>
+  after: Record<string, unknown>
+  status: ProposalStatus
+  decided_at: string | null
   deleted?: boolean
   created_at?: string | null
   updated_at?: string | null
@@ -57,7 +81,7 @@ const LINK_RETRIES = 8
 // "pending" and the Undo bar never went away). Sending the very same update for a row again within this time, after it
 // was saved successfully, changes nothing on the server, so it is not sent.
 const REPEAT_UPDATE_MS = 2000
-type Table = 'tasks' | 'projects'
+type Table = 'tasks' | 'projects' | 'proposals'
 
 function createServerWrites() {
   let tail: Promise<unknown> = Promise.resolve()
@@ -141,6 +165,18 @@ export function createTasksStore(userId: string) {
     }),
   )
 
+  const proposalsName = `proposals-${userId}`
+  const proposals$ = observable(
+    syncedSupabase({
+      supabase,
+      collection: 'proposals',
+      create: writes.create('proposals') as never,
+      update: writes.update('proposals') as never,
+      realtime: true,
+      persist: { name: proposalsName, plugin: createPersistPlugin(proposalsName), retrySync: true },
+    }),
+  )
+
   const liveTasks = (): Task[] =>
     Object.values((tasks$.peek() ?? {}) as Record<string, Task>).filter((t) => t && !t.deleted)
   const liveProjects = (): Project[] =>
@@ -192,6 +228,7 @@ export function createTasksStore(userId: string) {
     userId,
     tasks$,
     projects$,
+    proposals$,
 
     // ----- reading -----
     subtasksOf: (id: string): Task[] => children(id),
@@ -287,6 +324,74 @@ export function createTasksStore(userId: string) {
       }
     },
 
+    // Sets how far a task is, 0 to 100. A quick task becomes deep (only a deep task can be partly done), 100 finishes it
+    // and going back below 100 reopens it.
+    setProgress(id: string, value: number) {
+      const task = getTask(id)
+      if (!task) throw new Error('That task does not exist')
+      const progress = Math.max(0, Math.min(100, Math.round(value)))
+      batch(() => {
+        if (task.kind === 'quick' && progress > 0 && progress < 100) tasks$[id].kind.set('deep')
+        tasks$[id].progress.set(progress)
+        if (progress === 100 && !task.done_at) tasks$[id].done_at.set(new Date().toISOString())
+        if (progress < 100 && task.done_at) tasks$[id].done_at.set(null)
+      })
+    },
+
+    // ----- proposals (the approval inbox) -----
+    pendingProposals: (): Proposal[] =>
+      Object.values((proposals$.peek() ?? {}) as Record<string, Proposal>).filter(
+        (p) => p && !p.deleted && p.status === 'pending',
+      ),
+
+    // Does what the proposal asks, then marks it approved. If the task it is about is gone, nothing changes and the
+    // error says so.
+    approveProposal(id: string) {
+      const p = (proposals$.peek() as Record<string, Proposal> | undefined)?.[id]
+      if (!p || p.deleted || p.status !== 'pending') throw new Error('That proposal is no longer waiting')
+      const after = p.after ?? {}
+      batch(() => {
+        if (p.kind === 'add_task') {
+          const projectId =
+            typeof after.project_id === 'string' && liveProjects().some((x) => x.id === after.project_id)
+          this.addTask({
+            title: typeof after.title === 'string' && after.title.trim() ? after.title : p.title,
+            dueDate: typeof after.due_date === 'string' ? after.due_date : null,
+            dueTime: typeof after.due_time === 'string' ? after.due_time : null,
+            projectId: projectId ? (after.project_id as string) : null,
+          })
+        } else if (p.kind === 'reschedule') {
+          if (!p.task_id || !getTask(p.task_id)) throw new Error('That task no longer exists')
+          this.editTask(p.task_id, {
+            dueDate: typeof after.due_date === 'string' ? after.due_date : null,
+            dueTime: typeof after.due_time === 'string' ? after.due_time : null,
+          })
+        } else {
+          if (!p.task_id || !getTask(p.task_id)) throw new Error('That task no longer exists')
+          this.setProgress(p.task_id, Number(after.progress))
+        }
+        proposals$[id].status.set('approved')
+        proposals$[id].decided_at.set(new Date().toISOString())
+      })
+    },
+
+    // Nothing is changed. `undo` puts the proposal back to waiting.
+    rejectProposal(id: string): { undo: () => void } {
+      const p = (proposals$.peek() as Record<string, Proposal> | undefined)?.[id]
+      if (!p || p.deleted || p.status !== 'pending') throw new Error('That proposal is no longer waiting')
+      batch(() => {
+        proposals$[id].status.set('rejected')
+        proposals$[id].decided_at.set(new Date().toISOString())
+      })
+      return {
+        undo: () =>
+          batch(() => {
+            proposals$[id].status.set('pending')
+            proposals$[id].decided_at.set(null)
+          }),
+      }
+    },
+
     // ----- projects -----
     addProject(name: string, color = 'slate'): string {
       const id = uuidv4()
@@ -330,7 +435,9 @@ export function createTasksStore(userId: string) {
       // its server `created_at`, and its next change was then sent as a second insert. Cause not proven. The fetch now
       // waits until nothing is waiting to be saved.
       const unsent = () =>
-        (syncState(tasks$).numPendingSets.peek() ?? 0) + (syncState(projects$).numPendingSets.peek() ?? 0)
+        (syncState(tasks$).numPendingSets.peek() ?? 0) +
+        (syncState(projects$).numPendingSets.peek() ?? 0) +
+        (syncState(proposals$).numPendingSets.peek() ?? 0)
       const syncBoth = (tries = 0) => {
         if (unsent() > 0 && tries < 20) {
           later = setTimeout(() => syncBoth(tries + 1), 500)
@@ -338,11 +445,13 @@ export function createTasksStore(userId: string) {
         }
         void syncState(tasks$).sync()
         void syncState(projects$).sync()
+        void syncState(proposals$).sync()
       }
       const channel = supabase
         .channel(`tasks-catch-up-${userId}`)
         .on('postgres_changes', { event: '*', schema: 'public', table: 'tasks' }, () => {})
         .on('postgres_changes', { event: '*', schema: 'public', table: 'projects' }, () => {})
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'proposals' }, () => {})
         .subscribe((status) => {
           if (status !== 'SUBSCRIBED') return
           syncBoth()
@@ -356,7 +465,7 @@ export function createTasksStore(userId: string) {
 
     // Forgets this user's tasks and projects on this device (used at sign out). Nothing is deleted on the server.
     async dispose(): Promise<void> {
-      await Promise.all([syncState(tasks$).reset(), syncState(projects$).reset()])
+      await Promise.all([syncState(tasks$).reset(), syncState(projects$).reset(), syncState(proposals$).reset()])
     },
   }
 }

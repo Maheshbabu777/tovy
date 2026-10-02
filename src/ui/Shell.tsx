@@ -3,7 +3,10 @@ import { Animated, Easing, Image, Platform, Pressable, Text, useWindowDimensions
 import { usePathname, useRouter } from 'expo-router'
 import { TabSlot, TabTrigger, useTabsWithTriggers } from 'expo-router/ui'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
-import { CircleCheck, Folder, PanelLeft, Plus, User, type LucideIcon } from 'lucide-react-native'
+import { CircleCheck, Folder, Inbox, PanelLeft, Plus, User, type LucideIcon } from 'lucide-react-native'
+import { use$ } from '@legendapp/state/react'
+import type { Proposal } from '../core/sync/tasks'
+import { useStore } from './StoreContext'
 import storage from '../core/db/authStorage'
 import { requestQuickAdd } from './quickAdd'
 import { useTheme } from './theme'
@@ -12,8 +15,15 @@ import { transition, useFocusRing, useHover, webStyle } from './components/web'
 
 // The places a person can go. One line each: add a tab here and a route file under `app/(tabs)/`.
 // `key` is the keyboard shortcut on the web (design 6.1).
-const TABS: { name: string; href: '/' | '/projects' | '/profile'; label: string; Icon: LucideIcon; key?: string }[] = [
+const TABS: {
+  name: string
+  href: '/' | '/inbox' | '/projects' | '/profile'
+  label: string
+  Icon: LucideIcon
+  key?: string
+}[] = [
   { name: 'index', href: '/', label: 'Today', Icon: CircleCheck, key: 'T' },
+  { name: 'inbox', href: '/inbox', label: 'Inbox', Icon: Inbox, key: 'I' },
   { name: 'projects', href: '/projects', label: 'Projects', Icon: Folder, key: 'P' },
   { name: 'profile', href: '/profile', label: 'Profile', Icon: User },
 ]
@@ -29,6 +39,7 @@ function NavItem({
   wide,
   collapsed,
   shortcut,
+  badge = 0,
   isFocused,
   onPress,
 }: {
@@ -37,6 +48,7 @@ function NavItem({
   wide: boolean
   collapsed: boolean
   shortcut?: string
+  badge?: number
   isFocused?: boolean
   onPress?: () => void
 }) {
@@ -55,7 +67,10 @@ function NavItem({
         style={[{ flex: 1, alignItems: 'center', gap: 2, paddingVertical: 4 }, ring.style]}
         {...ring.handlers}
       >
-        <Icon size={22} color={on ? c.accent : c.ink6} strokeWidth={on ? 2.1 : 1.75} />
+        <View>
+          <Icon size={22} color={on ? c.accent : c.ink6} strokeWidth={on ? 2.1 : 1.75} />
+          {badge > 0 ? <Badge count={badge} floating /> : null}
+        </View>
         <Text style={[type.micro, { color: on ? c.accent : c.ink6 }]}>{label}</Text>
       </Pressable>
     )
@@ -86,16 +101,46 @@ function NavItem({
       {...hover}
       {...ring.handlers}
     >
-      <Icon size={19} color={on ? c.ink : c.ink6} strokeWidth={on ? 2.1 : 1.75} />
+      <View>
+        <Icon size={19} color={on ? c.ink : c.ink6} strokeWidth={on ? 2.1 : 1.75} />
+        {badge > 0 && collapsed ? <Badge count={badge} floating /> : null}
+      </View>
       {collapsed ? null : (
         <>
           <Text style={[{ flex: 1, fontFamily: fonts.medium, fontSize: 14.5 }, { color: on ? c.ink : c.ink6 }]}>
             {label}
           </Text>
+          {badge > 0 ? <Badge count={badge} /> : null}
           {shortcut ? <Text style={[type.monoXs, { color: c.ink5 }]}>{shortcut}</Text> : null}
         </>
       )}
     </Pressable>
+  )
+}
+
+// Design 11.0: an accent pill with the number of proposals waiting. On an icon it sits at the top right.
+function Badge({ count, floating = false }: { count: number; floating?: boolean }) {
+  const { theme } = useTheme()
+  const c = theme.colors
+  return (
+    <View
+      testID="inbox-badge"
+      accessibilityLabel={`${count} waiting`}
+      style={[
+        {
+          minWidth: 16,
+          height: 16,
+          borderRadius: 8,
+          paddingHorizontal: 4,
+          backgroundColor: c.accent,
+          alignItems: 'center',
+          justifyContent: 'center',
+        },
+        floating ? { position: 'absolute', top: -6, right: -9 } : {},
+      ]}
+    >
+      <Text style={{ fontFamily: fonts.medium, fontSize: 10, color: c.onAccent }}>{count > 99 ? '99+' : count}</Text>
+    </View>
   )
 }
 
@@ -122,6 +167,9 @@ export function Shell() {
   const router = useRouter()
   const { theme } = useTheme()
   const c = theme.colors
+  const store = useStore()
+  const proposals = use$(store.proposals$) as Record<string, Proposal> | undefined
+  const waiting = Object.values(proposals ?? {}).filter((p) => p && !p.deleted && p.status === 'pending').length
   // The router only finds tabs written directly inside <Tabs>. Our frame has wrapper views, so the tabs are given to it
   // explicitly (the documented way for a custom layout).
   const { NavigationContent } = useTabsWithTriggers({
@@ -177,7 +225,14 @@ export function Shell() {
     <View style={wide ? { gap: 4 } : { flexDirection: 'row' }}>
       {TABS.map(({ name, label, Icon, key }) => (
         <TabTrigger key={name} name={name} asChild>
-          <NavItem label={label} Icon={Icon} wide={wide} collapsed={collapsed} shortcut={key} />
+          <NavItem
+            label={label}
+            Icon={Icon}
+            wide={wide}
+            collapsed={collapsed}
+            shortcut={key}
+            badge={name === 'inbox' ? waiting : 0}
+          />
         </TabTrigger>
       ))}
     </View>
