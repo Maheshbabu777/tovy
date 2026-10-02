@@ -41,10 +41,13 @@ export function useHover() {
   return { hovered, handlers: { onHoverIn: () => setHovered(true), onHoverOut: () => setHovered(false) } }
 }
 
+// Shadows of the style guide (Space and shape): only what floats has one.
 export const SHADOWS = {
-  lift: '0 1px 2px rgba(17,17,26,0.08), 0 4px 12px -4px rgba(17,17,26,0.14)',
-  raisedS: '0 1px 2px rgba(0,0,0,0.05)',
-  menu: '0 10px 30px rgba(0,0,0,0.15)',
-  overlay: '0 25px 50px -12px rgba(0,0,0,0.25)',
+  lift: '0 1px 2px rgba(0,0,0,0.06)',
+  raisedS: '0 1px 2px rgba(0,0,0,0.06)',
+  menu: '0 12px 32px rgba(0,0,0,0.08)',
+  overlay: '0 12px 32px rgba(0,0,0,0.08)',
+  toast: '0 12px 32px rgba(0,0,0,0.18)',
+  fab: '0 8px 24px rgba(0,0,0,0.20)',
 }
 export const shadow = (value: string): ViewStyle => ({ boxShadow: value }) as ViewStyle

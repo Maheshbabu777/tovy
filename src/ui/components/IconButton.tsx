@@ -1,10 +1,10 @@
 import { Pressable } from 'react-native'
-import type { LucideIcon } from 'lucide-react-native'
+import { type ToolkitIcon } from '../icons'
 import { useTheme } from '../theme'
 import { radius } from '../tokens'
 import { transition, useFocusRing, useHover } from './web'
 
-// Design 7.2: 40 by 40, radius 10, icon 20 in ink-6. It always has an accessible label (a tooltip on the web).
+// Style guide, Buttons: icon button 40 round, icon 20 in text-2, hover fill. It always has an accessible label (a tooltip on the web).
 export function IconButton({
   icon: Icon,
   label,
@@ -12,7 +12,7 @@ export function IconButton({
   color,
   testID,
 }: {
-  icon: LucideIcon
+  icon: ToolkitIcon
   label: string
   onPress?: () => void
   color?: string
@@ -21,7 +21,7 @@ export function IconButton({
   const { theme } = useTheme()
   const c = theme.colors
   const { hovered, handlers: hover } = useHover()
-  const ring = useFocusRing(c.accent)
+  const ring = useFocusRing(c.primary)
   return (
     <Pressable
       testID={testID}
@@ -34,10 +34,10 @@ export function IconButton({
         {
           width: 40,
           height: 40,
-          borderRadius: radius.md,
+          borderRadius: radius.pill,
           alignItems: 'center',
           justifyContent: 'center',
-          backgroundColor: hovered ? c.ink2 : 'transparent',
+          backgroundColor: hovered ? c.hover : 'transparent',
         },
         transition('background-color'),
         ring.style,
@@ -45,7 +45,7 @@ export function IconButton({
       {...hover}
       {...ring.handlers}
     >
-      <Icon size={20} color={hovered ? c.ink : (color ?? c.ink6)} strokeWidth={1.75} />
+      <Icon size={20} color={hovered ? c.text : (color ?? c.text2)} />
     </Pressable>
   )
 }

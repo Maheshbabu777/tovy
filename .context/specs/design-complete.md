@@ -1,6 +1,8 @@
 # Finish the design: Inbox, Projects, Profile, Task detail, Today
 
-Status: approved (phases 1 to 6 done, items under criterion 8 are next)
+Status: done
+
+Phases 1 to 6 are merged. The items under criterion 8 and the visual direction moved to `foundation-reset.md`.
 
 Size: large (new tables, every tab). Done in phases, each merged on its own so the database changes reach the dev project first (`decisions.md`: migrations apply when they merge to main).
 

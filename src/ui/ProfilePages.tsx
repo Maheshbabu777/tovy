@@ -1,5 +1,5 @@
 import { useRef, useState } from 'react'
-import { Image, Text, View } from 'react-native'
+import { Text, View } from 'react-native'
 import Constants from 'expo-constants'
 import { cacheProfile, updateProfile, type Profile } from '../core/profile/profile'
 import { checkProfileInput, USERNAME_HELP, USERNAME_PATTERN, type ProfileErrors } from '../core/profile/rules'
@@ -8,10 +8,10 @@ import { Input } from './components/Input'
 import { Segmented } from './components/Segmented'
 import { Group } from './components/SettingsList'
 import { useToast } from './components/Toast'
-import { accentColor, ACCENTS, useTheme, type AccentName, type ThemePreference } from './theme'
-import { fonts, radius, type } from './tokens'
+import { Logo } from './Brand'
+import { useTheme, type ThemePreference } from './theme'
+import { fonts, type } from './tokens'
 import { useUsernameFree } from './useUsernameFree'
-import { AccentOption } from './AccentOption'
 
 const THEMES: { value: ThemePreference; label: string }[] = [
   { value: 'light', label: 'Light' },
@@ -21,28 +21,14 @@ const THEMES: { value: ThemePreference; label: string }[] = [
 
 export const THEME_LABEL: Record<ThemePreference, string> = { light: 'Light', dark: 'Dark', system: 'System' }
 
-// Design 11.18: the theme, and three accent colours. Changes apply at once.
+// The theme: light, dark or follow the device. Changes apply at once.
 export function AppearancePage() {
-  const { theme, preference, accent, setPreference, setAccent } = useTheme()
+  const { preference, setPreference } = useTheme()
   return (
     <View>
       <Group title="Theme">
         <View style={{ padding: 12 }}>
           <Segmented options={THEMES} value={preference} onChange={setPreference} testID="theme-choice" />
-        </View>
-      </Group>
-      <Group title="Accent">
-        <View style={{ flexDirection: 'row', gap: 10, padding: 12 }}>
-          {(Object.keys(ACCENTS) as AccentName[]).map((name) => (
-            <AccentOption
-              key={name}
-              label={ACCENTS[name].label}
-              swatch={accentColor(name, theme.mode)}
-              selected={name === accent}
-              onPress={() => setAccent(name)}
-              testID={`accent-${name}`}
-            />
-          ))}
         </View>
       </Group>
     </View>
@@ -144,18 +130,14 @@ export function EditProfilePage({ profile, onSaved }: { profile: Profile; onSave
   )
 }
 
-// Design 11.27: the logo, the name and the version.
+// The mark, the wordmark and the version.
 export function AboutPage() {
   const { theme } = useTheme()
   const c = theme.colors
   return (
     <View style={{ alignItems: 'center', paddingTop: 32, gap: 12 }}>
-      <Image
-        source={require('../../assets/brand/tovy-logo.png')}
-        style={{ width: 56, height: 56, resizeMode: 'contain', borderRadius: radius.lg }}
-        accessibilityLabel="Tovy"
-      />
-      <Text style={{ fontFamily: fonts.semibold, fontSize: 24, letterSpacing: -0.6, color: c.ink }}>tovy</Text>
+      <Logo size={48} />
+      <Text style={{ fontFamily: fonts.semibold, fontSize: 24, letterSpacing: -0.96, color: c.text }}>tovy</Text>
       <Text testID="app-version" style={[type.monoS, { color: c.ink6 }]}>
         Version {Constants.expoConfig?.version ?? ''}
       </Text>

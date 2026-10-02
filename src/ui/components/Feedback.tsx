@@ -1,17 +1,17 @@
 import { useEffect, useState, type ReactNode } from 'react'
 import { Animated, Easing, Platform, Text, View } from 'react-native'
-import { Cloud, type LucideIcon } from 'lucide-react-native'
+import { Icons, type ToolkitIcon } from '../icons'
 import { useTheme } from '../theme'
 import { radius, type } from '../tokens'
 
-// Design 7.22: centred, at most 320 wide, a 56 px ink-1 circle with a 24 px icon, a 17 px title, a 14 px body.
+// Empty state: centred, at most 320 wide, a 32 px icon in text-3, an 18 px title and a 14 px body in text-2.
 export function EmptyState({
   icon: Icon,
   title,
   body,
   children,
 }: {
-  icon: LucideIcon
+  icon: ToolkitIcon
   title: string
   body: string
   children?: ReactNode
@@ -23,26 +23,15 @@ export function EmptyState({
       testID="empty-state"
       style={{ alignSelf: 'center', maxWidth: 320, paddingVertical: 64, alignItems: 'center' }}
     >
-      <View
-        style={{
-          width: 56,
-          height: 56,
-          borderRadius: 28,
-          backgroundColor: c.ink1,
-          alignItems: 'center',
-          justifyContent: 'center',
-        }}
-      >
-        <Icon size={24} color={c.ink6} strokeWidth={1.75} />
-      </View>
-      <Text style={[type.title, { color: c.ink, marginTop: 16, textAlign: 'center' }]}>{title}</Text>
-      <Text style={[type.bodyS, { color: c.ink6, marginTop: 4, textAlign: 'center' }]}>{body}</Text>
+      <Icon size={32} color={c.text3} />
+      <Text style={[type.title, { color: c.text, marginTop: 16, textAlign: 'center' }]}>{title}</Text>
+      <Text style={[type.bodyS, { color: c.text2, marginTop: 4, textAlign: 'center' }]}>{body}</Text>
       {children ? <View style={{ marginTop: 20 }}>{children}</View> : null}
     </View>
   )
 }
 
-// Design 7.23: rows of a 24 px circle and two bars, pulsing 1 to 0.5 to 1 over 1.4 s. Only on the first load of a list.
+// Rows of a 20 px circle and two bars split by hairlines, pulsing 1 to 0.5 to 1 over 1.4 s. Only on the first load of a list.
 export function Skeleton({ rows = 5 }: { rows?: number }) {
   const { theme } = useTheme()
   const c = theme.colors
@@ -73,19 +62,26 @@ export function Skeleton({ rows = 5 }: { rows?: number }) {
       {Array.from({ length: rows }, (_, i) => (
         <View
           key={i}
-          style={{ flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 12, paddingVertical: 12 }}
+          style={{
+            flexDirection: 'row',
+            alignItems: 'center',
+            gap: 12,
+            paddingVertical: 14,
+            borderBottomWidth: 1,
+            borderBottomColor: c.line,
+          }}
         >
-          <View style={{ width: 24, height: 24, borderRadius: 12, backgroundColor: c.ink2 }} />
+          <View style={{ width: 20, height: 20, borderRadius: 10, backgroundColor: c.hover }} />
           <View style={{ flex: 1, gap: 8 }}>
             <View
               style={{
                 height: 14,
                 width: widths[i % widths.length] as `${number}%`,
                 borderRadius: radius.sm,
-                backgroundColor: c.ink2,
+                backgroundColor: c.hover,
               }}
             />
-            <View style={{ height: 10, width: '33%', borderRadius: radius.sm, backgroundColor: c.ink1 }} />
+            <View style={{ height: 10, width: '33%', borderRadius: radius.sm, backgroundColor: c.panel }} />
           </View>
         </View>
       ))}
@@ -93,7 +89,7 @@ export function Skeleton({ rows = 5 }: { rows?: number }) {
   )
 }
 
-// Design 7.24: radius 10, padding 8 by 12, 13 px text, a 16 px cloud. Offline is neutral, a sync error is red.
+// A hairline box, radius 10, padding 8 by 12, 13 px text, a 16 px icon. Offline is neutral, a sync error is red.
 export function Banner({ kind, children }: { kind: 'offline' | 'error'; children: string }) {
   const { theme } = useTheme()
   const c = theme.colors
@@ -109,13 +105,13 @@ export function Banner({ kind, children }: { kind: 'offline' | 'error'; children
         borderRadius: radius.md,
         paddingHorizontal: 12,
         paddingVertical: 8,
-        backgroundColor: error ? c.badSoft : c.ink1,
+        backgroundColor: error ? c.badSoft : c.panel,
+        borderWidth: 1,
+        borderColor: error ? c.badSoft : c.line,
       }}
     >
-      <Cloud size={16} color={error ? c.bad : c.ink7} strokeWidth={1.75} />
-      <Text style={[type.label, { color: error ? c.bad : c.ink7, flexShrink: 1, fontFamily: undefined }]}>
-        {children}
-      </Text>
+      <Icons.offline size={16} color={error ? c.red : c.text2} />
+      <Text style={[type.label, { color: error ? c.red : c.text2, flexShrink: 1 }]}>{children}</Text>
     </View>
   )
 }

@@ -70,3 +70,9 @@ export function logStamp(entry: Pick<LogEntry, 'created_at' | 'day'>): string {
   const minutes = String(d.getMinutes()).padStart(2, '0')
   return `${WEEKDAYS[d.getDay()]} ${hours % 12 === 0 ? 12 : hours % 12}:${minutes} ${hours < 12 ? 'AM' : 'PM'}`
 }
+
+// "2 of 5": how many of a task's direct subtasks are done. Total 0 means it has none.
+export function subtaskCount(task: Task, all: Task[]): { done: number; total: number } {
+  const kids = childrenOf(task.id, all)
+  return { done: kids.filter((k) => k.done_at).length, total: kids.length }
+}

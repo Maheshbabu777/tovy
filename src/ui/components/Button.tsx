@@ -1,8 +1,8 @@
 import { Pressable, Text, View, type ViewStyle } from 'react-native'
-import type { LucideIcon } from 'lucide-react-native'
+import { type ToolkitIcon } from '../icons'
 import { useTheme, useThemedStyles } from '../theme'
 import { fonts, radius } from '../tokens'
-import { shadow, SHADOWS, transition, useFocusRing, useHover, webStyle } from './web'
+import { transition, useFocusRing, useHover, webStyle } from './web'
 
 export type ButtonVariant = 'primary' | 'soft' | 'ghost' | 'danger'
 
@@ -23,7 +23,7 @@ export function Button({
   onPress?: () => void
   variant?: ButtonVariant
   small?: boolean
-  icon?: LucideIcon
+  icon?: ToolkitIcon
   disabled?: boolean
   bordered?: boolean // a ghost button with a 1 px outline ("Continue with Google")
   fullWidth?: boolean
@@ -36,16 +36,16 @@ export function Button({
   const ring = useFocusRing(c.accent)
   const s = useThemedStyles((col) => ({
     base: {
-      minHeight: 44,
-      paddingHorizontal: 20,
-      borderRadius: radius.md,
+      minHeight: 40,
+      paddingHorizontal: 18,
+      borderRadius: radius.pill,
       flexDirection: 'row' as const,
       alignItems: 'center' as const,
       justifyContent: 'center' as const,
       gap: 8,
     },
     small: { minHeight: 32, paddingHorizontal: 12 },
-    label: { fontFamily: fonts.medium, fontSize: 15 },
+    label: { fontFamily: fonts.medium, fontSize: 14 },
     labelSmall: { fontSize: 13 },
     primary: { backgroundColor: col.accent },
     soft: { backgroundColor: col.accentSoft },
@@ -56,16 +56,15 @@ export function Button({
   const fill: Record<ButtonVariant, string> = {
     primary: c.accent,
     soft: hovered ? c.accentHover : c.accentSoft,
-    ghost: hovered ? c.ink2 : c.ink1,
+    ghost: hovered ? c.hover : bordered ? c.bg : 'transparent',
     danger: c.bad,
   }
   const textColor: Record<ButtonVariant, string> = {
     primary: c.onAccent,
     soft: c.accent,
-    ghost: c.ink7,
+    ghost: c.text,
     danger: c.bg,
   }
-  const lifted = hovered && !disabled
   const style: ViewStyle[] = [
     s.base,
     small ? s.small : {},
@@ -74,7 +73,6 @@ export function Button({
     fullWidth ? { alignSelf: 'stretch' } : { alignSelf: 'flex-start' },
     disabled ? { opacity: 0.4 } : {},
     variant === 'primary' && hovered ? { opacity: 0.9 } : {},
-    lifted ? { transform: [{ translateY: -1 }], ...shadow(SHADOWS.lift) } : {},
     transition('transform, box-shadow, background-color, opacity'),
     ring.style,
   ]

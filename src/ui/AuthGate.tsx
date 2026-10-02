@@ -1,8 +1,8 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react'
-import { StyleSheet, Text } from 'react-native'
 import { supabase } from '../core/db/supabase'
 import { clearCachedProfile } from '../core/profile/profile'
 import { createTasksStore, type TasksStore } from '../core/sync/tasks'
+import { LoadingScreen } from './Brand'
 import { ProfileGate } from './ProfileGate'
 import { SignInScreen } from './SignInScreen'
 import { StoreContext } from './StoreContext'
@@ -37,7 +37,7 @@ export function AuthGate({ children }: { children: ReactNode }) {
     return () => data.subscription.unsubscribe()
   }, [])
 
-  if (session === 'loading') return <Text style={styles.pad}>Loading</Text>
+  if (session === 'loading') return <LoadingScreen />
   if (session === 'in' && store) {
     return (
       <ProfileGate key={store.userId} userId={store.userId} metadata={metadata}>
@@ -50,7 +50,3 @@ export function AuthGate({ children }: { children: ReactNode }) {
   }
   return <SignInScreen />
 }
-
-const styles = StyleSheet.create({
-  pad: { padding: 24 },
-})

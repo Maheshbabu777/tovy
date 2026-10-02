@@ -39,4 +39,5 @@ Agents: add a line only when the human states a standing preference for this pro
 
 ## Working style
 
+- The human checks screens on the preview himself. Don't drive Chrome or take browser screenshots for manual checks; they burn credits that are better spent on building. (2026-10-03)
 - 

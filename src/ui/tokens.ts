@@ -13,7 +13,7 @@ export const colors = {
   danger: 'rgb(200,60,60)',
 }
 
-export const radius = { xs: 4, sm: 6, md: 10, seg: 8, lg: 14, xl: 22, pill: 999, card: 22, control: 14 }
+export const radius = { xs: 4, sm: 6, md: 10, seg: 999, lg: 12, xl: 20, pill: 999, card: 12, control: 10 }
 
 export const space = { 0: 0, 1: 4, 2: 8, 3: 12, 4: 16, 5: 24, 6: 32, 7: 48, 8: 64 }
 
@@ -27,7 +27,9 @@ export const fonts = {
   mono: 'GeistMono_400Regular',
 }
 
-// Text styles of design section 2. Letter spacing is in points (the design gives em: -0.025em at 30 is -0.75).
+// Text styles of the style guide (`.context/design/style-guide.md`, Type): big type at regular weight with tight
+// tracking, weight 500 only for small titles, labels and buttons.
+// (Earlier: text styles of design section 2.) Letter spacing is in points (the design gives em: -0.025em at 30 is -0.75).
 const text = (family: string, size: number, lineHeight: number, tracking = 0) => ({
   fontFamily: family,
   fontSize: size,
@@ -35,26 +37,26 @@ const text = (family: string, size: number, lineHeight: number, tracking = 0) =>
   letterSpacing: tracking * size,
 })
 export const type = {
-  heroNumber: text(fonts.semibold, 64, 1.0, -0.05),
-  displayXl: text(fonts.semibold, 40, 1.0, -0.025),
-  display: text(fonts.semibold, 32, 1.05, -0.025),
-  h1Large: text(fonts.semibold, 30, 1.2, -0.025),
-  h1: text(fonts.semibold, 24, 1.2, -0.025),
-  pageTitle: text(fonts.semibold, 22, 1.2, -0.025),
-  numberL: text(fonts.semibold, 22, 1.0),
-  inputHero: text(fonts.medium, 20, 1.3),
-  h3: text(fonts.semibold, 19, 1.3),
-  title: text(fonts.semibold, 17, 1.3),
-  bodyL: text(fonts.sans, 16, 1.6),
+  heroNumber: text(fonts.sans, 56, 1.07, -0.035),
+  displayXl: text(fonts.sans, 40, 1.1, -0.035),
+  display: text(fonts.sans, 34, 1.12, -0.035),
+  h1Large: text(fonts.sans, 30, 1.2, -0.03),
+  h1: text(fonts.sans, 24, 1.17, -0.02),
+  pageTitle: text(fonts.sans, 28, 1.15, -0.03),
+  numberL: text(fonts.medium, 22, 1.0),
+  inputHero: text(fonts.sans, 18, 1.35),
+  h3: text(fonts.medium, 18, 1.33, -0.01),
+  title: text(fonts.medium, 18, 1.33, -0.01),
+  bodyL: text(fonts.sans, 16, 1.5),
   body: text(fonts.sans, 15, 1.4),
   bodyMedium: text(fonts.medium, 15, 1.4),
-  bodyS: text(fonts.sans, 14, 1.5),
-  bodySMedium: text(fonts.medium, 14, 1.5),
+  bodyS: text(fonts.sans, 14, 1.43),
+  bodySMedium: text(fonts.medium, 14, 1.43),
   label: text(fonts.medium, 13, 1.4),
-  meta: text(fonts.sans, 12.5, 1.4),
-  micro: text(fonts.medium, 11, 1.2),
-  monoS: text(fonts.mono, 12.5, 1.4),
-  monoXs: text(fonts.mono, 11, 1.2),
+  meta: text(fonts.sans, 12, 1.33),
+  micro: text(fonts.medium, 11, 1.27),
+  monoS: text(fonts.mono, 12, 1.33),
+  monoXs: text(fonts.mono, 11, 1.27),
 }
 
 // One easing curve, short durations (section 4).

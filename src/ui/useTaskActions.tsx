@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useRouter } from 'expo-router'
-import { ArrowUpRight, Calendar, Trash2 } from 'lucide-react-native'
+import { Icons } from './icons'
 import type { Task } from '../core/sync/tasks'
 import { addDays, localDay } from '../core/today'
 import { ContextMenu } from './components/ContextMenu'
@@ -56,14 +56,20 @@ export function useTaskActions(now: Date) {
       items={
         menu
           ? [
-              { label: 'Open', icon: ArrowUpRight, testID: 'menu-open', onPress: () => open(menu.task) },
+              { label: 'Open', icon: Icons.external, testID: 'menu-open', onPress: () => open(menu.task) },
               {
                 label: 'Move to tomorrow',
-                icon: Calendar,
+                icon: Icons.date,
                 testID: 'menu-tomorrow',
                 onPress: () => run(() => store.editTask(menu.task.id, { dueDate: addDays(localDay(now), 1) })),
               },
-              { label: 'Delete', icon: Trash2, danger: true, testID: 'menu-delete', onPress: () => remove(menu.task) },
+              {
+                label: 'Delete',
+                icon: Icons.delete,
+                danger: true,
+                testID: 'menu-delete',
+                onPress: () => remove(menu.task),
+              },
             ]
           : []
       }

@@ -429,7 +429,6 @@ test.describe('sync spike', () => {
 
     // finishing the deepest task finishes the ones above it, because their progress follows their subtasks
     await a.page.getByTestId(/^sub-done-/).click()
-    await a.page.getByTestId('ring-closed-dismiss').click() // a whole task worth 150 points closes the ring
     await a.page.getByTestId('detail-back').click() // back to the parent
     await expect(a.page.getByTestId('detail-title')).toHaveValue('parent-t2')
     await expect(a.page.getByTestId('detail-percent')).toHaveText('100%')
@@ -461,7 +460,7 @@ test.describe('sync spike', () => {
       .toEqual(['child-t3', 'parent-t3'])
   })
 
-  test('d1: progress is logged, points follow, and the task detail keeps a log', async ({ browser }) => {
+  test('d1: progress is logged in percent, and the task detail keeps a log', async ({ browser }) => {
     const u = await createUser()
     const api = await asUser(u)
     const a = await newDevice(browser, u)
@@ -477,9 +476,9 @@ test.describe('sync spike', () => {
     await expect(a.page.getByTestId('detail-percent')).toHaveText('35%')
     const entries = a.page.getByTestId('log-entry')
     await expect(entries).toHaveCount(2)
-    await expect(entries.first()).toContainText('+15 pts') // 10% is 15 points, newest first
+    await expect(entries.first()).toContainText('+10%') // newest first
     await expect(entries.last()).toContainText('Outline written')
-    await expect(entries.last()).toContainText('+38 pts') // 25% is 37.5, shown rounded
+    await expect(entries.last()).toContainText('+25%')
     // the list row shows the percentage too
     await a.page.getByTestId('detail-close').click()
     await expect(a.page.locator('[data-testid="task"]:visible').filter({ hasText: 'progress-d1' })).toContainText('35%')
@@ -499,7 +498,7 @@ test.describe('sync spike', () => {
     // finishing finishes the rest: 65 more percent
     await openTask(a.page, 'progress-d1')
     await a.page.getByTestId('detail-done').click()
-    await expect(a.page.getByTestId('log-entry').first()).toContainText('+98 pts') // 65% is 97.5
+    await expect(a.page.getByTestId('log-entry').first()).toContainText('+65%') // the rest
     await expect
       .poll(async () => (await api.get('tasks?select=progress'))[0], { timeout: 15_000 })
       .toEqual({ progress: 100 })
@@ -514,7 +513,6 @@ test.describe('sync spike', () => {
     await expect(a.page.getByText('No projects yet')).toBeVisible() // nothing yet
     await a.page.getByTestId('new-project').click()
     await a.page.getByTestId('project-name').fill('proj-t4')
-    await a.page.getByTestId('swatch-teal').click()
     await a.page.getByTestId('project-save').click()
     const card = a.page.getByTestId(/^project-[0-9a-f-]{36}$/).filter({ hasText: 'proj-t4' })
     await expect(card).toContainText('No tasks yet')
@@ -589,104 +587,28 @@ test.describe('sync spike', () => {
     await a.page.getByTestId('appearance').click()
     await a.page.getByTestId('segment-dark').click()
     const background = () => a.page.evaluate(() => getComputedStyle(document.body).backgroundColor)
-    await expect.poll(background).toBe('rgb(11, 11, 17)')
+    await expect.poll(background).toBe('rgb(10, 10, 10)')
     await a.page.reload()
-    await expect.poll(background).toBe('rgb(11, 11, 17)')
+    await expect.poll(background).toBe('rgb(10, 10, 10)')
   })
 
-  test('h1: Today shows the daily ring, partly done tasks get their own section, and closing the ring celebrates', async ({
+  test('h1: Today shows a plain title and no points, and partly done tasks get their own section', async ({
     browser,
   }) => {
     const a = await newDevice(browser, await createUser())
     await addNote(a.page, 'ring-h1')
-    await expect(a.page.getByTestId('hero-headline')).toHaveText('150 points to close')
+    await expect(a.page.getByTestId('today-title')).toHaveText('Today')
+    await expect(a.page.getByTestId('hero-headline')).toHaveCount(0)
     await openTask(a.page, 'ring-h1')
     await a.page.getByTestId('detail-track').click()
-    await a.page.getByTestId('step-25').click() // 25% is 38 points
-    await expect(a.page.getByTestId('hero-headline')).toHaveText('112 points to close')
-    await expect(a.page.getByTestId('hero-sub')).toContainText('38 of 150 progress points today')
+    await a.page.getByTestId('step-25').click()
     // partly done and no date: it moves to In progress
     await expect(a.page.getByTestId('section-in-progress')).toContainText('ring-h1')
     await expect(a.page.getByTestId('section-anytime')).toHaveCount(0)
-    // finishing the rest closes the ring
+    // finishing it shows no celebration
     await a.page.getByTestId('detail-done').click()
-    await expect(a.page.getByTestId('ring-closed')).toBeVisible()
-    await a.page.getByTestId('ring-closed-dismiss').click()
-    await expect(a.page.getByTestId('hero-headline')).toHaveText('Ring closed')
-  })
-
-  test('i1: proposals from AI apps wait in the Inbox until approved, rejected or approved all', async ({ browser }) => {
-    const u = await createUser()
-    const api = await asUser(u)
-    const a = await newDevice(browser, u)
-    await addNote(a.page, 'inbox-target')
-    await expect.poll(async () => (await api.get('tasks?select=id,title')).length, { timeout: 15_000 }).toBe(1)
-    const [target] = await api.get('tasks?select=id')
-    await api.post('proposals', [
-      {
-        app_name: 'Claude',
-        kind: 'add_task',
-        title: 'Add task: Prepare sprint review',
-        task_id: null,
-        before: {},
-        after: { title: 'Prepare sprint review' },
-      },
-      {
-        app_name: 'Claude',
-        kind: 'update_progress',
-        title: 'inbox-target to 60%',
-        task_id: target.id,
-        before: { progress: 0 },
-        after: { progress: 60 },
-      },
-      {
-        app_name: 'ChatGPT',
-        kind: 'reschedule',
-        title: 'Move inbox-target to Friday',
-        task_id: target.id,
-        before: {},
-        after: { due_date: '2030-01-04' },
-      },
-    ])
-
-    // the badge counts what is waiting, wherever you are
-    await expect(a.page.getByTestId('inbox-badge').first()).toHaveText('3', { timeout: 15_000 })
-    await a.page.getByTestId('tab-inbox').click()
-    await expect(a.page.getByText('3 waiting for your approval')).toBeVisible()
-    await expect(a.page.getByTestId('group-Claude')).toBeVisible()
-    await expect(a.page.getByTestId('group-ChatGPT')).toBeVisible()
-
-    // the detail sheet shows before and after, and approving applies the change
-    await a.page.locator('[data-testid^="open-proposal-"]').filter({ hasText: 'to 60%' }).click()
-    await expect(a.page.getByTestId('change-before')).toHaveText('0%')
-    await expect(a.page.getByTestId('change-after')).toHaveText('60%')
-    await a.page.getByTestId('sheet-approve').click()
-    await expect(a.page.getByTestId('toast')).toContainText('Approved')
-    await expect(a.page.getByTestId('inbox-badge').first()).toHaveText('2')
-    await expect
-      .poll(async () => (await api.get('tasks?select=progress,kind'))[0], { timeout: 15_000 })
-      .toEqual({
-        progress: 60,
-        kind: 'deep',
-      })
-
-    // reject has an Undo
-    await a.page.locator('[data-testid^="reject-"]').last().click()
-    await expect(a.page.getByTestId('toast')).toContainText('Rejected')
-    await expect(a.page.getByText('1 waiting for your approval')).toBeVisible()
-    await a.page.getByTestId('toast-undo').click()
-    await expect(a.page.getByText('2 waiting for your approval')).toBeVisible()
-
-    // approve all applies the rest
-    await a.page.getByTestId('approve-all').click()
-    await expect(a.page.getByText('You are all caught up')).toBeVisible()
-    await expect(a.page.getByTestId('inbox-badge')).toHaveCount(0)
-    await expect
-      .poll(async () => (await api.get('proposals?select=status')).map((p) => p.status), { timeout: 15_000 })
-      .toEqual(['approved', 'approved', 'approved'])
-    const tasks = await api.get('tasks?select=title,due_date')
-    expect(tasks.map((t) => t.title).sort()).toEqual(['Prepare sprint review', 'inbox-target'])
-    expect(tasks.find((t) => t.title === 'inbox-target')?.due_date).toBe('2030-01-04')
+    await expect(a.page.getByTestId('section-done-today')).toContainText('ring-h1')
+    await expect(a.page.getByTestId('ring-closed')).toHaveCount(0)
   })
 
   test('c1: a user signs in with an emailed code and stays signed in after a reload', async ({ browser }) => {

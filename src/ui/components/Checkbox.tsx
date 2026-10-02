@@ -1,9 +1,9 @@
 import { Pressable, View } from 'react-native'
-import { Check } from 'lucide-react-native'
+import { Icons } from '../icons'
 import { useTheme } from '../theme'
 import { useFocusRing } from './web'
 
-// Design 7.9: 20 by 20, radius 6, 1.5 px ink-4 border. Checked: accent fill and border with an on-accent check.
+// Style guide: a 20 px check circle with a 1.5 px text-3 ring. Checked: a solid primary circle with an on-primary check.
 export function Checkbox({
   checked,
   onToggle,
@@ -17,7 +17,7 @@ export function Checkbox({
 }) {
   const { theme } = useTheme()
   const c = theme.colors
-  const ring = useFocusRing(c.accent)
+  const ring = useFocusRing(c.primary)
   return (
     <Pressable
       testID={testID}
@@ -26,22 +26,22 @@ export function Checkbox({
       accessibilityLabel={label}
       onPress={onToggle}
       hitSlop={8}
-      style={[{ borderRadius: 6 }, ring.style]}
+      style={[{ borderRadius: 10 }, ring.style]}
       {...ring.handlers}
     >
       <View
         style={{
           width: 20,
           height: 20,
-          borderRadius: 6,
+          borderRadius: 10,
           borderWidth: 1.5,
-          borderColor: checked ? c.accent : c.ink4,
-          backgroundColor: checked ? c.accent : 'transparent',
+          borderColor: checked ? c.primary : c.text3,
+          backgroundColor: checked ? c.primary : 'transparent',
           alignItems: 'center',
           justifyContent: 'center',
         }}
       >
-        {checked ? <Check size={13} color={c.onAccent} strokeWidth={3} /> : null}
+        {checked ? <Icons.check size={12} color={c.onPrimary} filled /> : null}
       </View>
     </Pressable>
   )

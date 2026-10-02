@@ -1,25 +1,27 @@
 import { useEffect, useState, type ReactNode } from 'react'
 import { Animated, Easing, Modal, Platform, Pressable, Text, useWindowDimensions, View } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
-import { X } from 'lucide-react-native'
+import { Icons } from '../icons'
 import { useTheme } from '../theme'
 import { motion, radius, type, WIDE_BREAKPOINT } from '../tokens'
 import { IconButton } from './IconButton'
 import { shadow, SHADOWS } from './web'
 
-// Design 7.18. A phone: anchored to the bottom, top corners 22, at most 88% of the height, a grab handle. The web:
+// Style guide, Quick add and sheets. A phone: anchored to the bottom, top corners 20, at most 88% of the height, a grab handle. The web:
 // centred 14% from the top, 512 wide (640 for the palette), no handle, a close button. Tap the scrim or press Esc to close.
 export function Sheet({
   visible,
   onClose,
   title,
   children,
+  footer,
   testID,
 }: {
   visible: boolean
   onClose: () => void
   title: string
   children: ReactNode
+  footer?: ReactNode // a full width strip on panel along the bottom (the quick add actions)
   testID?: string
 }) {
   const { theme } = useTheme()
@@ -69,10 +71,13 @@ export function Sheet({
               maxWidth: wide ? 512 : undefined,
               maxHeight: height * 0.88,
               backgroundColor: c.bg,
-              borderRadius: wide ? radius.xl : 0,
-              borderTopLeftRadius: radius.xl,
-              borderTopRightRadius: radius.xl,
-              paddingBottom: Math.max(insets.bottom, 16),
+              borderRadius: wide ? radius.lg : 0,
+              borderTopLeftRadius: wide ? radius.lg : radius.xl,
+              borderTopRightRadius: wide ? radius.lg : radius.xl,
+              borderWidth: wide ? 1 : 0,
+              borderColor: c.line,
+              paddingBottom: footer ? 0 : Math.max(insets.bottom, 16),
+              overflow: 'hidden',
               opacity: enter,
               transform: [{ translateY: enter.interpolate({ inputRange: [0, 1], outputRange: [24, 0] }) }],
             },
@@ -86,7 +91,7 @@ export function Sheet({
                 width: 36,
                 height: 4,
                 borderRadius: 2,
-                backgroundColor: c.ink3,
+                backgroundColor: c.lineStrong,
                 marginTop: 8,
               }}
             />
@@ -101,10 +106,25 @@ export function Sheet({
               paddingBottom: 8,
             }}
           >
-            <Text style={[type.title, { color: c.ink }]}>{title}</Text>
-            {wide ? <IconButton icon={X} label="Close" onPress={onClose} testID="sheet-close" /> : null}
+            <Text style={[type.title, { color: c.text }]}>{title}</Text>
+            {wide ? <IconButton icon={Icons.close} label="Close" onPress={onClose} testID="sheet-close" /> : null}
           </View>
           <View style={{ paddingHorizontal: 20 }}>{children}</View>
+          {footer ? (
+            <View
+              style={{
+                marginTop: 16,
+                paddingHorizontal: 16,
+                paddingTop: 12,
+                paddingBottom: wide ? 12 : Math.max(insets.bottom, 12),
+                backgroundColor: c.panel,
+                borderTopWidth: 1,
+                borderTopColor: c.line,
+              }}
+            >
+              {footer}
+            </View>
+          ) : null}
         </Animated.View>
       </View>
     </Modal>

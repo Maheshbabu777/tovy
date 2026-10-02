@@ -3,7 +3,8 @@ import { useTheme } from '../theme'
 import { radius, type } from '../tokens'
 import { shadow, SHADOWS, useFocusRing } from './web'
 
-// Design 7.6: an ink-1 track (radius 10, padding 2) with segments 32 tall; the selected one is a bg raised pill.
+// Style guide, Settings: a pill track on panel (padding 3) with segments 32 tall; the selected one is a bg pill with a
+// hairline.
 export function Segmented<T extends string>({
   options,
   value,
@@ -23,9 +24,11 @@ export function Segmented<T extends string>({
       accessibilityRole="tablist"
       style={{
         flexDirection: 'row',
-        backgroundColor: c.ink1,
-        borderRadius: radius.md,
-        padding: 2,
+        backgroundColor: c.panel,
+        borderRadius: radius.pill,
+        padding: 3,
+        borderWidth: 1,
+        borderColor: c.line,
         alignSelf: 'flex-start',
       }}
     >
@@ -39,7 +42,7 @@ export function Segmented<T extends string>({
 function Segment({ selected, label, onPress }: { selected: boolean; label: string; onPress: () => void }) {
   const { theme } = useTheme()
   const c = theme.colors
-  const ring = useFocusRing(c.accent)
+  const ring = useFocusRing(c.primary)
   return (
     <Pressable
       testID={`segment-${label.toLowerCase()}`}
@@ -49,8 +52,8 @@ function Segment({ selected, label, onPress }: { selected: boolean; label: strin
       style={[
         {
           height: 32,
-          paddingHorizontal: 14,
-          borderRadius: radius.seg,
+          paddingHorizontal: 16,
+          borderRadius: radius.pill,
           justifyContent: 'center',
           backgroundColor: selected ? c.bg : 'transparent',
         },
@@ -59,7 +62,7 @@ function Segment({ selected, label, onPress }: { selected: boolean; label: strin
       ]}
       {...ring.handlers}
     >
-      <Text style={[type.label, { color: selected ? c.ink : c.ink6 }]}>{label}</Text>
+      <Text style={[type.label, { color: selected ? c.text : c.text2 }]}>{label}</Text>
     </Pressable>
   )
 }
