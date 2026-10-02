@@ -71,8 +71,8 @@ Risks:
 - [x] Spec and plan approved (human, 2026-10-01, with the slice order above)
 - [x] 1 Sync tests start from a saved session (first)
 - [ ] 2 Email code sign-in screen
-- [ ] 3 Session and PKCE
-- [ ] 4 Google on web
+- [x] 3 Session and PKCE (web reload proven; phone restart not tested)
+- [ ] 4 Google on web (code and automated checks done, the real Google round trip needs the human, see Evidence)
 - [x] 5 Sign out and local data
 - [x] 6 Signed-out access
 - [ ] 7 Security review
@@ -103,6 +103,16 @@ Slice 5 (criteria 5 and 6), branch `feat/auth-sign-out`:
 - Result: `npm run test:e2e` 11 tests, 12 full runs all passed (0 failures); `so1` alone 30 of 30; `so2` and `so3` together 10 of 10. Lint, format, typecheck and 3 unit tests pass.
 - Risk to decide in the security review (slice 7): a local sign out does not revoke the refresh token on the server. And if the session is lost without the user choosing (revoked or refresh failure), the same disposal discards unsaved edits without a warning.
 - Not proven: native (SQLite) storage per user. The code path is the same, but only the web build is tested here. Check on a phone before relying on it.
+
+Slices 3 and 4 (criteria 3 and 4), branch `feat/auth-google-web`:
+
+- `src/core/db/supabase.ts`: `flowType: 'pkce'` and `detectSessionInUrl` on web only. `app/index.tsx`: a "Continue with Google" button on web, calling `signInWithOAuth` with `redirectTo` set to the current origin.
+- `g1` (Node, against the real dev project): the authorize request with a valid PKCE challenge answers 302 to `accounts.google.com`, with a non-empty `client_id` and `redirect_uri` equal to Supabase's callback. Control: the same request for `provider=github`, which is not enabled, answers HTTP 400. So the check can tell an enabled provider from a disabled one. (My first attempt got a 400 only because I used a made-up 10 character challenge, PKCE needs 43 to 128.)
+- `g2` (browser): clicking the button sends the browser to Supabase's authorize address with `provider=google`, `redirect_to=http://localhost:8081`, a `code_challenge` of at least 43 characters and method `s256`.
+- `s1`: after a reload the app is still signed in and the note is still there. The session in that test is placed by the test harness, so this proves the app keeps and reuses a stored session, not yet the persistence of a session it created itself. The email code flow (slice 2) will cover that.
+- `npm run test:e2e`: 13 tests (14 with `s1`). 5 rebuild-then-run attempts all passed, plus 10 more full runs. One earlier full run failed once and could not be reproduced. I did not capture its message, so the cause is unknown (about 1 in 20 runs on this branch).
+- **Not proven, needs the human:** the real round trip through Google and back. It needs the app reachable at an address that is in Supabase's redirect allow-list: either run it on your own computer at `http://localhost:8081`, or put the web build on a free `*.pages.dev` address and add that to the allow-list. Until then criterion 3 is partly proven only (it reaches Google correctly, return not tried).
+- Supabase URL settings: the Redirect URLs allow-list is what permits `redirectTo`. The Site URL is the fallback when it is missing, and the address emails use. For development both are set to `http://localhost:8081`.
 
 ## Notes
 

@@ -1,4 +1,5 @@
 import { test, expect, type BrowserContext, type Page } from '@playwright/test'
+import { createHash, randomUUID } from 'node:crypto'
 import WebSocket from 'ws'
 import { HttpsProxyAgent } from 'https-proxy-agent'
 
@@ -435,5 +436,51 @@ test.describe('sync spike', () => {
     await expect.poll(() => titles(a.page), { timeout: 10_000 }).toContain('saved-so3')
     expect(await titles(a.page)).not.toContain('unsynced-so3') // what never reached the server is gone
     expect(await serverTitles(user)).not.toContain('unsynced-so3')
+  })
+
+  test('g1: Google sign in is switched on for the project and returns to Supabase', async () => {
+    // A valid PKCE challenge is 43 to 128 characters (base64url of a SHA-256).
+    const challenge = createHash('sha256').update(randomUUID()).digest('base64url')
+    const res = await fetch(
+      `${SUPABASE_URL}/auth/v1/authorize?provider=google&redirect_to=http://localhost:8081&code_challenge=${challenge}&code_challenge_method=s256`,
+      { redirect: 'manual' },
+    )
+    expect(res.status).toBe(302)
+    const to = new URL(res.headers.get('location')!)
+    expect(to.hostname).toBe('accounts.google.com')
+    expect(to.searchParams.get('client_id')).toBeTruthy() // a Google client is configured
+    expect(to.searchParams.get('redirect_uri')).toBe(`${SUPABASE_URL}/auth/v1/callback`) // Google returns to Supabase
+  })
+
+  test('g2: the Google button starts a PKCE sign in for this app', async ({ browser }) => {
+    const context = await browser.newContext()
+    let started: string | undefined
+    await context.route(/auth\/v1\/authorize/, async (route) => {
+      started = route.request().url()
+      await route.fulfill({ status: 200, contentType: 'text/html', body: 'stopped before Google' })
+    })
+    const page = await context.newPage()
+    await page.goto('/')
+    await page.getByTestId('google-sign-in').click()
+    await expect.poll(() => started, { timeout: 10_000 }).toBeTruthy()
+
+    const url = new URL(started!)
+    expect(url.searchParams.get('provider')).toBe('google')
+    expect(url.searchParams.get('redirect_to')).toBe('http://localhost:8081') // back to this app
+    expect(url.searchParams.get('code_challenge')!.length).toBeGreaterThanOrEqual(43) // PKCE
+    expect(url.searchParams.get('code_challenge_method')?.toLowerCase()).toBe('s256')
+    await context.close()
+  })
+
+  test('s1: the session survives a reload of the app', async ({ browser }) => {
+    const a = await newDevice(browser, user)
+    await addNote(a.page, 'still-here-s1')
+    await waitSynced(a)
+    await expect.poll(() => serverTitles(user), { timeout: 10_000 }).toContain('still-here-s1')
+
+    await a.page.reload()
+    await expect(a.page.getByTestId('email')).toHaveCount(0) // no sign in screen
+    await expect(a.page.getByTestId('status')).toHaveText('synced', { timeout: 15_000 })
+    await expect.poll(() => titles(a.page), { timeout: 10_000 }).toContain('still-here-s1')
   })
 })

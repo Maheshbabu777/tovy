@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native'
+import { Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native'
 import { syncState } from '@legendapp/state'
 import { use$ } from '@legendapp/state/react'
 import { supabase } from '../src/core/db/supabase'
@@ -50,8 +50,22 @@ function SignIn() {
     if (error) setError(error.message)
   }
 
+  // Google sign in is for web in this version (a phone needs a dev build, see the auth spec).
+  async function signInWithGoogle() {
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider: 'google',
+      options: { redirectTo: window.location.origin },
+    })
+    if (error) setError(error.message)
+  }
+
   return (
     <View style={styles.pad}>
+      {Platform.OS === 'web' ? (
+        <Pressable testID="google-sign-in" onPress={signInWithGoogle} style={styles.button}>
+          <Text>Continue with Google</Text>
+        </Pressable>
+      ) : null}
       <TextInput
         testID="email"
         placeholder="email"
