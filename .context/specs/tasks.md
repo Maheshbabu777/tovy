@@ -68,13 +68,23 @@ Risks:
 
 - [x] Questions answered (2026-10-02)
 - [x] Plan approved (human, 2026-10-02: "go ahead")
-- [ ] 1 Tables and row security
+- [ ] 1 Tables and row security (SQL test passes in CI, dev apply to be checked after merge)
 - [ ] 2 Store
 - [ ] 3 Task list screen
 - [ ] 4 Subtasks
 - [ ] 5 Projects and No project
 - [ ] 6 End to end
 - [ ] 7 Remove the spike
+
+## Evidence
+
+Slice 1 (criteria 6, 10 and the table part of 11), branch `feat/tasks-tables`:
+
+- `supabase/migrations/0003_tasks.sql` adds `projects` and `tasks` with row security (select, insert and update by owner, no delete policy), server set timestamps, a security definer trigger `check_task_links`, and realtime. `supabase/tests/tasks_rls.sql` is now run by `supabase/tests/run.sh`.
+- `bash supabase/tests/run.sh`: `PASS: tasks and projects are isolated and their rules hold` (exit 0), after the existing notes test.
+- Covered by the test: a subtask under a quick task is refused, a task cannot be its own parent, a task cannot move under its own descendant, a deep task with live subtasks cannot become quick, a due time needs a due date, an unknown kind is refused; user B sees none of A's rows, cannot update, delete or forge them, cannot link a task to A's project or put one under A's task; neither user can hard delete.
+- Mutation checks (each applied alone to the migration, then restored): cycle check removed gave `FAIL: a cycle was created`; quick parent allowed gave `FAIL: a subtask was added under a quick task`; project link unchecked gave `FAIL: user B linked a task to A's project`; select policy opened to everyone gave `FAIL: user B saw 4 of A's tasks`.
+- Not yet checked: the migration on the real dev project (CI applies it when this merges), and a very deep chain (the plan says test 50 levels, that comes with slice 4).
 
 ## Notes
 
