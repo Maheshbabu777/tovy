@@ -1,6 +1,6 @@
 # Tasks
 
-Status: approved
+Status: done
 
 Size: risky (new tables with row security, a migration, and removing the spike's `notes` table).
 
@@ -74,7 +74,7 @@ Risks:
 - [x] 4 Subtasks
 - [x] 5 Projects and No project
 - [x] 6 End to end
-- [ ] 7 Remove the spike
+- [x] 7 Remove the spike
 
 ## Evidence
 
@@ -122,12 +122,13 @@ Slice 6 (end to end), branch `test/tasks-cross-user-e2e`:
 - After the fixes, `npm run test:e2e`: 18 passed in each of 6 full runs in a row (one run took 2.1 minutes instead of 1.4). Before the last two changes, 14 of the narrower runs (the 5 tests up to `t2`) failed once in 14, and each failure showed a new symptom in the log. In `t2` the wait for the Undo bar to disappear was widened from 7 s to 12 s: one failure showed the bar going away later than 7 s with everything else correct, and `t1` still checks the 5 seconds on a single task.
 - Not proven: why the Undo bar was once slow to go away (not seen in the last 6 runs); whether the repeated-update skip hides a real change in a rare case (the window is 2 s and only an identical body for the same row is skipped); behaviour with a much slower network, where the retry for a missing parent gives up after about 14 s; a second device changing the same task at the same moment as the queue is running.
 
-Slice 7 (remove the spike), branch `chore/drop-notes-spike`, not merged yet (waits for the human, because it deletes data):
+Slice 7 (remove the spike), branch `chore/drop-notes-spike`, merged as PR 20 after the human said "merge it" (it deletes data):
 
 - `supabase/migrations/0004_drop_notes.sql` runs `drop table public.notes;` (its policies, trigger, index and realtime entry go with it, `handle_times()` stays because tasks and projects use it). The dev project's `notes` table holds 1 row (counted through the REST API before this PR). CI applies the migration to dev on merge to `main`, and that cannot be undone.
 - Removed `src/core/sync/notes.ts`, `notes.test.ts` and `supabase/tests/notes_rls.sql` (and its line in `run.sh`). Docs and context now describe the tasks store (README, `project.md`, `decisions.md`, plus a decision line for the one-at-a-time saves). Older specs and migrations 0001 and 0002 keep their notes wording because they are history.
 - `bash supabase/tests/run.sh` passes with all four migrations (`PASS: tasks and projects are isolated and their rules hold`). Lint, typecheck, format check, unit tests (9) and the context check pass. The e2e suite was not run again, because nothing it uses changed (the screen and the tasks store are untouched).
-- Not yet true: criterion 11's "a later migration drops the `notes` table" is only done once CI has applied `0004` to dev. After the merge, check that `notes` answers 404 and the tasks and projects tables still answer 200, then tick this slice and set the status to done.
+- After the merge (2026-10-02), CI applied `0004` to the dev project. Checked through the REST API with the project key: `notes` answers 404, `tasks` 200, `projects` 200. The 1 spike row in `notes` is gone for good.
+- Not proven: the screen was never looked at by eye by me, only driven by tests (the human has opened the deployed web app and said it works). Native (phone) storage per user is untested, as before.
 
 ## Notes
 
