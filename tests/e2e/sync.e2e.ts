@@ -104,7 +104,10 @@ async function newDevice(
 // Every test user made by this run, deleted again in afterAll so the Supabase project is left clean.
 const createdUserIds: string[] = []
 
-async function createUser(): Promise<{ email: string; password: string }> {
+// `username` and `id` belong to the profile that is created with the user, so the app skips the setup step for them.
+type TestUser = { email: string; password: string; id: string; username: string }
+
+async function createUser(): Promise<TestUser> {
   const email = `spike-${Date.now()}-${Math.floor(Math.random() * 1e6)}@gmail.com`
   const password = 'spike-password-123'
   const adminKey = process.env.SUPABASE_API_KEY
@@ -126,8 +129,20 @@ async function createUser(): Promise<{ email: string; password: string }> {
       `user creation failed (without SUPABASE_API_KEY, turn off "Confirm email" in Supabase Auth): ${JSON.stringify(body)}`,
     )
   }
+  const id: string = body.id ?? body.user?.id
   if (body.id) createdUserIds.push(body.id)
-  return { email, password }
+  const username = `spk${Math.random().toString(36).slice(2, 10)}`
+  const made = await fetch(`${SUPABASE_URL}/rest/v1/profiles`, {
+    method: 'POST',
+    headers: {
+      apikey: adminKey ?? ANON_KEY,
+      authorization: `Bearer ${adminKey ?? ANON_KEY}`,
+      'content-type': 'application/json',
+    },
+    body: JSON.stringify({ id, first_name: 'Test', last_name: 'User', username }),
+  })
+  if (!made.ok) throw new Error(`profile creation failed: ${await made.text()}`)
+  return { email, password, id, username }
 }
 
 // Note titles the server returns for a signed-in user's token.
@@ -229,7 +244,7 @@ async function expectTitles(p: Page, expected: string[], timeout = SYNC_BUDGET_M
 }
 
 test.describe('sync spike', () => {
-  let user: { email: string; password: string }
+  let user: TestUser
   test.afterAll(async () => {
     const adminKey = process.env.SUPABASE_API_KEY
     if (!adminKey) return
@@ -457,17 +472,63 @@ test.describe('sync spike', () => {
     await expect(d.page.getByTestId('email')).toHaveCount(0) // still signed in after a reload
   })
 
-  test('c2: an email with no account gets one by entering the code (register)', async ({ browser }) => {
+  test('c2: an email with no account gets one, then fills in the profile step (register)', async ({ browser }) => {
     const fresh = { email: `spike-new-${Date.now()}-${Math.floor(Math.random() * 1e6)}@gmail.com` }
     const d = await newDevice(browser, null)
-    await signInThroughScreen(d.page, fresh)
-    await expect(d.page.getByTestId('email')).toHaveCount(0)
-    const found = await (
-      await fetch(`${SUPABASE_URL}/auth/v1/admin/users?per_page=200`, {
-        headers: { apikey: process.env.SUPABASE_API_KEY! },
+    const p = d.page
+    await mockSendingMail(p)
+    await p.getByTestId('email').fill(fresh.email)
+    await p.getByTestId('send-code').click()
+    await p.getByTestId('code').fill(await emailCodeFor(fresh.email))
+    await p.getByTestId('verify-code').click()
+
+    // signed in, but nothing yet: the setup step comes before the task list
+    await expect(p.getByTestId('first-name')).toBeVisible({ timeout: 15_000 })
+    await expect(p.getByTestId('status')).toHaveCount(0)
+    await expect(p.getByTestId('save-profile')).toBeVisible()
+
+    // nothing filled in: every field says what is missing
+    await p.getByTestId('save-profile').click()
+    await expect(p.getByText('Enter your first name.')).toBeVisible()
+    await expect(p.getByText('Enter your last name.')).toBeVisible()
+
+    // a bad username is refused on the screen
+    await p.getByTestId('first-name').fill('  Ada ')
+    await p.getByTestId('last-name').fill('Lovelace')
+    await p.getByTestId('username').fill('No')
+    await p.getByTestId('save-profile').click()
+    await expect(p.getByTestId('username-hint')).toContainText('3 to 20 characters')
+
+    // a username that is taken says so, and the person stays on the step
+    await p.getByTestId('username').fill(user.username)
+    await expect(p.getByTestId('username-hint')).toContainText('taken')
+    await p.getByTestId('save-profile').click()
+    await expect(p.getByTestId('username-hint')).toContainText('taken')
+    await expect(p.getByTestId('first-name')).toBeVisible()
+
+    // a free one (typed in capitals, kept lowercase) lets the person in
+    const mine = `new${Math.random().toString(36).slice(2, 9)}`
+    await p.getByTestId('username').fill(mine.toUpperCase())
+    await expect(p.getByTestId('username-hint')).toContainText('free')
+    await p.getByTestId('save-profile').click()
+    await expect(p.getByTestId('status')).toHaveText('synced', { timeout: 15_000 })
+
+    // the server holds the trimmed profile, and a reload goes straight to the tasks
+    const login = await fetch(`${SUPABASE_URL}/auth/v1/admin/generate_link`, {
+      method: 'POST',
+      headers: { apikey: process.env.SUPABASE_API_KEY!, 'content-type': 'application/json' },
+      body: JSON.stringify({ type: 'magiclink', email: fresh.email }),
+    })
+    const { id } = (await login.json()) as { id: string }
+    const rows = await (
+      await fetch(`${SUPABASE_URL}/rest/v1/profiles?id=eq.${id}&select=first_name,last_name,username`, {
+        headers: { apikey: process.env.SUPABASE_API_KEY!, authorization: `Bearer ${process.env.SUPABASE_API_KEY!}` },
       })
     ).json()
-    expect((found as any).users.some((u: any) => u.email === fresh.email)).toBe(true) // the account exists now
+    expect(rows).toEqual([{ first_name: 'Ada', last_name: 'Lovelace', username: mine }])
+    await p.reload()
+    await expect(p.getByTestId('status')).toHaveText('synced', { timeout: 15_000 })
+    await expect(p.getByTestId('first-name')).toHaveCount(0)
   })
 
   test('c3: a wrong code shows an error and does not sign in', async ({ browser }) => {
@@ -502,6 +563,27 @@ test.describe('sync spike', () => {
     await expect(d.page.getByTestId('auth-error')).toContainText('Too many codes')
     await expect(d.page.getByTestId('send-code')).toContainText('Wait') // cannot ask again at once
     await expect(d.page.getByTestId('code')).toHaveCount(0) // no code step, nothing was sent
+  })
+
+  test('p1: a returning user with a saved profile gets in while offline', async ({ browser }) => {
+    const a = await newDevice(browser, user) // loading the profile also saves a copy on the device
+    await a.setOffline(true)
+    await a.page.reload()
+    await expect(a.page.getByTestId('status')).toBeVisible({ timeout: 15_000 }) // the task list, not a setup or error step
+    await expect(a.page.getByTestId('profile-unavailable')).toHaveCount(0)
+    await expect(a.page.getByTestId('first-name')).toHaveCount(0)
+  })
+
+  test('p2: with no saved copy and no connection, the user is asked to connect, then gets in', async ({ browser }) => {
+    const a = await newDevice(browser, user)
+    await a.page.evaluate((key) => localStorage.removeItem(key), `tovy-profile-${user.id}`)
+    await a.setOffline(true)
+    await a.page.reload()
+    await expect(a.page.getByTestId('profile-unavailable')).toBeVisible({ timeout: 15_000 })
+    await expect(a.page.getByTestId('status')).toHaveCount(0)
+    await a.setOffline(false)
+    await a.page.getByTestId('profile-retry').click()
+    await expect(a.page.getByTestId('status')).toHaveText('synced', { timeout: 15_000 })
   })
 
   test('6: unsynced changes survive an app restart and sync later', async ({ browser }) => {
@@ -670,6 +752,10 @@ test.describe('sync spike', () => {
     await a.page.getByTestId('sign-out').click()
     await expect(a.page.getByTestId('unsynced-note')).toHaveCount(0) // nothing to warn about
     await expect(a.page.getByTestId('email')).toBeVisible() // back on the sign-in screen
+    // this device keeps no profile of the person who signed out
+    expect(await a.page.evaluate(() => Object.keys(localStorage).filter((k) => k.startsWith('tovy-profile-')))).toEqual(
+      [],
+    )
     expect(await serverTitles(user)).toContain('private-so1') // signing out deletes nothing on the server
 
     await signInThroughScreen(a.page, userB)
