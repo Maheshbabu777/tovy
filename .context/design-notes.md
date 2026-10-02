@@ -48,7 +48,6 @@ Visual:
 14. The heatmap has no month or weekday labels, and the last row is partly empty without explanation.
 15. The Streak screen duplicates "Tap a day to see its log." and a "Today's log" button.
 16. On phone, Calendar and Streak are header icons. On desktop they are sidebar items. Fine as an adaptation, but the entry points differ and the phone bottom bar has no way to see Calendar or Streak without finding the icons.
-17. The desktop sidebar greys out the active item in different ways on Today (grey block), Calendar (grey block) and Streak (grey block), but the top icons for Search, Calendar and Streak on the Today header have no active state.
 
 ## Open for the human
 
