@@ -1,6 +1,6 @@
 # App shell and screens from the design
 
-Status: approved
+Status: done for the shell, sign in, Today list and Profile basics. Task detail, Projects and polish were finished under `design-complete.md`
 
 Size: large (touches every screen and the routing, no database change).
 
