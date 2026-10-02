@@ -29,9 +29,9 @@ This spec covers stage 1, the design system. Stages 2 onward get their own specs
 
 ## Open questions
 
-- Visual direction: what should Tovy feel like (Todoist, Things 3, native Android Material 3, or something else)? Answer: Todoist-like design with a good colour palette (human, 2026-10-03). A Jomo-like look was considered the same day and dropped by the human.
-- Accent colour: keep indigo, or change? Answer: pending, chosen on the style guide page.
-- Font: keep Geist, or move to the platform font (Roboto on Android) or Inter? Answer: pending, shown as options on the style guide page.
+- Visual direction: what should Tovy feel like (Todoist, Things 3, native Android Material 3, or something else)? Answer: black and white, modern, after the human's inspirations (Devin and Cursor sites) (human, 2026-10-03). Structure still follows Todoist. Earlier answers the same day (Todoist colours, Jomo) were replaced. The source of truth is the Paper file `tovy`, page Design system.
+- Accent colour: Answer: none. Primary is black (white in dark), red only for overdue and delete (human, 2026-10-03).
+- Font: Answer: Geist and Geist Mono, as drawn in Paper (pending the human's review).
 - Icon set: switch from Lucide to Phosphor for filled active states, or keep Lucide? Answer: Phosphor (human, 2026-10-03).
 - The word Inbox: every other app uses Inbox for captured tasks with no project. Tovy uses it for AI approvals. Rename the AI screen (for example "Requests") and use Inbox the usual way? Built in stage 2. Answer: Inbox means captured tasks (human, 2026-10-03). There is no AI approval screen at all: AI apps write directly and ask the user inside the AI app before deleting or removing (human, 2026-10-03, see `decisions.md`). The current approval Inbox and the proposals table are retired in stage 2.
 - Points data: hide only (keep tables and the log's point math for a later stats screen), or remove the point math too? Answer: hide only, keep the data and the math for a later stats screen (human, 2026-10-03).
@@ -61,7 +61,10 @@ Risks:
 - [x] Open questions answered (accent and font are chosen on the style guide page)
 - [x] Spec and plan approved (human, 2026-10-03: "okay start")
 - [x] Style guide drafted (`.context/design/style-guide.md`, rendered as the Tovy Design System artifact)
-- [ ] Style guide approved
+- [x] Logo received (human, 2026-10-03): `assets/brand/tovy-mark-black.png`, `tovy-mark-white.png`, `tovy-app-icon.png`
+- [x] Design system drawn in Paper (foundations, icons, components, phone light and dark, web)
+- [ ] Design system approved in Paper
+- [ ] `style-guide.md` rewritten from the approved Paper file
 - [ ] Tokens and icon toolkit
 - [ ] Component gallery
 - [ ] Points removed, loading screen

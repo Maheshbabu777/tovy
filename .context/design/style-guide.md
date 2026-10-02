@@ -1,6 +1,6 @@
 # Tovy style guide
 
-Status: proposed, waiting for the human's approval (accent and font still open). Source of the rendered version: the Tovy Design System artifact. Once approved this file wins over `design-spec.md` for how things look.
+Status: superseded on 2026-10-03 by the black and white design system in the Paper file `tovy` (page Design system). Kept until that is approved and this file is rewritten from it. Source of the rendered version: the Tovy Design System artifact. Once approved this file wins over `design-spec.md` for how things look.
 
 Tovy is a task, routine and habit app for people who plan their day inside AI apps. Claude, ChatGPT and other apps write to it through MCP, and the person checks and finishes the work in Tovy on Android and the web. The interface follows the habits of the task apps people already trust, Todoist above all: the list is the hero, rows are quiet, and adding a task takes seconds. Every rule below serves that.
 
