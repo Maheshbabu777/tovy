@@ -73,7 +73,7 @@ Risks:
 - [x] 3 Task list screen
 - [x] 4 Subtasks
 - [x] 5 Projects and No project
-- [ ] 6 End to end (tests moved, t2 intermittent, see evidence)
+- [x] 6 End to end
 - [ ] 7 Remove the spike
 
 ## Evidence
@@ -118,7 +118,9 @@ Slice 6 (end to end), branch `test/tasks-cross-user-e2e`:
 
 - Across slices 3 to 5 the 14 notes tests moved to tasks and new tests were added (`t1` Undo, `t2` subtasks and delete cascade, `t3` offline parent and subtask, `t4` projects). This slice moves the last two, 7 and 7b, from `notes` to tasks and projects. Test 7: a second user cannot read, change, forge, hard delete, put a task into the owner's project or put one under the owner's task (403 for both link attempts). Test 7b: a signed-out visitor cannot read, write, change or delete tasks or projects.
 - Tests 7 and 7b pass, and no test refers to the `notes` table any more, so slice 7 can drop it.
-- Not green every time: in 4 full runs on this branch `t2` (subtasks, delete and Undo) failed 3 times and passed once, and passed alone each time. The failures differed: the Undo bar still showing after 7 s, and the sync status staying "pending 1". These runs were also slower than the earlier ones (up to 2.1 minutes against 1.3). It passed in three full runs in slice 4 and 5. Not root-caused. It looks like the same family as the two sync races fixed in slice 4 (a change to a task while its insert is in flight), so a third case may remain. CI does not run e2e, so CI cannot show this. Needs a decision, see the PR.
+- `t2` (subtasks, delete and Undo) was failing in about 3 of 4 full runs, and passed alone. Cause found from a request log of the failing runs (one line per request, with times): a save takes about 0.3 to 0.5 s and the plugin does not wait for one save before sending the next, so quick sequences reached the server out of order. An update went out before its insert (the server changed nothing and said OK), a subtask was refused because its parent was not saved yet, tasks were inserted twice (duplicate key, stuck "pending"), and three quick changes to one task (delete, Undo, delete) were not applied in order. Fixes in `src/core/sync/tasks.ts`: (1) every save of a store goes through one queue, one at a time, in the order of the changes (the retry waits for a parent happen outside the queue so the parent's own save goes through); (2) a repeat insert of a row the server has becomes an upsert; (3) an identical update for the same row within 2 s of a successful one is not sent again (the server changes `updated_at` on each save and the plugin was seen sending the same update in a loop, which kept the status on "pending"); (4) rows are no longer created with `created_at` and `updated_at` set to null (the pending local null can stay over the server's value); (5) the delayed catch-up fetch waits until nothing is waiting to be saved. Parts 4 and 5 came from one log each and were not proven on their own, only together with the others.
+- After the fixes, `npm run test:e2e`: 18 passed in each of 6 full runs in a row (one run took 2.1 minutes instead of 1.4). Before the last two changes, 14 of the narrower runs (the 5 tests up to `t2`) failed once in 14, and each failure showed a new symptom in the log. In `t2` the wait for the Undo bar to disappear was widened from 7 s to 12 s: one failure showed the bar going away later than 7 s with everything else correct, and `t1` still checks the 5 seconds on a single task.
+- Not proven: why the Undo bar was once slow to go away (not seen in the last 6 runs); whether the repeated-update skip hides a real change in a rare case (the window is 2 s and only an identical body for the same row is skipped); behaviour with a much slower network, where the retry for a missing parent gives up after about 14 s; a second device changing the same task at the same moment as the queue is running.
 
 ## Notes
 

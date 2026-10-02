@@ -45,47 +45,69 @@ export type NewTask = {
 
 export type TaskEdit = { title?: string; note?: string; dueDate?: string | null; dueTime?: string | null }
 
-// The plugin sends all new rows at once. A subtask (or a task in a new project) added in the same offline session as its
-// parent can arrive first, and the database refuses it until the parent exists (`check_task_links`). So a refusal that
-// says the parent or project does not exist is retried for a few seconds, which gives the parent's own insert time to
-// land. Network errors still throw, so the plugin retries them as before.
+// The plugin does not wait for one save to finish before it sends the next, and a save takes about half a second. So a
+// quick sequence (add a task, make it deep, add a subtask, delete, undo) reaches the server in any order: an update
+// before its insert changes nothing (and is lost), a subtask arrives before its parent and is refused, a task is
+// inserted twice, and the last of three quick changes to one task is not always the one that wins. That left changes
+// stuck as pending, or the server and the screen disagreeing. So every save of a store goes through one queue, one at a
+// time, in the order the changes were made.
 const LINK_RETRIES = 8
-const insertsInFlight = new Map<string, Promise<unknown>>()
+// The server changes a row's `updated_at` on every save and tells us, and the plugin can read that as a new change and
+// send the same update again, over and over (seen with a task and its subtasks deleted together, the status stayed
+// "pending" and the Undo bar never went away). Sending the very same update for a row again within this time, after it
+// was saved successfully, changes nothing on the server, so it is not sent.
+const REPEAT_UPDATE_MS = 2000
+type Table = 'tasks' | 'projects'
 
-async function saveRow(table: 'tasks' | 'projects', row: unknown, mode: 'insert' | 'upsert') {
-  const query = supabase.from(table)
-  const { data, error } = await (mode === 'insert' ? query.insert(row as never) : query.upsert(row as never)).select()
-  if (error?.message?.includes('Failed to fetch')) throw error
-  return { data: data?.[0], error }
-}
-
-// A task changed while its first insert is still in flight is sent as a whole new insert again. The server already has
-// the row (duplicate key) and the change would stay pending forever. So a repeat insert of a row that exists is saved
-// as an upsert, which keeps the latest values.
-const createWhenLinksExist = (table: 'tasks' | 'projects') => async (input: unknown) => {
-  const key = `${table}:${(input as { id: string }).id}`
-  const earlier = insertsInFlight.get(key)
-  const run = async () => {
-    if (earlier) {
-      await earlier.catch(() => undefined)
-      return saveRow(table, input, 'upsert')
-    }
-    for (let attempt = 1; ; attempt++) {
-      const result = await saveRow(table, input, 'insert')
-      const code = result.error?.code
-      if (code === '23505') return saveRow(table, input, 'upsert') // the row is already there
-      // the parent or project is not saved yet, or the parent's switch to deep has not landed yet
-      const waiting = /does not exist|only a deep task/.test(result.error?.message ?? '')
-      if (!waiting || attempt >= LINK_RETRIES) return result
-      await new Promise((resolve) => setTimeout(resolve, 400 * attempt))
-    }
+function createServerWrites() {
+  let tail: Promise<unknown> = Promise.resolve()
+  const serial = <T>(job: () => Promise<T>): Promise<T> => {
+    const run = tail.then(job, job)
+    tail = run.catch(() => undefined)
+    return run
   }
-  const promise = run()
-  insertsInFlight.set(key, promise)
-  try {
-    return await promise
-  } finally {
-    if (insertsInFlight.get(key) === promise) insertsInFlight.delete(key)
+
+  async function save(table: Table, row: unknown, mode: 'insert' | 'update' | 'upsert') {
+    const query = supabase.from(table)
+    const { id } = row as { id: string }
+    const request =
+      mode === 'insert'
+        ? query.insert(row as never)
+        : mode === 'upsert'
+          ? query.upsert(row as never)
+          : query.update(row as never).eq('id', id)
+    const { data, error } = await request.select()
+    if (error?.message?.includes('Failed to fetch')) throw error // offline: the plugin retries later
+    return { data: data?.[0], error }
+  }
+
+  return {
+    // A subtask (or a task in a new project) can still be refused because its parent is not saved yet, or its parent's
+    // switch to deep has not landed yet (they are in the same batch of changes). The queue is free while we wait, so
+    // the parent's own save goes through, then this one is tried again.
+    create: (table: Table) => async (input: unknown) => {
+      for (let attempt = 1; ; attempt++) {
+        const result = await serial(() => save(table, input, 'insert'))
+        if (result.error?.code === '23505') return serial(() => save(table, input, 'upsert')) // already saved
+        const waiting = /does not exist|only a deep task/.test(result.error?.message ?? '')
+        if (!waiting || attempt >= LINK_RETRIES) return result
+        await new Promise((resolve) => setTimeout(resolve, 400 * attempt))
+      }
+    },
+    update: (table: Table) => {
+      const lastSaved = new Map<string, { body: string; at: number; result: Awaited<ReturnType<typeof save>> }>()
+      return async (input: unknown) =>
+        serial(async () => {
+          const { id } = input as { id: string }
+          const body = JSON.stringify(input)
+          const last = lastSaved.get(id)
+          if (last && last.body === body && Date.now() - last.at < REPEAT_UPDATE_MS) return last.result
+          const result = await save(table, input, 'update')
+          if (result.data) lastSaved.set(id, { body, at: Date.now(), result })
+          else lastSaved.delete(id)
+          return result
+        })
+    },
   }
 }
 
@@ -93,13 +115,15 @@ const createWhenLinksExist = (table: 'tasks' | 'projects') => async (input: unkn
 // Supabase in the background. The rules below mirror the database (`check_task_links` in 0003_tasks.sql), so a wrong
 // action fails at once on the device, offline too. The database still has the last word.
 export function createTasksStore(userId: string) {
+  const writes = createServerWrites()
   const tasksName = `tasks-${userId}`
   const projectsName = `projects-${userId}`
   const tasks$ = observable(
     syncedSupabase({
       supabase,
       collection: 'tasks',
-      create: createWhenLinksExist('tasks') as never,
+      create: writes.create('tasks') as never,
+      update: writes.update('tasks') as never,
       realtime: true,
       persist: { name: tasksName, plugin: createPersistPlugin(tasksName), retrySync: true },
     }),
@@ -108,6 +132,8 @@ export function createTasksStore(userId: string) {
     syncedSupabase({
       supabase,
       collection: 'projects',
+      create: writes.create('projects') as never,
+      update: writes.update('projects') as never,
       realtime: true,
       persist: { name: projectsName, plugin: createPersistPlugin(projectsName), retrySync: true },
     }),
@@ -186,8 +212,6 @@ export function createTasksStore(userId: string) {
         done_at: null,
         project_id: input.projectId ?? null,
         parent_id: input.parentId ?? null,
-        created_at: null,
-        updated_at: null,
       })
       return id
     },
@@ -241,7 +265,7 @@ export function createTasksStore(userId: string) {
     // ----- projects -----
     addProject(name: string, color = 'slate'): string {
       const id = uuidv4()
-      projects$[id].set({ id, name, color, created_at: null, updated_at: null })
+      projects$[id].set({ id, name, color })
       return id
     },
 
@@ -268,7 +292,16 @@ export function createTasksStore(userId: string) {
     // and syncs both once it is joined, and once more shortly after. Call it while signed in.
     catchUpAfterRealtime(): () => void {
       let later: ReturnType<typeof setTimeout> | undefined
-      const syncBoth = () => {
+      // Seen in the request log: a fetch that landed while saves were still going out left the row saved last without
+      // its server `created_at`, and its next change was then sent as a second insert. Cause not proven. The fetch now
+      // waits until nothing is waiting to be saved.
+      const unsent = () =>
+        (syncState(tasks$).numPendingSets.peek() ?? 0) + (syncState(projects$).numPendingSets.peek() ?? 0)
+      const syncBoth = (tries = 0) => {
+        if (unsent() > 0 && tries < 20) {
+          later = setTimeout(() => syncBoth(tries + 1), 500)
+          return
+        }
         void syncState(tasks$).sync()
         void syncState(projects$).sync()
       }
@@ -279,7 +312,7 @@ export function createTasksStore(userId: string) {
         .subscribe((status) => {
           if (status !== 'SUBSCRIBED') return
           syncBoth()
-          later = setTimeout(syncBoth, 1500)
+          later = setTimeout(() => syncBoth(), 1500)
         })
       return () => {
         clearTimeout(later)

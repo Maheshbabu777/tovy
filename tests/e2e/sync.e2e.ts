@@ -364,7 +364,8 @@ test.describe('sync spike', () => {
 
     // delete again and let the Undo expire: all three stay deleted on the server
     await row('parent-t2').locator('[data-testid^="delete-"]').click()
-    await expect(a.page.getByTestId('undo-bar')).toHaveCount(0, { timeout: 7_000 })
+    // t1 checks the 5 seconds on one task; here the slack is for the three saves going out one after another
+    await expect(a.page.getByTestId('undo-bar')).toHaveCount(0, { timeout: 12_000 })
     await waitSynced(a)
     expect((await serverTitles(user)).filter((t) => t.endsWith('-t2'))).toEqual([])
   })
