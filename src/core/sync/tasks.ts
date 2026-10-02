@@ -82,6 +82,8 @@ function createServerWrites() {
   }
 
   return {
+    // Resolves when every save queued so far has finished.
+    idle: () => tail.then(() => undefined),
     // A subtask (or a task in a new project) can still be refused because its parent is not saved yet, or its parent's
     // switch to deep has not landed yet (they are in the same batch of changes). The queue is free while we wait, so
     // the parent's own save goes through, then this one is tried again.
@@ -258,8 +260,31 @@ export function createTasksStore(userId: string) {
     deleteTask(id: string): { ids: string[]; undo: () => void } {
       if (!getTask(id)) throw new Error('That task does not exist')
       const ids = [id, ...descendantIds(id)]
+      // Once the server confirms a delete the plugin drops the row from the store, so an Undo has to bring the whole
+      // row back, not just switch `deleted` off.
+      const snapshot = ids.map((i) => ({ ...(tasks$[i].peek() as Task) }))
       batch(() => ids.forEach((i) => tasks$[i].deleted.set(true)))
-      return { ids, undo: () => batch(() => ids.forEach((i) => tasks$[i].deleted.set(false))) }
+      const gone = () => snapshot.filter((t) => !tasks$[t.id].peek() || tasks$[t.id].deleted.peek() === true)
+      const restore = () =>
+        batch(() =>
+          gone().forEach((t) => {
+            if (tasks$[t.id].peek()) tasks$[t.id].deleted.set(false)
+            else tasks$[t.id].set({ ...t, deleted: false })
+          }),
+        )
+      return {
+        ids,
+        undo: () => {
+          restore()
+          // An Undo made while the delete is still being saved can be taken for "no change" by the plugin, and the
+          // saved delete then comes back from the server. Once the saves are done, put the task back again if so.
+          void (async () => {
+            await writes.idle()
+            await new Promise((resolve) => setTimeout(resolve, 600))
+            if (gone().length) restore()
+          })()
+        },
+      }
     },
 
     // ----- projects -----

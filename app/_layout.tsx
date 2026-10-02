@@ -5,6 +5,7 @@ import { Geist_400Regular, Geist_500Medium, Geist_600SemiBold } from '@expo-goog
 import { GeistMono_400Regular } from '@expo-google-fonts/geist-mono'
 import { SafeAreaProvider } from 'react-native-safe-area-context'
 import { AuthGate } from '../src/ui/AuthGate'
+import { ToastProvider } from '../src/ui/components/Toast'
 import { ThemeProvider, useTheme } from '../src/ui/theme'
 
 function ThemedApp() {
@@ -12,9 +13,11 @@ function ThemedApp() {
   return (
     <>
       <StatusBar style={theme.mode === 'dark' ? 'light' : 'dark'} />
-      <AuthGate>
-        <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: theme.colors.bg } }} />
-      </AuthGate>
+      <ToastProvider>
+        <AuthGate>
+          <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: theme.colors.bg } }} />
+        </AuthGate>
+      </ToastProvider>
     </>
   )
 }

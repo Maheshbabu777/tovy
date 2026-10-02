@@ -226,7 +226,12 @@ const titles = (p: Page) =>
     .evaluateAll((els) => els.map((e) => (e.textContent ?? '').trim()).sort())
 const addNote = async (p: Page, title: string) => {
   await p.getByTestId('new-title').fill(title)
-  await p.getByTestId('add').click()
+  await p.getByTestId('new-title').press('Enter')
+}
+// Deletes the task with this title through its right-click menu.
+const deleteTask = async (p: Page, title: string) => {
+  await p.getByTestId('task').filter({ hasText: title }).locator('[data-testid^="open-"]').click({ button: 'right' })
+  await p.getByTestId('menu-delete').click()
 }
 // Opens the task with this title and changes its title in the editor.
 async function renameTask(p: Page, from: string, to: string) {
@@ -339,8 +344,7 @@ test.describe('sync spike', () => {
     await expect.poll(() => titles(b.page), { timeout: 10_000 }).toContain('doomed-5')
 
     await b.setOffline(true)
-    const rowA = a.page.getByTestId('task').filter({ hasText: 'doomed-5' })
-    await rowA.locator('[data-testid^="delete-"]').click()
+    await deleteTask(a.page, 'doomed-5')
     await waitSynced(a)
     expect(await titles(a.page)).not.toContain('doomed-5')
     expect(await titles(b.page)).toContain('doomed-5') // B was offline, still shows it
@@ -354,22 +358,19 @@ test.describe('sync spike', () => {
     const a = await newDevice(browser, user)
     await addNote(a.page, 'undo-me')
     await addNote(a.page, 'let-go')
-    const del = (t: string) =>
-      a.page.getByTestId('task').filter({ hasText: t }).locator('[data-testid^="delete-"]').click()
-    await del('undo-me')
+    await deleteTask(a.page, 'undo-me')
     expect(await titles(a.page)).not.toContain('undo-me')
-    await a.page.getByTestId('undo').click()
-    expect(await titles(a.page)).toContain('undo-me')
-    await expect(a.page.getByTestId('undo-bar')).toHaveCount(0)
+    await expect(a.page.getByTestId('toast')).toContainText('Task deleted')
+    await a.page.getByTestId('toast-undo').click()
+    await expect.poll(() => titles(a.page)).toContain('undo-me')
+    await expect(a.page.getByTestId('toast')).toHaveCount(0)
 
-    await del('let-go')
-    await expect(a.page.getByTestId('undo-bar')).toBeVisible()
-    await expect(a.page.getByTestId('undo-bar')).toHaveCount(0, { timeout: 7_000 })
+    await deleteTask(a.page, 'let-go')
+    await expect(a.page.getByTestId('toast-undo')).toBeVisible()
+    await expect(a.page.getByTestId('toast')).toHaveCount(0, { timeout: 8_000 }) // gone after about 5 seconds
     expect(await titles(a.page)).not.toContain('let-go')
-    await waitSynced(a)
-    const server = await serverTitles(user)
-    expect(server).toContain('undo-me')
-    expect(server).not.toContain('let-go')
+    await expect.poll(() => serverTitles(user), { timeout: 15_000 }).toEqual(expect.arrayContaining(['undo-me']))
+    expect(await serverTitles(user)).not.toContain('let-go')
   })
 
   test('t2: subtasks nest, a deep task with subtasks stays deep, delete and Undo cover every level', async ({

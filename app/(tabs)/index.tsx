@@ -1,6 +1,5 @@
-import { TasksScreen } from '../../src/ui/TasksScreen'
-import { useStore } from '../../src/ui/StoreContext'
+import { TodayScreen } from '../../src/ui/TodayScreen'
 
 export default function Today() {
-  return <TasksScreen store={useStore()} />
+  return <TodayScreen />
 }

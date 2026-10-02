@@ -62,7 +62,11 @@ async function sampleData(token) {
     await call('POST', '/rest/v1/projects', ANON, { id: projectId, name, color }, token)
     return projectId
   }
-  const task = (row) => call('POST', '/rest/v1/tasks', ANON, { id: id(), ...row }, token)
+  const task = async (row) => {
+    const res = await call('POST', '/rest/v1/tasks', ANON, { id: id(), ...row }, token)
+    if (res.status !== 201)
+      console.log('sample task not created:', row.title, res.status, JSON.stringify(res.json).slice(0, 160))
+  }
   const launch = await project('Launch', 'indigo')
   const health = await project('Health', 'teal')
   const studio = await project('Studio', 'amber')
@@ -125,7 +129,7 @@ try {
           route.fulfill({ status: 200, contentType: 'application/json', body: '{}' }),
         )
       await page.goto(BASE + path)
-      await page.waitForTimeout(3500)
+      await page.waitForTimeout(Number(process.env.WAIT_MS ?? 3500))
       if (screen === 'code') {
         await page.getByTestId('email').fill('maya@okafor.studio')
         await page.getByTestId('send-code').click()

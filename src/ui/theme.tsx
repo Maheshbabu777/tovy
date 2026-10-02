@@ -54,6 +54,7 @@ function buildColors(mode: ThemeMode, accentName: AccentName) {
   const accent = ACCENTS[accentName][mode]
   return {
     bg: rgb(b.bg),
+    bgClear: rgba(b.bg, 0), // for fades
     surface: rgb(b.surface),
     ink: rgb(b.ink),
     // The ink ladder (section 1.2): 4, 8, 12, 24, 46, 68 and 92 percent.

@@ -8,7 +8,6 @@ const ALLOWED = new Set([
   'tokens.ts', // the old light-only palette and the five project colours
   'web.ts', // shadow strings
   // Screens not rebuilt yet. Each one is removed from this list when its slice replaces it.
-  'TasksScreen.tsx',
 ])
 
 function files(dir: string): string[] {
