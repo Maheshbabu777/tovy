@@ -516,6 +516,41 @@ test.describe('sync spike', () => {
       .toBe(projectId)
   })
 
+  test('p3: a person edits their name and username, and picks a theme that stays after a reload', async ({
+    browser,
+  }) => {
+    const me = await createUser()
+    const other = await createUser()
+    const api = await asUser(me)
+    const a = await newDevice(browser, me)
+    await openProfile(a.page)
+    await expect(a.page.getByTestId('profile-email')).toHaveText(me.email)
+
+    await a.page.getByTestId('edit-profile').click()
+    await a.page.getByTestId('edit-first-name').fill('Renamed')
+    // a username somebody else has is refused, with the reason next to the field
+    await a.page.getByTestId('edit-username').fill(other.username)
+    await expect(a.page.getByTestId('edit-username-hint')).toHaveText('That username is taken. Try another.')
+    await a.page.getByTestId('save-profile-edit').click()
+    await expect(a.page.getByTestId('edit-username-hint')).toHaveText('That username is taken. Try another.')
+    const fresh = `me${Math.random().toString(36).slice(2, 9)}`
+    await a.page.getByTestId('edit-username').fill(fresh)
+    await expect(a.page.getByTestId('edit-username-hint')).toHaveText('That username is free.')
+    await a.page.getByTestId('save-profile-edit').click()
+    await expect(a.page.getByTestId('toast')).toContainText('Profile saved')
+    await expect(a.page.getByTestId('profile-name')).toContainText('Renamed')
+    await expect(a.page.getByTestId('edit-profile')).toContainText(`@${fresh}`)
+    expect(await api.get('profiles?select=first_name,username')).toEqual([{ first_name: 'Renamed', username: fresh }])
+
+    // appearance: dark stays after a reload
+    await a.page.getByTestId('appearance').click()
+    await a.page.getByTestId('segment-dark').click()
+    const background = () => a.page.evaluate(() => getComputedStyle(document.body).backgroundColor)
+    await expect.poll(background).toBe('rgb(11, 11, 17)')
+    await a.page.reload()
+    await expect.poll(background).toBe('rgb(11, 11, 17)')
+  })
+
   test('i1: proposals from AI apps wait in the Inbox until approved, rejected or approved all', async ({ browser }) => {
     const u = await createUser()
     const api = await asUser(u)
@@ -903,7 +938,8 @@ test.describe('sync spike', () => {
     await a.page.getByTestId('cancel-sign-out').click()
     await expect(a.page.getByTestId('unsynced-note')).toHaveCount(0)
     await expect(a.page.getByTestId('email')).toHaveCount(0) // still signed in
-    expect(await titles(a.page)).toContain('unsynced-so2') // the edit is still there
+    await a.page.getByTestId('tab-today').click()
+    await expect.poll(() => titles(a.page)).toContain('unsynced-so2') // the edit is still there
   })
 
   test('so3: signing out anyway discards unsaved edits and nothing else', async ({ browser }) => {
