@@ -127,8 +127,8 @@ async function createUser(): Promise<{ email: string; password: string }> {
 }
 
 // Note titles the server returns for a signed-in user's token.
-async function serverTitlesOf(accessToken: string): Promise<string[]> {
-  const res = await fetch(`${SUPABASE_URL}/rest/v1/notes?select=title&deleted=eq.false`, {
+async function serverTitlesOf(accessToken: string, table = 'tasks'): Promise<string[]> {
+  const res = await fetch(`${SUPABASE_URL}/rest/v1/${table}?select=title&deleted=eq.false`, {
     headers: { apikey: ANON_KEY, authorization: `Bearer ${accessToken}` },
   })
   return ((await res.json()) as { title: string }[]).map((n) => n.title)
@@ -155,14 +155,19 @@ async function signInThroughScreen(p: Page, u: { email: string; password: string
 
 const titles = (p: Page) =>
   p
-    .getByTestId('note')
-    .locator('input')
-    .evaluateAll((els) => els.map((e) => (e as HTMLInputElement).value).sort())
+    .getByTestId('task')
+    .locator('[data-testid^="title-"]')
+    .evaluateAll((els) => els.map((e) => (e.textContent ?? '').trim()).sort())
 const addNote = async (p: Page, title: string) => {
   await p.getByTestId('new-title').fill(title)
   await p.getByTestId('add').click()
 }
-const noteRow = (p: Page, title: string) => p.locator(`input[value="${title}"]`)
+// Opens the task with this title and changes its title in the editor.
+async function renameTask(p: Page, from: string, to: string) {
+  const row = p.getByTestId('task').filter({ hasText: from })
+  await row.locator('[data-testid^="open-"]').click()
+  await row.locator('[data-testid^="edit-title-"]').fill(to)
+}
 async function waitSynced(d: Device) {
   await expect(d.page.getByTestId('status')).toHaveText('synced', { timeout: 15_000 })
 }
@@ -199,7 +204,7 @@ test.describe('sync spike', () => {
 
     await a.setOffline(true)
     await addNote(a.page, 'offline-add-2')
-    await a.page.locator('input[value="base-2"]').fill('offline-edit-2')
+    await renameTask(a.page, 'base-2', 'offline-edit-2')
     await expectTitles(a.page, ['offline-add-2', 'offline-edit-2'], 300) // instant on A
     await expectTitles(b.page, ['base-2'], 500) // B has not seen it yet
 
@@ -220,8 +225,8 @@ test.describe('sync spike', () => {
 
     await a.setOffline(true)
     await b.setOffline(true)
-    await noteRow(a.page, 'x3').fill('x3-from-a')
-    await noteRow(b.page, 'y3').fill('y3-from-b')
+    await renameTask(a.page, 'x3', 'x3-from-a')
+    await renameTask(b.page, 'y3', 'y3-from-b')
     await a.setOffline(false)
     await b.setOffline(false)
     await a.page.reload()
@@ -242,8 +247,8 @@ test.describe('sync spike', () => {
 
     await a.setOffline(true)
     await b.setOffline(true)
-    await noteRow(a.page, 'shared-4').fill('shared-4-A')
-    await noteRow(b.page, 'shared-4').fill('shared-4-B')
+    await renameTask(a.page, 'shared-4', 'shared-4-A')
+    await renameTask(b.page, 'shared-4', 'shared-4-B')
     await a.setOffline(false)
     await b.setOffline(false)
     await a.page.reload()
@@ -268,7 +273,7 @@ test.describe('sync spike', () => {
     await expect.poll(() => titles(b.page), { timeout: 10_000 }).toContain('doomed-5')
 
     await b.setOffline(true)
-    const rowA = a.page.getByTestId('note').filter({ has: a.page.locator('input[value="doomed-5"]') })
+    const rowA = a.page.getByTestId('task').filter({ hasText: 'doomed-5' })
     await rowA.locator('[data-testid^="delete-"]').click()
     await waitSynced(a)
     expect(await titles(a.page)).not.toContain('doomed-5')
@@ -277,6 +282,28 @@ test.describe('sync spike', () => {
     await b.setOffline(false)
     await b.page.reload()
     await expect.poll(() => titles(b.page), { timeout: 10_000 }).not.toContain('doomed-5')
+  })
+
+  test('t1: a deleted task can be brought back for 5 seconds, then the Undo goes away', async ({ browser }) => {
+    const a = await newDevice(browser, user)
+    await addNote(a.page, 'undo-me')
+    await addNote(a.page, 'let-go')
+    const del = (t: string) =>
+      a.page.getByTestId('task').filter({ hasText: t }).locator('[data-testid^="delete-"]').click()
+    await del('undo-me')
+    expect(await titles(a.page)).not.toContain('undo-me')
+    await a.page.getByTestId('undo').click()
+    expect(await titles(a.page)).toContain('undo-me')
+    await expect(a.page.getByTestId('undo-bar')).toHaveCount(0)
+
+    await del('let-go')
+    await expect(a.page.getByTestId('undo-bar')).toBeVisible()
+    await expect(a.page.getByTestId('undo-bar')).toHaveCount(0, { timeout: 7_000 })
+    expect(await titles(a.page)).not.toContain('let-go')
+    await waitSynced(a)
+    const server = await serverTitles(user)
+    expect(server).toContain('undo-me')
+    expect(server).not.toContain('let-go')
   })
 
   test('6: unsynced changes survive an app restart and sync later', async ({ browser }) => {
@@ -396,8 +423,8 @@ test.describe('sync spike', () => {
     const del = await anon(`notes?id=eq.${noteId}`, { method: 'DELETE' })
     expect(await del.json()).toEqual([]) // cannot delete
 
-    expect(await serverTitlesOf(owner.access_token)).toContain('private-7b') // still untouched
-    expect(await serverTitlesOf(owner.access_token)).not.toContain('hacked')
+    expect(await serverTitlesOf(owner.access_token, 'notes')).toContain('private-7b') // still untouched
+    expect(await serverTitlesOf(owner.access_token, 'notes')).not.toContain('hacked')
   })
 
   test('so1: signing out when everything is saved shows no warning and the next user sees none of the notes', async ({
