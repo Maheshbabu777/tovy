@@ -73,7 +73,7 @@ Risks:
 - [x] 3 Task list screen
 - [x] 4 Subtasks
 - [x] 5 Projects and No project
-- [ ] 6 End to end
+- [ ] 6 End to end (tests moved, t2 intermittent, see evidence)
 - [ ] 7 Remove the spike
 
 ## Evidence
@@ -113,6 +113,12 @@ Slice 5 (projects and "No project"), branch `feat/tasks-projects`:
 - e2e `t4`: create a project, a task starts under "No project", move it into the project (the server row holds the project id), delete the project: the task shows under "No project" and the server holds `project_id` null and no live project. `npm run test:e2e`: 18 passed, worst local write 12.6 ms. Lint, format check and typecheck pass.
 - Found: gating the "loading" label on the projects store's `isPersistLoaded` left every screen on "loading" (it does not become true here), so only the tasks store gates it. Not looked into further.
 - Not proven: project rename and colour change sync (only add and delete are checked by e2e, the store unit test covers rename and colour); a task moved to a project created in the same offline session (the create retry covers it in theory, not tested); the screen was not looked at by eye.
+
+Slice 6 (end to end), branch `test/tasks-cross-user-e2e`:
+
+- Across slices 3 to 5 the 14 notes tests moved to tasks and new tests were added (`t1` Undo, `t2` subtasks and delete cascade, `t3` offline parent and subtask, `t4` projects). This slice moves the last two, 7 and 7b, from `notes` to tasks and projects. Test 7: a second user cannot read, change, forge, hard delete, put a task into the owner's project or put one under the owner's task (403 for both link attempts). Test 7b: a signed-out visitor cannot read, write, change or delete tasks or projects.
+- Tests 7 and 7b pass, and no test refers to the `notes` table any more, so slice 7 can drop it.
+- Not green every time: in 4 full runs on this branch `t2` (subtasks, delete and Undo) failed 3 times and passed once, and passed alone each time. The failures differed: the Undo bar still showing after 7 s, and the sync status staying "pending 1". These runs were also slower than the earlier ones (up to 2.1 minutes against 1.3). It passed in three full runs in slice 4 and 5. Not root-caused. It looks like the same family as the two sync races fixed in slice 4 (a change to a task while its insert is in flight), so a third case may remain. CI does not run e2e, so CI cannot show this. Needs a decision, see the PR.
 
 ## Notes
 

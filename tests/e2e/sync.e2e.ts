@@ -127,8 +127,8 @@ async function createUser(): Promise<{ email: string; password: string }> {
 }
 
 // Note titles the server returns for a signed-in user's token.
-async function serverTitlesOf(accessToken: string, table = 'tasks'): Promise<string[]> {
-  const res = await fetch(`${SUPABASE_URL}/rest/v1/${table}?select=title&deleted=eq.false`, {
+async function serverTitlesOf(accessToken: string): Promise<string[]> {
+  const res = await fetch(`${SUPABASE_URL}/rest/v1/tasks?select=title&deleted=eq.false`, {
     headers: { apikey: ANON_KEY, authorization: `Bearer ${accessToken}` },
   })
   return ((await res.json()) as { title: string }[]).map((n) => n.title)
@@ -204,7 +204,7 @@ test.describe('sync spike', () => {
   test.afterAll(async () => {
     const adminKey = process.env.SUPABASE_API_KEY
     if (!adminKey) return
-    // Their notes go with them (the notes table deletes with its user).
+    // Their tasks and projects go with them (both tables delete with their user).
     await Promise.all(
       createdUserIds
         .splice(0)
@@ -238,7 +238,7 @@ test.describe('sync spike', () => {
     console.log(`criterion 2 sync time after reconnect: ${Date.now() - t0} ms (includes page reload)`)
   })
 
-  test('3: edits to different notes made offline on both devices both survive', async ({ browser }) => {
+  test('3: edits to different tasks made offline on both devices both survive', async ({ browser }) => {
     const a = await newDevice(browser, user)
     const b = await newDevice(browser, user)
     await addNote(a.page, 'x3')
@@ -261,7 +261,7 @@ test.describe('sync spike', () => {
     }
   })
 
-  test('4: the same note edited offline on both devices ends identical', async ({ browser }) => {
+  test('4: the same task edited offline on both devices ends identical', async ({ browser }) => {
     const a = await newDevice(browser, user)
     const b = await newDevice(browser, user)
     await addNote(a.page, 'shared-4')
@@ -444,7 +444,7 @@ test.describe('sync spike', () => {
     expect(worst).toBeLessThan(100)
   })
 
-  test("7: a second user cannot read or change the first user's notes", async () => {
+  test("7: a second user cannot read or change the first user's tasks and projects, or link to them", async () => {
     const token = async (u: { email: string; password: string }) => {
       const res = await fetch(`${SUPABASE_URL}/auth/v1/token?grant_type=password`, {
         method: 'POST',
@@ -467,32 +467,57 @@ test.describe('sync spike', () => {
       })
     const owner = await token(user)
     const other = await token(await createUser())
-    const noteId = crypto.randomUUID()
+    const taskId = crypto.randomUUID()
+    const projectId = crypto.randomUUID()
+    const parentId = crypto.randomUUID()
+    const post = (jwt: string, table: string, row: object) =>
+      rest(jwt, table, { method: 'POST', body: JSON.stringify(row) })
+    expect((await post(owner.jwt, 'projects', { id: projectId, name: 'private-project-7' })).status).toBe(201)
+    expect((await post(owner.jwt, 'tasks', { id: parentId, title: 'private-parent-7', kind: 'deep' })).status).toBe(201)
+    expect((await post(owner.jwt, 'tasks', { id: taskId, title: 'private-7' })).status).toBe(201)
+
+    // cannot read
+    expect(await (await rest(other.jwt, `tasks?id=eq.${taskId}`)).json()).toEqual([])
+    expect(await (await rest(other.jwt, `projects?id=eq.${projectId}`)).json()).toEqual([])
+    // cannot change
+    for (const [table, id, body] of [
+      ['tasks', taskId, { title: 'hacked' }],
+      ['projects', projectId, { name: 'hacked' }],
+    ] as const) {
+      const patched = await rest(other.jwt, `${table}?id=eq.${id}`, { method: 'PATCH', body: JSON.stringify(body) })
+      expect(await patched.json()).toEqual([])
+    }
+    // cannot write rows as the owner
     expect(
-      (await rest(owner.jwt, 'notes', { method: 'POST', body: JSON.stringify({ id: noteId, title: 'private-7' }) }))
-        .status,
-    ).toBe(201)
-
-    expect(await (await rest(other.jwt, `notes?id=eq.${noteId}`)).json()).toEqual([]) // cannot read
-    const patched = await rest(other.jwt, `notes?id=eq.${noteId}`, {
-      method: 'PATCH',
-      body: JSON.stringify({ title: 'hacked' }),
+      (await post(other.jwt, 'tasks', { id: crypto.randomUUID(), user_id: owner.id, title: 'spoof' })).status,
+    ).toBe(403)
+    expect(
+      (await post(other.jwt, 'projects', { id: crypto.randomUUID(), user_id: owner.id, name: 'spoof' })).status,
+    ).toBe(403)
+    // cannot put their own task into the owner's project or under the owner's task
+    const intoProject = await post(other.jwt, 'tasks', {
+      id: crypto.randomUUID(),
+      title: 'mine',
+      project_id: projectId,
     })
-    expect(await patched.json()).toEqual([]) // cannot change
-    const spoof = await rest(other.jwt, 'notes', {
-      method: 'POST',
-      body: JSON.stringify({ id: crypto.randomUUID(), user_id: owner.id, title: 'spoof' }),
-    })
-    expect(spoof.status).toBe(403) // cannot write rows as the owner
-    const del = await rest(other.jwt, `notes?id=eq.${noteId}`, { method: 'DELETE' })
-    expect(await del.json()).toEqual([]) // cannot hard delete
+    expect(intoProject.status).toBe(403)
+    const underTask = await post(other.jwt, 'tasks', { id: crypto.randomUUID(), title: 'mine', parent_id: parentId })
+    expect(underTask.status).toBe(403)
+    // cannot hard delete
+    for (const [table, id] of [
+      ['tasks', taskId],
+      ['projects', projectId],
+    ] as const) {
+      expect(await (await rest(other.jwt, `${table}?id=eq.${id}`, { method: 'DELETE' })).json()).toEqual([])
+    }
 
-    const still = await (await rest(owner.jwt, `notes?id=eq.${noteId}`)).json()
+    const still = await (await rest(owner.jwt, `tasks?id=eq.${taskId}`)).json()
     expect(still).toHaveLength(1)
     expect(still[0].title).toBe('private-7')
+    expect(await (await rest(owner.jwt, `projects?id=eq.${projectId}`)).json()).toHaveLength(1)
   })
 
-  test('7b: with no signed-in user, notes cannot be read or written', async () => {
+  test('7b: with no signed-in user, tasks and projects cannot be read or written', async () => {
     // A signed-out visitor only has the public anon key.
     const anon = (path: string, init: RequestInit = {}) =>
       fetch(`${SUPABASE_URL}/rest/v1/${path}`, {
@@ -510,35 +535,43 @@ test.describe('sync spike', () => {
       headers: { apikey: ANON_KEY, 'content-type': 'application/json' },
       body: JSON.stringify(user),
     }).then((r) => r.json())
-    const noteId = crypto.randomUUID()
-    const created = await fetch(`${SUPABASE_URL}/rest/v1/notes`, {
-      method: 'POST',
-      headers: {
-        apikey: ANON_KEY,
-        authorization: `Bearer ${owner.access_token}`,
-        'content-type': 'application/json',
-      },
-      body: JSON.stringify({ id: noteId, title: 'private-7b' }),
-    })
-    expect(created.status).toBe(201)
+    const taskId = crypto.randomUUID()
+    const projectId = crypto.randomUUID()
+    const asOwner = (table: string, row: object) =>
+      fetch(`${SUPABASE_URL}/rest/v1/${table}`, {
+        method: 'POST',
+        headers: {
+          apikey: ANON_KEY,
+          authorization: `Bearer ${owner.access_token}`,
+          'content-type': 'application/json',
+        },
+        body: JSON.stringify(row),
+      })
+    expect((await asOwner('projects', { id: projectId, name: 'private-project-7b' })).status).toBe(201)
+    expect((await asOwner('tasks', { id: taskId, title: 'private-7b' })).status).toBe(201)
 
-    expect(await (await anon('notes')).json()).toEqual([]) // reads nothing
-    expect(await (await anon(`notes?id=eq.${noteId}`)).json()).toEqual([]) // cannot see a known note
-    const insert = await anon('notes', {
-      method: 'POST',
-      body: JSON.stringify({ id: crypto.randomUUID(), title: 'x' }),
-    })
-    expect([401, 403]).toContain(insert.status) // cannot write
-    const patch = await anon(`notes?id=eq.${noteId}`, { method: 'PATCH', body: JSON.stringify({ title: 'hacked' }) })
-    expect(await patch.json()).toEqual([]) // cannot change
-    const del = await anon(`notes?id=eq.${noteId}`, { method: 'DELETE' })
-    expect(await del.json()).toEqual([]) // cannot delete
+    for (const [table, id, body] of [
+      ['tasks', taskId, { title: 'hacked' }],
+      ['projects', projectId, { name: 'hacked' }],
+    ] as const) {
+      expect(await (await anon(table)).json()).toEqual([]) // reads nothing
+      expect(await (await anon(`${table}?id=eq.${id}`)).json()).toEqual([]) // cannot see a known row
+      const insert = await anon(table, {
+        method: 'POST',
+        body: JSON.stringify({ id: crypto.randomUUID(), [table === 'tasks' ? 'title' : 'name']: 'x' }),
+      })
+      expect([401, 403]).toContain(insert.status) // cannot write
+      const patch = await anon(`${table}?id=eq.${id}`, { method: 'PATCH', body: JSON.stringify(body) })
+      expect(await patch.json()).toEqual([]) // cannot change
+      const del = await anon(`${table}?id=eq.${id}`, { method: 'DELETE' })
+      expect(await del.json()).toEqual([]) // cannot delete
+    }
 
-    expect(await serverTitlesOf(owner.access_token, 'notes')).toContain('private-7b') // still untouched
-    expect(await serverTitlesOf(owner.access_token, 'notes')).not.toContain('hacked')
+    expect(await serverTitlesOf(owner.access_token)).toContain('private-7b') // still untouched
+    expect(await serverTitlesOf(owner.access_token)).not.toContain('hacked')
   })
 
-  test('so1: signing out when everything is saved shows no warning and the next user sees none of the notes', async ({
+  test('so1: signing out when everything is saved shows no warning and the next user sees none of the tasks', async ({
     browser,
   }) => {
     const userB = await createUser()
@@ -553,7 +586,7 @@ test.describe('sync spike', () => {
     expect(await serverTitles(user)).toContain('private-so1') // signing out deletes nothing on the server
 
     await signInThroughScreen(a.page, userB)
-    expect(await titles(a.page)).toEqual([]) // the next user sees none of the first user's notes
+    expect(await titles(a.page)).toEqual([]) // the next user sees none of the first user's tasks
     await a.page.reload()
     await expect(a.page.getByTestId('status')).toHaveText('synced', { timeout: 15_000 })
     expect(await titles(a.page)).toEqual([]) // and none came back from the device's local copy
@@ -587,7 +620,7 @@ test.describe('sync spike', () => {
 
     await a.setOffline(false)
     await signInThroughScreen(a.page, user)
-    // "synced" can show before the first fetch of the new session arrives, so wait for the saved note to come back
+    // "synced" can show before the first fetch of the new session arrives, so wait for the saved task to come back
     await expect.poll(() => titles(a.page), { timeout: 10_000 }).toContain('saved-so3')
     expect(await titles(a.page)).not.toContain('unsynced-so3') // what never reached the server is gone
     expect(await serverTitles(user)).not.toContain('unsynced-so3')
