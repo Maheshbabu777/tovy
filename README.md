@@ -14,7 +14,7 @@ Status: phase 2 (tasks). The app today is a task list with subtasks and projects
 2. Install: `npm ci` (the `.npmrc` sets `legacy-peer-deps`, which Expo SDK 57 needs)
 3. Copy `.env.example` to `.env` and add the dev Supabase URL and anon key
 4. Run: `npx expo start`, then scan the QR code with Expo Go, or press `w` for the web build
-5. Sign in with **Continue with Google** (web). The sign-in screen still shows the spike's email and password form until the email code spec lands (`.context/specs/auth-email-code.md`)
+5. Sign in with an emailed 6 digit code (web and Expo Go), or with **Continue with Google** (web only). A new email gets an account. Sending the email needs the custom SMTP setup in `.context/specs/auth-email-code.md` (Setup)
 
 ## How-to guides
 

@@ -27,7 +27,7 @@ type Device = { context: BrowserContext; page: Page; setOffline: (v: boolean) =>
 
 async function newDevice(
   browser: import('@playwright/test').Browser,
-  user: { email: string; password: string },
+  user: { email: string; password: string } | null, // null: a device with nobody signed in
 ): Promise<Device> {
   const context = await browser.newContext()
   let offline = false
@@ -68,25 +68,29 @@ async function newDevice(
     })
   })
   // Start the device signed in: write the session before the app loads, once per tab (reloads keep the app's own copy).
-  const session = await getSession(user)
-  await context.addInitScript(
-    ([key, value]) => {
-      if (!sessionStorage.getItem('e2e-session-seeded')) {
-        localStorage.setItem(key, value)
-        sessionStorage.setItem('e2e-session-seeded', '1')
-      }
-    },
-    [SESSION_KEY, JSON.stringify(session)],
-  )
+  if (user) {
+    const session = await getSession(user)
+    await context.addInitScript(
+      ([key, value]) => {
+        if (!sessionStorage.getItem('e2e-session-seeded')) {
+          localStorage.setItem(key, value)
+          sessionStorage.setItem('e2e-session-seeded', '1')
+        }
+      },
+      [SESSION_KEY, JSON.stringify(session)],
+    )
+  }
   const page = await context.newPage()
   await page.goto('/')
-  await expect(page.getByTestId('status')).toHaveText('synced', { timeout: 15_000 })
-  await Promise.race([
-    realtimeReady,
-    new Promise<void>((_, reject) =>
-      setTimeout(() => reject(new Error('realtime never confirmed its subscription')), 15_000),
-    ),
-  ])
+  if (user) {
+    await expect(page.getByTestId('status')).toHaveText('synced', { timeout: 15_000 })
+    await Promise.race([
+      realtimeReady,
+      new Promise<void>((_, reject) =>
+        setTimeout(() => reject(new Error('realtime never confirmed its subscription')), 15_000),
+      ),
+    ])
+  }
   return {
     context,
     page,
@@ -168,11 +172,36 @@ async function serverRows(u: { email: string; password: string }) {
   }
 }
 
-// Signs in through the sign-in screen (used after a sign out, when the seeded session is gone).
-async function signInThroughScreen(p: Page, u: { email: string; password: string }) {
+// The 6 digit code Supabase would email, read through the admin API (no inbox). For an address with no account this
+// creates one, exactly as asking for a code from the screen does. The test mocks the screen's request to send the email
+// (see `mockSendingMail`), so no real email goes out and the code is the only one in play.
+async function emailCodeFor(email: string): Promise<string> {
+  const res = await fetch(`${SUPABASE_URL}/auth/v1/admin/generate_link`, {
+    method: 'POST',
+    headers: { apikey: process.env.SUPABASE_API_KEY!, 'content-type': 'application/json' },
+    body: JSON.stringify({ type: 'magiclink', email }),
+  })
+  const body: any = await res.json()
+  if (!res.ok || !body.email_otp) throw new Error(`could not get a code: ${JSON.stringify(body)}`)
+  if (body.id && !createdUserIds.includes(body.id)) createdUserIds.push(body.id)
+  return body.email_otp
+}
+
+// Answers the screen's "email me a code" request without sending anything, so tests never email real addresses.
+async function mockSendingMail(p: Page, response: { status: number; body: object } = { status: 200, body: {} }) {
+  await p.route(/\/auth\/v1\/otp/, (route) =>
+    route.fulfill({ status: response.status, contentType: 'application/json', body: JSON.stringify(response.body) }),
+  )
+}
+
+// Signs in through the sign-in screen with an emailed code (used after a sign out, when the seeded session is gone).
+async function signInThroughScreen(p: Page, u: { email: string }) {
+  await mockSendingMail(p)
   await p.getByTestId('email').fill(u.email)
-  await p.getByTestId('password').fill(u.password)
-  await p.getByTestId('sign-in').click()
+  await p.getByTestId('send-code').click()
+  await expect(p.getByTestId('code')).toBeVisible()
+  await p.getByTestId('code').fill(await emailCodeFor(u.email))
+  await p.getByTestId('verify-code').click()
   await expect(p.getByTestId('status')).toHaveText('synced', { timeout: 15_000 })
 }
 
@@ -416,6 +445,63 @@ test.describe('sync spike', () => {
     const after = await serverRows(user)
     expect(after.tasks.find((t) => t.title === 'moved-t4')?.project_id).toBeNull()
     expect(after.projects.map((p) => p.name)).not.toContain('proj-t4')
+  })
+
+  test('c1: a user signs in with an emailed code and stays signed in after a reload', async ({ browser }) => {
+    const d = await newDevice(browser, null)
+    await expect(d.page.getByTestId('password')).toHaveCount(0) // no password field
+    await expect(d.page.getByTestId('google-sign-in')).toBeVisible() // Google is the other way in
+    await signInThroughScreen(d.page, user)
+    await d.page.reload()
+    await expect(d.page.getByTestId('status')).toHaveText('synced', { timeout: 15_000 })
+    await expect(d.page.getByTestId('email')).toHaveCount(0) // still signed in after a reload
+  })
+
+  test('c2: an email with no account gets one by entering the code (register)', async ({ browser }) => {
+    const fresh = { email: `spike-new-${Date.now()}-${Math.floor(Math.random() * 1e6)}@gmail.com` }
+    const d = await newDevice(browser, null)
+    await signInThroughScreen(d.page, fresh)
+    await expect(d.page.getByTestId('email')).toHaveCount(0)
+    const found = await (
+      await fetch(`${SUPABASE_URL}/auth/v1/admin/users?per_page=200`, {
+        headers: { apikey: process.env.SUPABASE_API_KEY! },
+      })
+    ).json()
+    expect((found as any).users.some((u: any) => u.email === fresh.email)).toBe(true) // the account exists now
+  })
+
+  test('c3: a wrong code shows an error and does not sign in', async ({ browser }) => {
+    const d = await newDevice(browser, null)
+    await mockSendingMail(d.page)
+    await d.page.getByTestId('email').fill(user.email)
+    await d.page.getByTestId('send-code').click()
+    await emailCodeFor(user.email) // a real code exists, the one typed below is not it
+    await d.page.getByTestId('code').fill('000000')
+    await d.page.getByTestId('verify-code').click()
+    await expect(d.page.getByTestId('auth-error')).toContainText('wrong or has expired')
+    await expect(d.page.getByTestId('code')).toBeVisible() // still on the code step
+    await expect(d.page.getByTestId('status')).toHaveCount(0) // not signed in
+    // a code that is not 6 digits is refused before anything is sent
+    await d.page.getByTestId('code').fill('123')
+    await d.page.getByTestId('verify-code').click()
+    await expect(d.page.getByTestId('auth-error')).toContainText('6 digits')
+  })
+
+  test('c4: when too many codes were asked for, the screen says so and waits', async ({ browser }) => {
+    const d = await newDevice(browser, null)
+    await mockSendingMail(d.page, {
+      status: 429,
+      body: {
+        code: 429,
+        error_code: 'over_email_send_rate_limit',
+        msg: 'For security purposes, you can only request this after 42 seconds.',
+      },
+    })
+    await d.page.getByTestId('email').fill(user.email)
+    await d.page.getByTestId('send-code').click()
+    await expect(d.page.getByTestId('auth-error')).toContainText('Too many codes')
+    await expect(d.page.getByTestId('send-code')).toContainText('Wait') // cannot ask again at once
+    await expect(d.page.getByTestId('code')).toHaveCount(0) // no code step, nothing was sent
   })
 
   test('6: unsynced changes survive an app restart and sync later', async ({ browser }) => {
