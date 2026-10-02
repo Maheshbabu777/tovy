@@ -306,6 +306,62 @@ test.describe('sync spike', () => {
     expect(server).not.toContain('let-go')
   })
 
+  test('t2: subtasks nest, a deep task with subtasks stays deep, delete and Undo cover every level', async ({
+    browser,
+  }) => {
+    const a = await newDevice(browser, user)
+    const row = (t: string) => a.page.getByTestId('task').filter({ hasText: t })
+    const addSub = async (parent: string, title: string) => {
+      const r = row(parent)
+      if ((await r.locator('[data-testid^="sub-title-"]').count()) === 0) {
+        await r.locator('[data-testid^="open-"]').click()
+        await r.locator('[data-testid^="kind-"]').click() // quick -> deep
+      }
+      await r.locator('[data-testid^="sub-title-"]').fill(title)
+      await r.locator('[data-testid^="sub-add-"]').click()
+    }
+    await addNote(a.page, 'parent-t2')
+    await addSub('parent-t2', 'child-t2')
+    await addSub('child-t2', 'grand-t2')
+    await waitSynced(a)
+    expect((await titles(a.page)).filter((t) => t.endsWith('-t2'))).toEqual(['child-t2', 'grand-t2', 'parent-t2'])
+    await expect(row('parent-t2').locator('[data-testid^="count-"]')).toHaveText('1 subtask') // direct subtasks only
+
+    // a deep task with a subtask cannot go back to quick
+    await row('parent-t2').locator('[data-testid^="open-"]').click() // only one editor is open at a time
+    await row('parent-t2').locator('[data-testid^="kind-"]').click()
+    await expect(a.page.getByTestId('error')).toContainText('must stay deep')
+
+    // delete the top task: all three levels go, and one Undo brings all three back
+    await row('parent-t2').locator('[data-testid^="delete-"]').click()
+    expect((await titles(a.page)).filter((t) => t.endsWith('-t2'))).toEqual([])
+    await expect(a.page.getByTestId('undo-bar')).toContainText('3 tasks deleted')
+    await a.page.getByTestId('undo').click()
+    expect((await titles(a.page)).filter((t) => t.endsWith('-t2'))).toEqual(['child-t2', 'grand-t2', 'parent-t2'])
+
+    // delete again and let the Undo expire: all three stay deleted on the server
+    await row('parent-t2').locator('[data-testid^="delete-"]').click()
+    await expect(a.page.getByTestId('undo-bar')).toHaveCount(0, { timeout: 7_000 })
+    await waitSynced(a)
+    expect((await serverTitles(user)).filter((t) => t.endsWith('-t2'))).toEqual([])
+  })
+
+  test('t3: a task and its subtask added offline both reach the server after reconnect', async ({ browser }) => {
+    const a = await newDevice(browser, user)
+    await a.setOffline(true)
+    await addNote(a.page, 'parent-t3')
+    const r = a.page.getByTestId('task').filter({ hasText: 'parent-t3' })
+    await r.locator('[data-testid^="open-"]').click()
+    await r.locator('[data-testid^="kind-"]').click()
+    await r.locator('[data-testid^="sub-title-"]').fill('child-t3')
+    await r.locator('[data-testid^="sub-add-"]').click()
+    await a.setOffline(false)
+    await a.page.reload()
+    await expect
+      .poll(async () => (await serverTitles(user)).filter((t) => t.endsWith('-t3')).sort(), { timeout: 20_000 })
+      .toEqual(['child-t3', 'parent-t3'])
+  })
+
   test('6: unsynced changes survive an app restart and sync later', async ({ browser }) => {
     const a = await newDevice(browser, user)
     const b = await newDevice(browser, user)

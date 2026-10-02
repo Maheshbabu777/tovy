@@ -3,7 +3,7 @@ import { Image, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 
 import { syncState } from '@legendapp/state'
 import { use$ } from '@legendapp/state/react'
 import { supabase } from '../core/db/supabase'
-import type { Task, TasksStore } from '../core/sync/tasks'
+import type { Task, TaskEdit, TasksStore } from '../core/sync/tasks'
 import { colors, fonts, radius } from './tokens'
 
 // Test hook: lets the end-to-end tests read tap-to-render timings.
@@ -67,6 +67,15 @@ export function TasksScreen({ store }: { store: TasksStore }) {
     })
   }
 
+  const ctx: TreeContext = {
+    store,
+    tasks: tasks ?? {},
+    openId,
+    setOpenId,
+    run: (action) => run(() => measure(action)),
+    remove,
+  }
+
   const list = Object.values(tasks ?? {})
     .filter((t) => t && !t.deleted && !t.parent_id)
     .sort((a, b) => (a.created_at ?? '~').localeCompare(b.created_at ?? '~') || a.id.localeCompare(b.id))
@@ -111,15 +120,7 @@ export function TasksScreen({ store }: { store: TasksStore }) {
       <View style={styles.card}>
         {list.length === 0 ? <Text style={styles.empty}>No tasks yet</Text> : null}
         {list.map((t) => (
-          <TaskRow
-            key={t.id}
-            task={t}
-            open={openId === t.id}
-            onToggleOpen={() => setOpenId(openId === t.id ? null : t.id)}
-            onDone={() => run(() => measure(() => store.setDone(t.id, !t.done_at)))}
-            onEdit={(patch) => run(() => measure(() => store.editTask(t.id, patch)))}
-            onDelete={() => remove(t.id)}
-          />
+          <TaskTree key={t.id} task={t} depth={0} ctx={ctx} />
         ))}
       </View>
 
@@ -163,38 +164,84 @@ export function TasksScreen({ store }: { store: TasksStore }) {
   )
 }
 
-type RowProps = {
-  task: Task
-  open: boolean
-  onToggleOpen: () => void
-  onDone: () => void
-  onEdit: (patch: { title?: string; note?: string; dueDate?: string | null; dueTime?: string | null }) => void
-  onDelete: () => void
+type TreeContext = {
+  store: TasksStore
+  tasks: Record<string, Task>
+  openId: string | null
+  setOpenId: (id: string | null) => void
+  run: (action: () => void) => void
+  remove: (id: string) => void
 }
 
-function TaskRow({ task, open, onToggleOpen, onDone, onEdit, onDelete }: RowProps) {
-  const done = !!task.done_at
+const byCreated = (a: Task, b: Task) =>
+  (a.created_at ?? '~').localeCompare(b.created_at ?? '~') || a.id.localeCompare(b.id)
+
+// A task and, indented beneath it, its subtasks at any depth. The subtasks sit beside the row (not inside it) so each
+// row stays one `task` element.
+function TaskTree({ task, depth, ctx }: { task: Task; depth: number; ctx: TreeContext }) {
+  const subtasks = Object.values(ctx.tasks)
+    .filter((t) => t && !t.deleted && t.parent_id === task.id)
+    .sort(byCreated)
   return (
-    <View testID="task" style={styles.rowWrap}>
+    <>
+      <TaskRow task={task} depth={depth} subtaskCount={subtasks.length} ctx={ctx} />
+      {subtasks.map((t) => (
+        <TaskTree key={t.id} task={t} depth={depth + 1} ctx={ctx} />
+      ))}
+    </>
+  )
+}
+
+function TaskRow({
+  task,
+  depth,
+  subtaskCount,
+  ctx,
+}: {
+  task: Task
+  depth: number
+  subtaskCount: number
+  ctx: TreeContext
+}) {
+  const { store, run } = ctx
+  const [subDraft, setSubDraft] = useState('')
+  const done = !!task.done_at
+  const open = ctx.openId === task.id
+  const edit = (patch: TaskEdit) => run(() => store.editTask(task.id, patch))
+  return (
+    <View testID="task" style={[styles.rowWrap, { marginLeft: depth * 22 }]}>
       <View style={styles.row}>
         <Pressable
           testID={`done-${task.id}`}
           accessibilityRole="checkbox"
           accessibilityState={{ checked: done }}
-          onPress={onDone}
+          onPress={() => run(() => store.setDone(task.id, !done))}
           style={styles.checkHit}
         >
           <View style={[styles.check, done && styles.checkDone]}>
             {done ? <Text style={styles.tick}>✓</Text> : null}
           </View>
         </Pressable>
-        <Pressable testID={`open-${task.id}`} onPress={onToggleOpen} style={{ flex: 1 }}>
+        <Pressable testID={`open-${task.id}`} onPress={() => ctx.setOpenId(open ? null : task.id)} style={{ flex: 1 }}>
           <Text testID={`title-${task.id}`} style={[styles.rowTitle, done && styles.rowDone]}>
             {task.title}
           </Text>
-          {task.due_date ? <Text style={styles.meta}>{dueLabel(task)}</Text> : null}
+          <View style={styles.metaRow}>
+            {task.kind === 'deep' ? <Text style={styles.badge}>Deep</Text> : null}
+            {subtaskCount > 0 ? (
+              <Text testID={`count-${task.id}`} style={styles.meta}>
+                {subtaskCount === 1 ? '1 subtask' : `${subtaskCount} subtasks`}
+              </Text>
+            ) : null}
+            {task.due_date ? <Text style={styles.meta}>{dueLabel(task)}</Text> : null}
+          </View>
         </Pressable>
-        <Pressable testID={`delete-${task.id}`} onPress={onDelete} style={styles.checkHit} accessibilityLabel="Delete">
+        <Pressable
+          testID={`delete-${task.id}`}
+          onPress={() => ctx.remove(task.id)}
+          style={styles.checkHit}
+          accessibilityLabel="Delete"
+        >
           <Text style={styles.metaIcon}>✕</Text>
         </Pressable>
       </View>
@@ -203,7 +250,7 @@ function TaskRow({ task, open, onToggleOpen, onDone, onEdit, onDelete }: RowProp
           <TextInput
             testID={`edit-title-${task.id}`}
             value={task.title}
-            onChangeText={(v) => onEdit({ title: v })}
+            onChangeText={(v) => edit({ title: v })}
             style={styles.field}
           />
           <TextInput
@@ -212,7 +259,7 @@ function TaskRow({ task, open, onToggleOpen, onDone, onEdit, onDelete }: RowProp
             placeholder="Note"
             placeholderTextColor={colors.inkFaint}
             multiline
-            onChangeText={(v) => onEdit({ note: v })}
+            onChangeText={(v) => edit({ note: v })}
             style={[styles.field, { minHeight: 64 }]}
           />
           <View style={styles.actions}>
@@ -221,7 +268,7 @@ function TaskRow({ task, open, onToggleOpen, onDone, onEdit, onDelete }: RowProp
               value={task.due_date ?? ''}
               placeholder="YYYY-MM-DD"
               placeholderTextColor={colors.inkFaint}
-              onChangeText={(v) => onEdit(v ? { dueDate: v } : { dueDate: null, dueTime: null })}
+              onChangeText={(v) => edit(v ? { dueDate: v } : { dueDate: null, dueTime: null })}
               style={[styles.field, { flex: 1 }]}
             />
             <TextInput
@@ -229,10 +276,42 @@ function TaskRow({ task, open, onToggleOpen, onDone, onEdit, onDelete }: RowProp
               value={task.due_time ?? ''}
               placeholder="HH:MM"
               placeholderTextColor={colors.inkFaint}
-              onChangeText={(v) => onEdit({ dueTime: v || null })}
+              onChangeText={(v) => edit({ dueTime: v || null })}
               style={[styles.field, { flex: 1 }]}
             />
           </View>
+          <Pressable
+            testID={`kind-${task.id}`}
+            style={styles.ghost}
+            onPress={() => run(() => store.setKind(task.id, task.kind === 'deep' ? 'quick' : 'deep'))}
+          >
+            <Text style={styles.ghostText}>
+              {task.kind === 'deep' ? 'Deep task (tap to make it quick)' : 'Quick task (tap to make it deep)'}
+            </Text>
+          </Pressable>
+          {task.kind === 'deep' ? (
+            <View style={styles.actions}>
+              <TextInput
+                testID={`sub-title-${task.id}`}
+                value={subDraft}
+                placeholder="Add a subtask"
+                placeholderTextColor={colors.inkFaint}
+                onChangeText={setSubDraft}
+                style={[styles.field, { flex: 1 }]}
+              />
+              <Pressable
+                testID={`sub-add-${task.id}`}
+                style={styles.addButton}
+                onPress={() => {
+                  if (!subDraft.trim()) return
+                  run(() => store.addTask({ title: subDraft.trim(), parentId: task.id }))
+                  setSubDraft('')
+                }}
+              >
+                <Text style={styles.addText}>Add</Text>
+              </Pressable>
+            </View>
+          ) : null}
         </View>
       ) : null}
     </View>
@@ -285,6 +364,19 @@ const styles = StyleSheet.create({
   tick: { color: 'white', fontSize: 13, fontWeight: '700' },
   rowTitle: { fontFamily: fonts.sans, fontSize: 15, fontWeight: '500', color: colors.ink },
   rowDone: { color: colors.inkFaint, textDecorationLine: 'line-through' },
+  metaRow: { flexDirection: 'row', gap: 8, alignItems: 'center', flexWrap: 'wrap' },
+  badge: {
+    fontFamily: fonts.sans,
+    fontSize: 11,
+    fontWeight: '600',
+    color: 'white',
+    backgroundColor: colors.accent,
+    borderRadius: radius.pill,
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    marginTop: 2,
+    overflow: 'hidden',
+  },
   meta: { fontFamily: fonts.sans, fontSize: 13, fontWeight: '500', color: colors.inkSoft, marginTop: 2 },
   metaIcon: { color: colors.inkFaint, fontSize: 14 },
   editor: { gap: 8, paddingLeft: 42, paddingBottom: 8 },
