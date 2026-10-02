@@ -178,6 +178,8 @@ function Body({
           if (!title.trim()) setTitle(task.title) // a task keeps a title
         }}
         multiline
+        numberOfLines={1}
+        scrollEnabled={false}
         blurOnSubmit
         placeholder="Task title"
         placeholderTextColor={c.ink5}

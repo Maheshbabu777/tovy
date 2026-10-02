@@ -16,7 +16,10 @@ const BASE = process.env.BASE_URL ?? 'http://localhost:8081'
 const [outDir, ...asked] = process.argv.slice(2)
 if (!SB || !ANON || !ADMIN || !outDir) throw new Error('usage: see the top of this file')
 let launchId = ''
-const screens = asked.length ? asked : ['signin', 'code', 'setup', 'today', 'projects', 'project', 'inbox', 'profile']
+let deepId = ''
+const screens = asked.length
+  ? asked
+  : ['signin', 'code', 'setup', 'today', 'projects', 'project', 'inbox', 'task', 'profile']
 const SIZES = [
   ['phone', 430, 900],
   ['wide', 1280, 800],
@@ -75,6 +78,7 @@ async function sampleData(token) {
   const today = new Date().toISOString().slice(0, 10)
   const day = (n) => new Date(Date.now() + n * 86400000).toISOString().slice(0, 10)
   const deep = id()
+  deepId = deep
   await call(
     'POST',
     '/rest/v1/tasks',
@@ -89,6 +93,16 @@ async function sampleData(token) {
   await task({ title: 'Review launch checklist', project_id: launch, due_date: day(-2) })
   await task({ title: 'Rewrite onboarding copy', project_id: launch, due_date: day(3) })
   await task({ title: 'Morning walk', project_id: health })
+  const entry = (delta, progress_after, note, source = 'you') =>
+    call(
+      'POST',
+      '/rest/v1/progress_log',
+      ANON,
+      { task_id: deep, delta, progress_after, note, source, day: today },
+      token,
+    )
+  await entry(30, 30, 'Outline done and reviewed')
+  await entry(20, 50, 'Endpoints drafted', 'Claude')
   const proposal = (app_name, kind, title, extra = {}) =>
     call(
       'POST',
@@ -128,6 +142,7 @@ try {
         project: `/projects?id=${launchId}`,
         profile: '/profile',
         inbox: '/inbox',
+        task: `/?task=${deepId}`,
       }[screen] ?? screen
     for (const [name, width, height, scheme] of VARIANTS) {
       const context = await browser.newContext({ viewport: { width, height }, colorScheme: scheme })

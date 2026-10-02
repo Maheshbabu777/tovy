@@ -31,7 +31,7 @@ Phase 1 is its own pull request (migration and row security test), merged first.
 - [x] 2 Inbox
 - [x] 3 Projects
 - [x] 4 Profile
-- [ ] 5 Task detail
+- [x] 5 Task detail
 - [ ] 6 Today
 
 ## Evidence

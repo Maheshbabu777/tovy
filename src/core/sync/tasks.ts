@@ -239,6 +239,9 @@ export function createTasksStore(userId: string) {
     if (projectId && !liveProjects().some((p) => p.id === projectId)) throw new Error('That project does not exist')
   }
 
+  // Counts deletes, so an Undo's late re-check can tell that the person deleted again since and stand down.
+  let deleteEpoch = 0
+
   // Runs a change to a task and, if it moved the top level task it belongs to, logs how far (design 11.9: "Each logged
   // change adds a log entry"). Points are earned on the top level task, however deep the change was.
   function applyChange(id: string, mutate: () => void, opts: { note?: string; source?: string } = {}) {
@@ -342,6 +345,7 @@ export function createTasksStore(userId: string) {
     deleteTask(id: string): { ids: string[]; undo: () => void } {
       if (!getTask(id)) throw new Error('That task does not exist')
       const ids = [id, ...descendantIds(id)]
+      deleteEpoch++
       // Once the server confirms a delete the plugin drops the row from the store, so an Undo has to bring the whole
       // row back, not just switch `deleted` off.
       const snapshot = ids.map((i) => ({ ...(tasks$[i].peek() as Task) }))
@@ -358,12 +362,13 @@ export function createTasksStore(userId: string) {
         ids,
         undo: () => {
           restore()
+          const epochAtUndo = deleteEpoch
           // An Undo made while the delete is still being saved can be taken for "no change" by the plugin, and the
           // saved delete then comes back from the server. Once the saves are done, put the task back again if so.
           void (async () => {
             await writes.idle()
             await new Promise((resolve) => setTimeout(resolve, 600))
-            if (gone().length) restore()
+            if (deleteEpoch === epochAtUndo && gone().length) restore()
           })()
         },
       }
