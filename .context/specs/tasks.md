@@ -30,7 +30,7 @@ Tovy only has the spike's notes list. Phase 2 of `.context/project-plan.md` make
 - Partial progress, the progress log, deep versus quick tasks, routines, streaks, reminders, attachments, tags, priorities (Phases 5 to 8).
 - The AI connection and approval inbox (Phase 6).
 - Per routine streaks, the Search screen and the AI source chip on tasks (seen in the design, see `.context/design-notes.md`, decided in later phases).
-- Visual design. This spec uses a plain list. Colours, spacing and polish come with the `design-tokens` spec and Phase 10.
+- Dark theme, motion and full polish (`design-tokens` spec and Phase 10). The screens in this spec do copy the look of the Figma prototype (colours, type, card shape, check circles, project dots), light theme only.
 - Sharing tasks with other people.
 
 ## Open questions
@@ -42,7 +42,7 @@ Tovy only has the spike's notes list. Phase 2 of `.context/project-plan.md` make
 - Quick versus deep tasks (from the design): add a `kind` now, subtasks only on deep tasks? Answer: yes (2026-10-02).
 - Name for tasks with no project, since the design uses Inbox for the AI approval inbox? Answer: "No project" (2026-10-02).
 - Due time and project colour (both in the design)? Answer: include both now (2026-10-02).
-- (proposed) Plain unstyled screen now, with styling later in `design-tokens`. Answer: pending, treated as yes unless you say otherwise.
+- Plain screen now or copy the Figma look? Answer: copy the look of the prototype for the screens in this spec, with the logo in `assets/brand/` (2026-10-02: "replicate that reference i gave you for ui"). Values live in `src/ui/tokens.ts`.
 
 ## Plan
 
@@ -50,7 +50,7 @@ Branch per slice group, `feat/tasks-...`. Each slice ends green and is ticked be
 
 1. **Tables and row security.** Migration `0003_tasks.sql`: `projects` (id, user_id, name, color, deleted, created_at, updated_at) and `tasks` (id, user_id, title, note, due_date, due_time, kind quick or deep, done_at, project_id null for "No project", parent_id null for top level, deleted, created_at, updated_at), with the same server-set timestamps, the same row security pattern, and checks that `project_id` and `parent_id` belong to the same user. Extend `supabase/tests/` so user B cannot read or change user A's rows or link to them. Test: the SQL test passes and fails when a policy is weakened.
 2. **Store.** Replace the notes store with one per-user store holding tasks and projects (same Legend-State plugin, soft delete via `deleted`, realtime and catch-up kept). Functions to add, edit, mark done, delete and restore (a task with its subtasks), create, rename and delete a project. Unit tests for these without the network.
-3. **Task list screen.** Add, edit, done, delete with a 5 second Undo, plain layout. Port the timing check.
+3. **Task list screen.** Add, edit, done, delete with a 5 second Undo, in the look of the prototype with the logo. Port the timing check.
 4. **Subtasks and kind.** Switch a task between quick and deep, add and show subtasks under a deep parent at any depth (indented tree), direct subtask count, no moves that create a cycle, delete and undo together for every descendant.
 5. **Projects and "No project".** Project list with colour, move a task, "No project" for tasks without one, project delete moves tasks to "No project".
 6. **End to end.** Port the 14 e2e tests from notes to tasks, add tests for undo, subtasks, project delete and the cross-user link checks.
@@ -70,7 +70,7 @@ Risks:
 - [x] Plan approved (human, 2026-10-02: "go ahead")
 - [x] 1 Tables and row security
 - [x] 2 Store
-- [ ] 3 Task list screen
+- [x] 3 Task list screen
 - [ ] 4 Subtasks
 - [ ] 5 Projects and No project
 - [ ] 6 End to end
@@ -92,6 +92,13 @@ Slice 2 (store), branch `feat/tasks-store`:
 - 9 new unit tests, 12 in total, all passing. They include a chain 50 levels deep (the plan's risk), cycle refusal at any depth, delete and undo of a three level tree, and project delete keeping tasks. Four deliberate breakages (cycle check removed, quick parent allowed, undo restoring nothing, project delete deleting tasks) each failed exactly one test, and the file was restored.
 - `npm run test:e2e`: 14 passed (the notes tests, unchanged), and the project had 1 user afterwards. Lint, format check and typecheck pass.
 - Not proven: sync of the tasks store against Supabase (that needs the screen and the ported e2e tests, slices 3 and 6), and the 5 second undo timing (a screen concern, slice 3).
+
+Slice 3 (task list screen), branch `feat/tasks-screen`:
+
+- `src/ui/TasksScreen.tsx` replaces the notes screen: add bar, card with rows (round check, title, due date, delete), an editor per row (title, note, due date, due time), a 5 second Undo bar, the sync status, and sign out with the unsynced-changes warning. `app/index.tsx` now creates `createTasksStore` per user (same lifecycle, disposed at sign out) and the sign-in screen uses the logo and tokens. Logo files are in `assets/brand/`.
+- `src/ui/tokens.ts`: colours, radii, fonts and the five project colours from the prototype. Values I could not read from the prototype (add bar, chip, section label) are estimates from screenshots.
+- e2e: the 14 notes tests now drive tasks (helpers `titles`, `renameTask`, and the server read uses `tasks`). Tests 7 and 7b still check the `notes` table until slice 7. New test `t1`: Undo restores a task, and the Undo bar disappears after 5 seconds with the task still deleted on the server. `npm run test:e2e`: 15 passed. Worst local write render 16.2 ms (limit 100). Lint, format check, typecheck pass.
+- Not checked: the screen was not looked at in a browser or on a phone, only driven by tests. Subtasks, kind and projects have no UI yet (slices 4 and 5).
 
 ## Notes
 
