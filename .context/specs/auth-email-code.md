@@ -1,39 +1,84 @@
-# Auth email code
+# Auth email code and registration
 
 Status: draft
 
-Size: risky (sign-in).
+Size: risky (sign-in, a new table with row security, a migration).
 
 ## Problem
 
-Tovy's plan is Google plus an emailed 6 digit code, so nobody has to make up a password. Google on web works (spec `auth`). The email code was split out on 2026-10-02 because it needs email setup the human has not done yet, and the human chose to do it later. Until it ships, the sign-in screen still shows the spike's password form.
+Tovy's plan is Google plus an emailed 6 digit code, so nobody has to make up a password. Google on web works (spec `auth`). The email code was split out on 2026-10-02 because it needs email setup the human had not done yet. Two gaps showed up since:
+
+- There is no register path. Today the sign-in screen has Google (web) and the spike's email and password form, which can only sign in, never create an account. With a code, sign in and register are the same step: an email that is new gets an account.
+- We store nothing about a person except what Supabase Auth keeps (email, and name and photo from Google). A new user should give their first name, last name and a username when they register.
+
+The code also unblocks testing on a real phone: Google sign in needs a dev build, but an emailed code works in Expo Go.
 
 ## Acceptance criteria
 
-1. A user enters their email, gets a 6 digit code, enters it, and lands signed in on the notes screen. This works on web and in Expo Go.
+1. A user enters their email, gets a 6 digit code, enters it, and lands signed in. A new email creates an account. This works on web and in Expo Go.
 2. A wrong or expired code shows an error and does not sign the user in. Asking for a new code is possible, and a rate limit message is shown instead of failing silently.
 3. The sign-in screen offers only Google (web) and email code, with no password field.
 4. A session created by the code flow survives a reload (the earlier test used a session placed by the test harness).
+5. After the first sign in (code or Google), a user with no profile sees one setup step before the task list: first name, last name and a username, all required. First and last name are prefilled from Google when Google provides them. Nothing else is asked.
+6. A username is 3 to 20 characters of lowercase letters, digits and underscore, and unique regardless of case. A taken or badly formed username shows a message on the field and the user stays on the step. Names are 1 to 50 characters after trimming.
+7. A returning user with a profile goes straight to the task list. Offline, a user who has signed in before still reaches the task list (the profile is kept on the device). A brand new user who is offline sees that they need a connection to finish setting up.
+8. Row security on profiles: a user can read, create and change only their own profile, nobody can delete one, and no user can read another user's profile. Whether a username is free is answered by a function that returns only yes or no, never any other data (SQL test in CI plus an e2e check).
+9. The new table comes from a numbered migration that CI applies to dev on merge. Signing out clears the profile kept on the device, so the next user on the device never sees it.
+10. The e2e suite still passes. Tests that signed in through the password form use the code flow instead, and the users the tests create get a profile so they skip the setup step. Lint, format check, typecheck, unit tests and the CI row security test pass.
 
 ## Out of scope
 
-- Google on a phone (dev build spec), a custom domain, profile screen.
+- Profile photo, time zone, day start, week start, editing the profile later (the Profile screen is Phase 10), account deletion.
+- Google on a phone (dev build spec), a custom domain, password sign in, magic links.
+- Sharing, or looking up other people by username (usernames only have to be unique for now).
 
 ## Open questions
 
-- For you to do, I can't: sign up at Resend with the address you test with, create an API key, enter it in Supabase (Authentication, Emails, SMTP: host `smtp.resend.com`, port `465`, username `resend`, sender `onboarding@resend.dev`), then set the Magic Link template to show `{{ .Token }}` (locked until custom SMTP is on). Answer: pending.
-- Until a domain exists, Resend only delivers to the owner's own address. Agree? Answer: pending.
+- Which details at registration? Answer: first name, last name and a username, all required (2026-10-02).
+- How is the email sent while there is no domain? Answer: Gmail SMTP (2026-10-02). It works now and sends to any address, unlike Resend, which only delivers to the owner's own address until a domain is verified.
+- Do the setup below (the human does it, I can't): see Setup. Answer: pending.
+- Assumption to confirm: the username is shown nowhere yet and cannot be changed in this spec. Fine to keep it that simple? Answer: pending.
+
+## Setup (human)
+
+1. Google account used for sending: turn on 2-step verification, then create an App Password (myaccount.google.com/apppasswords, name it Tovy). Copy the 16 characters. Treat it like a password: paste it only into Supabase, never into chat, the repo or `.env`.
+2. Supabase, Authentication, Emails, SMTP Settings: enable custom SMTP. Host `smtp.gmail.com`, port `465`, username the Gmail address, password the App Password, sender email the same Gmail address, sender name `Tovy`.
+3. Supabase, Authentication, Emails, Templates: there are two that matter. A new email gets the Confirm signup template and a known email gets the Magic Link template. Change the body of both to show the code, for example `Your Tovy code is {{ .Token }}` and nothing that needs a link. (These templates are locked until custom SMTP is on.)
+4. Supabase, Authentication, Providers, Email: leave email sign in on. Under Sign In / Providers, check the email code length is 6 and the expiry is 1 hour or less.
+5. Tell me when it is done. I then check it by asking for a code through the API for a test address and reading it through the admin API (no inbox needed).
 
 ## Plan
 
-<!-- Written when the setup above is done. Roughly: sign in screen with email then code step (signInWithOtp, verifyOtp), remove the password form and the tests that use it, e2e test that reads the code through the admin API generate_link, wrong code test. -->
+Branch per slice, `feat/auth-...`. Each slice ends green and is ticked below.
+
+1. **Profiles table and row security.** Migration `0005_profiles.sql`: `profiles` (id = the user's id, first_name, last_name, username, created_at, updated_at) with the same server-set timestamps, checks for the name and username rules, a unique index on `lower(username)`, owner-only select, insert and update, no delete policy, and `username_available(text)` returning a boolean. Extend `supabase/tests/` (another user cannot read, change or forge a profile, bad usernames and a taken username are refused, the function leaks nothing). Mutation checks as in the tasks slice 1. Test: the SQL test passes and fails when a policy is weakened.
+2. **Email code sign in.** Sign-in screen: email, then code (`signInWithOtp`, `verifyOtp`), errors, resend with the rate limit message, no password form. Test helpers sign in through the screen by reading the code with the admin API `generate_link`. Needs the Setup above for the one real check.
+3. **Profile step.** After sign in, load the profile. If none, show the setup step (prefilled from Google), save it, keep a copy on the device (cleared at sign out), and use the copy when offline. Test users get a profile in `createUser` so the other tests are unchanged. New e2e tests: new user sees the step and cannot continue with a bad or taken username, returning user does not see it, offline start with a saved profile works, the next user after sign out sees none of the previous profile.
+4. **Phone check.** The human opens the app in Expo Go, signs in with an emailed code, registers, adds a task. I record what happened. (Per user native storage was never tested, so this is where it gets its first real check.)
+
+Risks:
+- Gmail may block or throttle the sender (it is not built for app mail). If codes do not arrive, the fallback is Resend to the owner's address only, then the verified `.me` domain.
+- The Supabase default for new users is the Confirm signup template, not Magic Link. If only one template is edited, new users get a link and no code. Both are in the Setup, and the check in step 5 covers a new and a known address.
+- Supabase rate limits email codes (a per address wait of about a minute, and an hourly cap on custom SMTP). The screen must show this, and the tests must not ask for codes in a loop.
+- A profile gate on every sign in adds one network call before the task list. The device copy keeps a returning user offline-safe, but the first load after a long time offline with no copy is blocked on purpose (criterion 7).
+- The seeded sessions in the e2e tests skip sign in. If a test user has no profile the setup step blocks every test, so `createUser` must create the profile (slice 3).
 
 ## Progress
 
+- [ ] Questions answered
 - [ ] Setup done by the human
-- [ ] Plan written and approved
+- [ ] Plan approved
+- [ ] 1 Profiles table and row security
+- [ ] 2 Email code sign in
+- [ ] 3 Profile step
+- [ ] 4 Phone check
+
+## Evidence
+
+(none yet)
 
 ## Notes
 
 - Tests do not need an inbox: the admin API `generate_link` returns the code.
-- The sync e2e tests start from saved sessions, and the sign-out tests use the password screen to sign in again. They need a different way to sign in when the password form goes.
+- The sync e2e tests start from saved sessions, and the sign-out tests use the password screen to sign in again. They need a different way to sign in when the password form goes (slice 2).
+- The screen follows the look of the tasks screen (`src/ui/tokens.ts`). The Figma prototype shows no registration screens, so this one is designed from the same pieces.
