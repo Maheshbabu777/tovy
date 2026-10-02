@@ -1,22 +1,35 @@
-import { useEffect, useState, type ReactNode } from 'react'
-import { Animated, Easing, Platform, Pressable, Text, useWindowDimensions, View } from 'react-native'
+import { createContext, useCallback, useContext, useEffect, useRef, useState, type ReactNode } from 'react'
+import {
+  Animated,
+  Platform,
+  Pressable,
+  ScrollView,
+  Text,
+  useWindowDimensions,
+  View,
+  type ViewStyle,
+} from 'react-native'
 import { useGlobalSearchParams, usePathname, useRouter } from 'expo-router'
 import { TabSlot, useTabsWithTriggers } from 'expo-router/ui'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { Icons, type ToolkitIcon } from './icons'
-import { readCachedProfile } from '../core/profile/profile'
 import { projectStats } from '../core/projects'
 import { inboxTasks, todayCount } from '../core/views'
 import storage from '../core/db/authStorage'
 import { Avatar } from './components/Avatar'
+import { IconButton } from './components/IconButton'
 import { useToast } from './components/Toast'
 import { shadow, SHADOWS, transition, useFocusRing, useHover } from './components/web'
 import { Logo } from './Brand'
-import { onQuickAdd, requestQuickAdd } from './quickAdd'
+import { CommandPalette } from './CommandPalette'
+import { KeyCap } from './components/KeyCap'
+import { animate, EASE, prefersReducedMotion, useSlideIn } from './motion'
+import { onQuickAdd, requestPalette, requestQuickAdd } from './quickAdd'
 import { QuickAddSheet } from './QuickAddSheet'
 import { TaskDetail } from './TaskDetail'
 import { useTheme } from './theme'
 import { fonts, motion, radius, type, WIDE_BREAKPOINT } from './tokens'
+import { initialsOf, useProfile } from './useProfile'
 import { useNow, useTaskData } from './useTaskData'
 
 // Every route of the tab frame. Inbox, Today, Upcoming and Browse are the tabs (style guide, Navigation). Projects and
@@ -38,38 +51,42 @@ const MAIN: { href: Href; label: string; Icon: ToolkitIcon; key: string }[] = [
 ]
 
 const SIDEBAR = { open: 260, collapsed: 68 }
+const PALETTE_KEY =
+  Platform.OS === 'web' && typeof navigator !== 'undefined' && /Mac|iPhone|iPad/.test(navigator.platform)
+    ? '⌘K'
+    : 'Ctrl K'
 const COLLAPSE_KEY = 'tovy-sidebar-collapsed'
-const EASE = Easing.bezier(...motion.easing)
 
 const sectionOf = (pathname: string): Href => {
   const hit = ROUTES.find((r) => r.href !== '/' && (pathname === r.href || pathname.startsWith(`${r.href}/`)))
   return hit ? hit.href : '/'
 }
 
-// A page fades in over 180 ms every time the route changes.
-function FadeIn({ children }: { children: ReactNode }) {
+// A page fades in and rises 8 px every time the route changes (180 ms).
+function RouteEnter({ children }: { children: ReactNode }) {
   const pathname = usePathname()
-  const [opacity] = useState(() => new Animated.Value(0))
+  const [t] = useState(() => new Animated.Value(1))
   useEffect(() => {
-    opacity.setValue(0)
-    Animated.timing(opacity, {
-      toValue: 1,
-      duration: motion.route,
-      easing: EASE,
-      useNativeDriver: Platform.OS !== 'web',
-    }).start()
-  }, [pathname, opacity])
-  return <Animated.View style={{ flex: 1, opacity }}>{children}</Animated.View>
+    t.setValue(prefersReducedMotion() ? 1 : 0)
+    animate(t, 1, motion.route)
+  }, [pathname, t])
+  return (
+    <Animated.View
+      style={{
+        flex: 1,
+        opacity: t,
+        transform: [{ translateY: t.interpolate({ inputRange: [0, 1], outputRange: [8, 0] }) }],
+      }}
+    >
+      {children}
+    </Animated.View>
+  )
 }
 
-function useInitials(userId: string) {
-  const [initials, setInitials] = useState('')
-  useEffect(() => {
-    void readCachedProfile(userId).then((p) =>
-      setInitials(p ? `${p.first_name[0] ?? ''}${p.last_name[0] ?? ''}`.toUpperCase() : ''),
-    )
-  }, [userId])
-  return initials
+// The open task: slides in from the right beside the page (wide) or over it (phone).
+function TaskPanel({ children, wide }: { children: ReactNode; wide: boolean }) {
+  const slide = useSlideIn({ distance: wide ? 24 : 48, duration: wide ? 220 : 260 })
+  return <Animated.View style={[{ flex: 1 }, slide]}>{children}</Animated.View>
 }
 
 // The frame around every page: a sidebar on a wide screen, a top bar, bottom tabs and the add button on a phone. It also
@@ -84,7 +101,7 @@ export function Shell() {
   const c = theme.colors
   const now = useNow()
   const { store, tasks, projects } = useTaskData()
-  const initials = useInitials(store.userId)
+  const initials = initialsOf(useProfile())
   const section = sectionOf(pathname)
   const params = useGlobalSearchParams<{ task?: string; id?: string }>()
   const openId = params.task
@@ -112,6 +129,7 @@ export function Shell() {
   }
 
   const [collapsed, setCollapsed] = useState(false)
+  const [barWidth, setBarWidth] = useState(0)
   const [width] = useState(() => new Animated.Value(SIDEBAR.open))
   useEffect(() => {
     void (async () => {
@@ -137,11 +155,17 @@ export function Shell() {
     void Promise.resolve(storage.setItem(COLLAPSE_KEY, next ? '1' : '0')).catch(() => undefined)
   }
 
-  // Web shortcuts: I, T, U go to a place, N or Q opens quick add, Esc closes an open task. Ignored while typing.
+  // Web shortcuts: Ctrl or Cmd K opens the palette; I, T, U go to a place; N or Q adds a task (focuses the composer on
+  // Today and Inbox); Esc closes an open task. Letters are ignored while typing.
   useEffect(() => {
     if (Platform.OS !== 'web' || typeof window === 'undefined') return
     const onKey = (e: KeyboardEvent) => {
       const target = e.target as HTMLElement | null
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
+        e.preventDefault()
+        requestPalette()
+        return
+      }
       if (target && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable)) return
       if (e.metaKey || e.ctrlKey || e.altKey) return
       const key = e.key.toLowerCase()
@@ -159,6 +183,16 @@ export function Shell() {
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
   }, [router, openId])
+
+  // The sidebar item the sliding highlight sits behind.
+  const activeKey =
+    section === '/projects'
+      ? params.id && params.id !== 'none'
+        ? `project-${params.id}`
+        : collapsed
+          ? '/projects'
+          : null
+      : section
 
   const counts: Partial<Record<Href, number>> = {
     '/inbox': inboxTasks(tasks).length,
@@ -193,7 +227,7 @@ export function Shell() {
               borderRightWidth: 1,
               borderRightColor: c.line,
               paddingVertical: 16,
-              paddingHorizontal: collapsed ? 12 : 16,
+              paddingHorizontal: 12,
               overflow: 'hidden',
             }}
           >
@@ -204,6 +238,7 @@ export function Shell() {
                 gap: collapsed ? 12 : 8,
                 marginBottom: 16,
                 minHeight: 36,
+                paddingLeft: collapsed ? 0 : 10,
               }}
             >
               <Logo size={22} />
@@ -231,78 +266,92 @@ export function Shell() {
               </Pressable>
             </View>
 
-            <AddTaskPill collapsed={collapsed} onPress={requestQuickAdd} />
+            <AddTaskPill collapsed={collapsed} onPress={() => requestQuickAdd(true)} />
 
-            <View style={{ gap: 2, marginTop: 12 }}>
-              {MAIN.map((m) => (
+            <ScrollView style={{ flex: 1, marginTop: 12 }} showsVerticalScrollIndicator={false}>
+              <NavColumn activeKey={activeKey}>
                 <NavItem
-                  key={m.href}
-                  testID={`tab-${m.label.toLowerCase()}`}
-                  label={m.label}
-                  Icon={m.Icon}
-                  count={counts[m.href]}
+                  navKey="search"
+                  testID="open-palette"
+                  label="Search"
+                  Icon={Icons.search}
+                  keyHint={PALETTE_KEY}
                   collapsed={collapsed}
-                  on={section === m.href}
-                  onPress={() => go(m.href)}
+                  on={false}
+                  onPress={requestPalette}
                 />
-              ))}
-            </View>
-
-            {collapsed ? (
-              <View style={{ marginTop: 12 }}>
-                <NavItem
-                  testID="tab-projects"
-                  label="Projects"
-                  Icon={Icons.projects}
-                  collapsed
-                  on={section === '/projects'}
-                  onPress={() => go('/projects')}
-                />
-              </View>
-            ) : (
-              <>
-                <Pressable
-                  testID="tab-projects"
-                  accessibilityRole="button"
-                  onPress={() => go('/projects')}
-                  style={{ marginTop: 24, marginBottom: 4, paddingHorizontal: 8, height: 28, justifyContent: 'center' }}
-                >
-                  <Text style={[type.label, { color: section === '/projects' && !params.id ? c.text : c.text2 }]}>
-                    Projects
-                  </Text>
-                </Pressable>
-                <View style={{ gap: 2 }}>
-                  {projects.map((p) => (
-                    <NavItem
-                      key={p.id}
-                      testID={`nav-project-${p.id}`}
-                      label={p.name}
-                      hash
-                      count={projectStats(p.id, tasks).count || undefined}
-                      collapsed={false}
-                      on={section === '/projects' && params.id === p.id}
-                      onPress={() => router.navigate({ pathname: '/projects', params: { id: p.id } })}
-                    />
-                  ))}
-                </View>
-              </>
-            )}
+                {MAIN.map((m) => (
+                  <NavItem
+                    key={m.href}
+                    navKey={m.href}
+                    testID={`tab-${m.label.toLowerCase()}`}
+                    label={m.label}
+                    Icon={m.Icon}
+                    count={counts[m.href]}
+                    collapsed={collapsed}
+                    on={section === m.href}
+                    onPress={() => go(m.href)}
+                  />
+                ))}
+                {collapsed ? (
+                  <NavItem
+                    navKey="/projects"
+                    testID="tab-projects"
+                    label="Projects"
+                    Icon={Icons.projects}
+                    collapsed
+                    on={section === '/projects'}
+                    onPress={() => go('/projects')}
+                    style={{ marginTop: 12 }}
+                  />
+                ) : (
+                  <Pressable
+                    testID="tab-projects"
+                    accessibilityRole="button"
+                    onPress={() => go('/projects')}
+                    style={{ marginTop: 20, paddingHorizontal: 10, height: 30, justifyContent: 'center' }}
+                  >
+                    <Text style={[type.label, { color: section === '/projects' && !params.id ? c.text : c.text2 }]}>
+                      Projects
+                    </Text>
+                  </Pressable>
+                )}
+                {collapsed
+                  ? null
+                  : projects.map((p) => (
+                      <NavItem
+                        key={p.id}
+                        navKey={`project-${p.id}`}
+                        testID={`nav-project-${p.id}`}
+                        label={p.name}
+                        hash
+                        count={projectStats(p.id, tasks).count || undefined}
+                        collapsed={false}
+                        on={section === '/projects' && params.id === p.id}
+                        onPress={() => router.navigate({ pathname: '/projects', params: { id: p.id } })}
+                      />
+                    ))}
+              </NavColumn>
+            </ScrollView>
           </Animated.View>
           <View style={{ flex: 1 }}>
-            <FadeIn>
+            <RouteEnter>
               <TabSlot style={{ flex: 1 }} />
-            </FadeIn>
+            </RouteEnter>
           </View>
           {panel ? (
             <View
               testID="task-panel"
               style={{ width: 440, borderLeftWidth: 1, borderLeftColor: c.line, backgroundColor: c.bg }}
             >
-              {panel}
+              <TaskPanel key={openId} wide>
+                {panel}
+              </TaskPanel>
             </View>
           ) : null}
         </View>
         {quickAdd}
+        <CommandPalette />
       </NavigationContent>
     )
   }
@@ -327,22 +376,26 @@ export function Shell() {
           }}
         >
           <Logo size={24} />
-          <Pressable
-            testID="tab-profile"
-            accessibilityRole="button"
-            accessibilityLabel="Profile and settings"
-            onPress={() => go('/profile')}
-            hitSlop={8}
-          >
-            <Avatar initials={initials} size={30} />
-          </Pressable>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+            <IconButton icon={Icons.search} label="Search" onPress={requestPalette} testID="open-palette" />
+            <Pressable
+              testID="tab-profile"
+              accessibilityRole="button"
+              accessibilityLabel="Profile and settings"
+              onPress={() => go('/profile')}
+              hitSlop={8}
+            >
+              <Avatar initials={initials} size={30} />
+            </Pressable>
+          </View>
         </View>
         <View style={{ flex: 1 }}>
-          <FadeIn>
+          <RouteEnter>
             <TabSlot style={{ flex: 1 }} />
-          </FadeIn>
+          </RouteEnter>
         </View>
         <View
+          onLayout={(e) => setBarWidth(e.nativeEvent.layout.width)}
           style={{
             height: 60 + insets.bottom,
             paddingBottom: insets.bottom,
@@ -352,6 +405,7 @@ export function Shell() {
             flexDirection: 'row',
           }}
         >
+          <TabIndicator index={tabs.findIndex((t) => t.on)} count={tabs.length} width={barWidth} />
           {tabs.map((t) => (
             <Pressable
               key={t.href}
@@ -372,7 +426,7 @@ export function Shell() {
             testID="fab"
             accessibilityRole="button"
             accessibilityLabel="Add task"
-            onPress={requestQuickAdd}
+            onPress={() => requestQuickAdd(true)}
             style={[
               {
                 position: 'absolute',
@@ -404,18 +458,79 @@ export function Shell() {
               backgroundColor: c.bg,
             }}
           >
-            {panel}
+            <TaskPanel key={openId} wide={false}>
+              {panel}
+            </TaskPanel>
           </View>
         ) : null}
       </View>
       {quickAdd}
+      <CommandPalette />
     </NavigationContent>
   )
 }
 
-// A sidebar entry: icon (or `#` for a project), the label, and a count in mono text-3. Selected: hover fill and the
-// filled icon.
+// The sidebar list. A single highlight sits behind the selected item and slides to the next one (200 ms) instead of
+// jumping, so moving between places reads as one surface. Items report where they are with `onLayout`.
+const NavLayout = createContext<(key: string, y: number, h: number) => void>(() => undefined)
+
+function NavColumn({ activeKey, children }: { activeKey: string | null; children: ReactNode }) {
+  const { theme } = useTheme()
+  const [spots, setSpots] = useState<Record<string, { y: number; h: number }>>({})
+  const [y] = useState(() => new Animated.Value(0))
+  const [h] = useState(() => new Animated.Value(34))
+  const [shown] = useState(() => new Animated.Value(0))
+  const placed = useRef(false)
+  const report = useCallback(
+    (key: string, top: number, height: number) =>
+      setSpots((prev) =>
+        prev[key]?.y === top && prev[key]?.h === height ? prev : { ...prev, [key]: { y: top, h: height } },
+      ),
+    [],
+  )
+  const spot = activeKey ? spots[activeKey] : undefined
+  useEffect(() => {
+    if (!spot) {
+      Animated.timing(shown, { toValue: 0, duration: 120, easing: EASE, useNativeDriver: false }).start()
+      return
+    }
+    // The first time, appear in place; after that, slide.
+    if (!placed.current || prefersReducedMotion()) {
+      y.setValue(spot.y)
+      h.setValue(spot.h)
+      placed.current = true
+    } else {
+      Animated.timing(y, { toValue: spot.y, duration: 200, easing: EASE, useNativeDriver: false }).start()
+      Animated.timing(h, { toValue: spot.h, duration: 200, easing: EASE, useNativeDriver: false }).start()
+    }
+    Animated.timing(shown, { toValue: 1, duration: 120, easing: EASE, useNativeDriver: false }).start()
+  }, [spot, y, h, shown])
+  return (
+    <NavLayout.Provider value={report}>
+      <View style={{ gap: 2 }}>
+        <Animated.View
+          pointerEvents="none"
+          style={{
+            position: 'absolute',
+            left: 0,
+            right: 0,
+            top: y,
+            height: h,
+            opacity: shown,
+            borderRadius: radius.sm,
+            backgroundColor: theme.colors.hover,
+          }}
+        />
+        {children}
+      </View>
+    </NavLayout.Provider>
+  )
+}
+
+// A sidebar entry: icon (or `#` for a project), the label, and a count in mono text-3. Selected: the highlight behind it
+// and the filled icon.
 function NavItem({
+  navKey,
   label,
   Icon,
   hash = false,
@@ -424,7 +539,11 @@ function NavItem({
   on,
   onPress,
   testID,
+  style,
+  keyHint,
 }: {
+  keyHint?: string
+  navKey: string
   label: string
   Icon?: ToolkitIcon
   hash?: boolean
@@ -433,9 +552,11 @@ function NavItem({
   on: boolean
   onPress: () => void
   testID?: string
+  style?: ViewStyle
 }) {
   const { theme } = useTheme()
   const c = theme.colors
+  const report = useContext(NavLayout)
   const { hovered, handlers: hover } = useHover()
   const ring = useFocusRing(c.primary)
   return (
@@ -447,6 +568,7 @@ function NavItem({
       // @ts-expect-error `title` is the web tooltip (shown when the sidebar is collapsed)
       title={collapsed ? label : undefined}
       onPress={onPress}
+      onLayout={(e) => report(navKey, e.nativeEvent.layout.y, e.nativeEvent.layout.height)}
       style={[
         {
           height: 34,
@@ -455,11 +577,12 @@ function NavItem({
           alignItems: 'center',
           justifyContent: collapsed ? 'center' : 'flex-start',
           gap: 10,
-          paddingHorizontal: collapsed ? 0 : 8,
-          backgroundColor: on || hovered ? c.hover : 'transparent',
+          paddingHorizontal: collapsed ? 0 : 10,
+          backgroundColor: hovered && !on ? c.hover : 'transparent',
         },
         transition('background-color'),
         ring.style,
+        style ?? {},
       ]}
       {...hover}
       {...ring.handlers}
@@ -474,10 +597,40 @@ function NavItem({
           <Text numberOfLines={1} style={[type.bodyS, { flex: 1, color: c.text }]}>
             {label}
           </Text>
-          {count ? <Text style={[type.monoS, { color: c.text3 }]}>{count}</Text> : null}
+          {count ? (
+            <Text style={[type.monoS, { color: c.text3, minWidth: 20, textAlign: 'right' }]}>{count}</Text>
+          ) : null}
+          {keyHint ? <KeyCap label={keyHint} /> : null}
         </>
       )}
     </Pressable>
+  )
+}
+
+// A 2 px bar on top of the phone tab bar, over the selected tab. It slides between tabs (200 ms).
+function TabIndicator({ index, count, width }: { index: number; count: number; width: number }) {
+  const { theme } = useTheme()
+  const [x] = useState(() => new Animated.Value(0))
+  const cell = width / count
+  useEffect(() => {
+    if (index < 0 || !width) return
+    animate(x, index * cell, 200)
+  }, [index, cell, width, x])
+  if (index < 0 || !width) return null
+  return (
+    <Animated.View
+      pointerEvents="none"
+      style={{
+        position: 'absolute',
+        top: -1,
+        left: 0,
+        width: cell,
+        alignItems: 'center',
+        transform: [{ translateX: x }],
+      }}
+    >
+      <View style={{ width: 28, height: 2, borderRadius: 1, backgroundColor: theme.colors.text }} />
+    </Animated.View>
   )
 }
 
@@ -504,7 +657,7 @@ function AddTaskPill({ collapsed, onPress }: { collapsed: boolean; onPress: () =
           alignItems: 'center',
           justifyContent: collapsed ? 'center' : 'flex-start',
           gap: 8,
-          paddingHorizontal: collapsed ? 0 : 16,
+          paddingHorizontal: collapsed ? 0 : 10,
           opacity: hovered ? 0.88 : 1,
         },
         transition('opacity'),
@@ -517,7 +670,7 @@ function AddTaskPill({ collapsed, onPress }: { collapsed: boolean; onPress: () =
       {collapsed ? null : (
         <>
           <Text style={{ flex: 1, fontFamily: fonts.medium, fontSize: 14, color: c.onPrimary }}>Add task</Text>
-          <Text style={[type.monoXs, { color: c.onPrimary, opacity: 0.6 }]}>Q</Text>
+          <KeyCap label="Q" inverse />
         </>
       )}
     </Pressable>

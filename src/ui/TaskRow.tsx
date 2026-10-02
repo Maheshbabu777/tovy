@@ -1,4 +1,5 @@
-import { Pressable, Text, View } from 'react-native'
+import { Animated, Pressable, Text, View } from 'react-native'
+import { useEnter } from './motion'
 import { useTheme } from './theme'
 import { type } from './tokens'
 import { ProgressRing } from './components/ProgressRing'
@@ -21,7 +22,9 @@ export function TaskRow({
   onToggleDone,
   onOpen,
   onMenu,
+  enterDelay = 0,
 }: {
+  enterDelay?: number // fade and rise in after this many ms (a small stagger on first load)
   task: Task
   project: Project | undefined
   progress: number | null // 0 to 100, or null
@@ -42,11 +45,13 @@ export function TaskRow({
   const overdue = isOverdue(task, now)
   const hasSubs = !!subtasks && subtasks.total > 0
   const hasMeta = !!task.due_date || partial || hasSubs
+  const enter = useEnter({ delay: enterDelay, distance: 6, duration: 200 })
 
   return (
-    <View
+    <Animated.View
       testID="task"
       style={[
+        enter,
         {
           flexDirection: 'row',
           alignItems: 'flex-start',
@@ -58,7 +63,6 @@ export function TaskRow({
         },
         transition('background-color'),
       ]}
-      {...hover}
     >
       <Pressable
         testID={`done-${task.id}`}
@@ -66,10 +70,17 @@ export function TaskRow({
         accessibilityLabel={done ? `Reopen ${task.title}` : `Finish ${task.title}`}
         accessibilityState={{ checked: done }}
         onPress={onToggleDone}
+        {...hover}
         hitSlop={6}
         style={{ width: 32, paddingTop: 13, paddingBottom: 12 }}
       >
-        <ProgressRing size={20} stroke={partial ? 2 : 1.5} progress={(progress ?? 0) / 100} done={done} />
+        <ProgressRing
+          size={20}
+          stroke={partial ? 2 : 1.5}
+          progress={(progress ?? 0) / 100}
+          done={done}
+          doneAt={task.done_at}
+        />
       </Pressable>
       <Pressable
         testID={`open-${task.id}`}
@@ -83,6 +94,7 @@ export function TaskRow({
         }}
         style={[{ flex: 1, flexDirection: 'row', gap: 12, paddingVertical: 12, minHeight: 48 }, ring.style]}
         {...ring.handlers}
+        {...hover}
       >
         <View style={{ flex: 1, gap: 2 }}>
           <Text
@@ -112,6 +124,6 @@ export function TaskRow({
           </Text>
         ) : null}
       </Pressable>
-    </View>
+    </Animated.View>
   )
 }

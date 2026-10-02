@@ -1,14 +1,16 @@
-import { useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { Pressable, Text, TextInput, View } from 'react-native'
-import { useGlobalSearchParams } from 'expo-router'
+import { useFocusEffect, useGlobalSearchParams } from 'expo-router'
 import { Icons } from './icons'
 import { percentOf, subtaskCount } from '../core/progress'
 import type { Project, Task } from '../core/sync/tasks'
 import { SectionHeader } from './components/SectionHeader'
-import { webStyle } from './components/web'
+import { shadow, SHADOWS, transition, webStyle } from './components/web'
+import { KeyCap } from './components/KeyCap'
+import { registerComposer } from './quickAdd'
 import { TaskRow } from './TaskRow'
 import { useTheme } from './theme'
-import { type } from './tokens'
+import { radius, type } from './tokens'
 import type { useTaskActions } from './useTaskActions'
 
 type Actions = Pick<ReturnType<typeof useTaskActions>, 'toggleDone' | 'open' | 'openMenu'>
@@ -30,11 +32,19 @@ export function TaskRows({
   showProject?: boolean
 }) {
   const { task: openId } = useGlobalSearchParams<{ task?: string }>()
+  // Rows fade in one after another when the list first shows; rows that arrive later just fade in.
+  const [fresh, setFresh] = useState(true)
+  useEffect(() => {
+    const timer = setTimeout(() => setFresh(false), 800)
+    return () => clearTimeout(timer)
+  }, [])
+  const stagger = (i: number) => (fresh ? Math.min(i * 30, 240) : 0)
   return (
     <>
-      {rows.map((task) => (
+      {rows.map((task, i) => (
         <TaskRow
           key={task.id}
+          enterDelay={stagger(i)}
           task={task}
           project={task.project_id ? projectMap?.[task.project_id] : undefined}
           progress={percentOf(task, all)}
@@ -104,7 +114,13 @@ export function AddTaskRow({
         testID={`${testID}-open`}
         accessibilityRole="button"
         onPress={() => setExpanded(true)}
-        style={{ flexDirection: 'row', alignItems: 'center', minHeight: 44 }}
+        style={{
+          flexDirection: 'row',
+          alignItems: 'center',
+          minHeight: 44,
+          marginHorizontal: -8,
+          paddingHorizontal: 8,
+        }}
       >
         <View style={{ width: 32 }}>
           <Icons.add size={18} color={c.text3} />
@@ -121,6 +137,8 @@ export function AddTaskRow({
         minHeight: 48,
         borderBottomWidth: 1,
         borderBottomColor: focused ? c.text : c.line,
+        marginHorizontal: -8,
+        paddingHorizontal: 8,
       }}
     >
       <View style={{ width: 32 }}>
@@ -150,4 +168,71 @@ export function AddTaskRow({
       />
     </View>
   )
+}
+
+// The composer at the top of Today and Inbox on a wide screen: a bordered field with a plus and the N key cap. N focuses
+// it while its screen is showing. Enter adds the task and keeps the field ready for the next one.
+export function Composer({
+  onAdd,
+  placeholder,
+  testID,
+}: {
+  onAdd: (title: string) => void
+  placeholder: string
+  testID: string
+}) {
+  const { theme } = useTheme()
+  const c = theme.colors
+  const [draft, setDraft] = useState('')
+  const [focused, setFocused] = useState(false)
+  const input = useRef<TextInput>(null)
+  useFocusEffect(useCallback(() => registerComposer(() => input.current?.focus()), []))
+  return (
+    <View
+      style={[
+        {
+          height: 48,
+          borderRadius: radius.lg,
+          borderWidth: 1,
+          borderColor: focused ? c.text : c.line,
+          backgroundColor: c.bg,
+          flexDirection: 'row',
+          alignItems: 'center',
+          gap: 12,
+          paddingLeft: 14,
+          paddingRight: 12,
+        },
+        focused ? shadow(SHADOWS.menu) : {},
+        transition('border-color, box-shadow'),
+      ]}
+    >
+      <Icons.add size={20} color={focused ? c.text : c.text2} />
+      <TextInput
+        ref={input}
+        testID={testID}
+        value={draft}
+        onChangeText={setDraft}
+        onFocus={() => setFocused(true)}
+        onBlur={() => setFocused(false)}
+        onSubmitEditing={() => {
+          const text = draft.trim()
+          if (!text) return
+          onAdd(text)
+          setDraft('')
+        }}
+        blurOnSubmit={false}
+        placeholder={placeholder}
+        placeholderTextColor={c.text3}
+        accessibilityLabel={placeholder}
+        style={[type.body, { flex: 1, height: 46, color: c.text }, webStyle({ outlineStyle: 'none' })]}
+      />
+      {focused ? <KeyCap label="Enter" /> : <KeyCap label="N" />}
+    </View>
+  )
+}
+
+// The hairline above a plain list (Inbox, a project), as wide as the rows' own lines.
+export function ListTop() {
+  const { theme } = useTheme()
+  return <View style={{ height: 1, backgroundColor: theme.colors.line, marginHorizontal: -8 }} />
 }

@@ -1,4 +1,4 @@
-import { View } from 'react-native'
+import { useWindowDimensions, View } from 'react-native'
 import { Icons } from './icons'
 import { taskCountLabel } from '../core/projects'
 import { inboxTasks } from '../core/views'
@@ -6,13 +6,15 @@ import { EmptyState, Skeleton } from './components/Feedback'
 import { Page } from './components/Page'
 import { ScreenHeader } from './components/ScreenHeader'
 import { useToast } from './components/Toast'
-import { AddTaskRow, TaskRows } from './TaskList'
+import { Composer, ListTop, TaskRows } from './TaskList'
+import { WIDE_BREAKPOINT } from './tokens'
 import { useTaskActions } from './useTaskActions'
 import { useNow, useTaskData } from './useTaskData'
 
 // Inbox: everything captured that is not filed in a project yet. Add here, sort later.
 export function InboxScreen() {
   const toast = useToast()
+  const wide = useWindowDimensions().width >= WIDE_BREAKPOINT
   const now = useNow()
   const actions = useTaskActions(now)
   const { store, tasks, projectMap, loaded } = useTaskData()
@@ -32,13 +34,18 @@ export function InboxScreen() {
         subtitle={rows.length ? taskCountLabel(rows.length) : undefined}
         titleTestID="inbox-title"
       />
+      {wide ? (
+        <View style={{ marginTop: 24 }}>
+          <Composer onAdd={addTask} placeholder="Capture a task" testID="inbox-new-title" />
+        </View>
+      ) : null}
       <View style={{ marginTop: 16 }}>
         {!loaded ? (
           <Skeleton rows={4} />
         ) : (
           <>
+            {rows.length ? <ListTop /> : null}
             <TaskRows rows={rows} all={tasks} projectMap={projectMap} now={now} actions={actions} showProject={false} />
-            <AddTaskRow onAdd={addTask} testID="inbox-new-title" />
             {rows.length === 0 ? (
               <EmptyState
                 icon={Icons.inbox}

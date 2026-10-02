@@ -239,6 +239,7 @@ function Body({
               testID="detail-track"
               label="Track progress"
               variant="ghost"
+              bordered
               onPress={() => run(() => store.setKind(task.id, 'deep'))}
             />
           </View>
@@ -286,6 +287,7 @@ function Body({
                     testID={`step-${step}`}
                     label={`+${step}%`}
                     variant="ghost"
+                    bordered
                     small
                     onPress={() => commit(Math.min(100, percent + step))}
                   />
@@ -294,6 +296,7 @@ function Body({
                   testID="detail-done"
                   label={done ? 'Reopen' : 'Mark done'}
                   variant="ghost"
+                  bordered
                   small
                   onPress={() => run(() => store.setDone(task.id, !done))}
                 />
@@ -305,6 +308,7 @@ function Body({
                   testID="detail-done"
                   label={done ? 'Reopen' : 'Mark done'}
                   variant="ghost"
+                  bordered
                   small
                   onPress={() => run(() => store.setDone(task.id, !done))}
                 />

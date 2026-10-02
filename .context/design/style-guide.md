@@ -73,3 +73,11 @@ The three stacked stones. Files: `assets/brand/tovy-mark-black.png` (light theme
 ## Motion
 
 One curve, cubic-bezier(0.2, 0.8, 0.2, 1). Hover 150ms, menus 120ms, sheets and dialogs 200 to 250ms. No bounce. Reduce motion shows final states at once.
+
+- Route change, and moving between pages inside a tab: fade and rise 8 px, 180ms.
+- Task panel: slides in from the right, 24 px on the web (220ms), 48 px on a phone (260ms).
+- Menus and the command palette: pop from 0.96, 120 to 140ms. Sheets rise 24 px, 250ms. Toast rises 24 px, 250ms.
+- Lists: rows fade and rise 6 px; on first show they follow each other 30ms apart (at most 240ms).
+- Finishing a task: the filled check pops 0.6, 1.15, 1 over 300ms where the row lands. The save is never delayed for an animation.
+- Navigation: one highlight slides behind the selected sidebar item; a 2 px bar slides over the selected phone tab, 200ms.
+- Code: `src/ui/motion.ts` (`animate`, `useEnter`, `useSlideIn`, `usePop`, `useReducedMotion`).

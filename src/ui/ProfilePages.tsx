@@ -6,7 +6,6 @@ import { checkProfileInput, USERNAME_HELP, USERNAME_PATTERN, type ProfileErrors 
 import { Button } from './components/Button'
 import { Input } from './components/Input'
 import { Segmented } from './components/Segmented'
-import { Group } from './components/SettingsList'
 import { useToast } from './components/Toast'
 import { Logo } from './Brand'
 import { useTheme, type ThemePreference } from './theme'
@@ -23,14 +22,15 @@ export const THEME_LABEL: Record<ThemePreference, string> = { light: 'Light', da
 
 // The theme: light, dark or follow the device. Changes apply at once.
 export function AppearancePage() {
-  const { preference, setPreference } = useTheme()
+  const { theme, preference, setPreference } = useTheme()
+  const c = theme.colors
   return (
     <View>
-      <Group title="Theme">
-        <View style={{ padding: 12 }}>
-          <Segmented options={THEMES} value={preference} onChange={setPreference} testID="theme-choice" />
-        </View>
-      </Group>
+      <Text style={[type.label, { color: c.text2, marginTop: 24, marginBottom: 12 }]}>Theme</Text>
+      <Segmented options={THEMES} value={preference} onChange={setPreference} testID="theme-choice" />
+      <Text style={[type.meta, { color: c.text2, marginTop: 12 }]}>
+        System follows your device. The change fades in everywhere at once.
+      </Text>
     </View>
   )
 }

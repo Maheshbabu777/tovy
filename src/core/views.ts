@@ -50,3 +50,40 @@ export function dayTitle(day: string, now: Date): string {
   if (day === addDays(today, 1)) return `Tomorrow · ${plain}`
   return plain
 }
+
+// The Today title: a line that fits the time of day, with the first name when it is known.
+//   0:00 to 4:59 "Up late", 5:00 to 11:59 "Good morning", 12:00 to 16:59 "Good afternoon", 17:00 to 21:59 "Good
+//   evening", 22:00 to 23:59 "Winding down".
+export function timelyGreeting(now: Date, firstName?: string | null): string {
+  const h = now.getHours()
+  const line =
+    h < 5 ? 'Up late' : h < 12 ? 'Good morning' : h < 17 ? 'Good afternoon' : h < 22 ? 'Good evening' : 'Winding down'
+  const name = firstName?.trim()
+  return name ? `${line}, ${name}` : line
+}
+
+// One line under the Today title: what is late, what is due and what is done today. Parts that are zero are left out.
+export function daySummary(g: { overdue: unknown[]; dueToday: unknown[]; doneToday: unknown[] }): string {
+  const parts = [
+    g.overdue.length ? `${g.overdue.length} overdue` : '',
+    g.dueToday.length ? `${g.dueToday.length} due today` : '',
+    g.doneToday.length ? `${g.doneToday.length} done` : '',
+  ].filter(Boolean)
+  return parts.length ? parts.join(' · ') : 'Nothing due today'
+}
+
+// The next `count` days for the Upcoming week strip, with whether each has an open task.
+export function weekStrip(
+  tasks: Task[],
+  now: Date,
+  count = 7,
+): { day: string; weekday: string; date: number; busy: boolean }[] {
+  const today = localDay(now)
+  const open = new Set(openTopLevel(tasks).map((t) => t.due_date))
+  const WEEKDAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
+  return Array.from({ length: count }, (_, i) => {
+    const day = addDays(today, i)
+    const [y, m, d] = day.split('-').map(Number)
+    return { day, weekday: WEEKDAYS[new Date(y, m - 1, d).getDay()], date: d, busy: open.has(day) }
+  })
+}

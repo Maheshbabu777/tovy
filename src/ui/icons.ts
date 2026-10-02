@@ -65,6 +65,7 @@ export type IconProps = {
   size?: number
   color?: string
   filled?: boolean
+  bold?: boolean // a heavier line, for a check drawn on a filled circle
   strokeWidth?: number
   style?: StyleProp<ViewStyle>
   testID?: string
@@ -72,8 +73,8 @@ export type IconProps = {
 export type ToolkitIcon = (props: IconProps) => ReturnType<typeof createElement>
 
 function make(source: Icon): ToolkitIcon {
-  const ToolkitIconComponent = ({ size = 20, color, filled, style, testID }: IconProps) =>
-    createElement(source, { size, color, weight: filled ? 'fill' : 'regular', style, testID })
+  const ToolkitIconComponent = ({ size = 20, color, filled, bold, style, testID }: IconProps) =>
+    createElement(source, { size, color, weight: filled ? 'fill' : bold ? 'bold' : 'regular', style, testID })
   return ToolkitIconComponent
 }
 
