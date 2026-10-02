@@ -97,6 +97,9 @@ async function newDevice(
   }
 }
 
+// Every test user made by this run, deleted again in afterAll so the Supabase project is left clean.
+const createdUserIds: string[] = []
+
 async function createUser(): Promise<{ email: string; password: string }> {
   const email = `spike-${Date.now()}-${Math.floor(Math.random() * 1e6)}@gmail.com`
   const password = 'spike-password-123'
@@ -119,6 +122,7 @@ async function createUser(): Promise<{ email: string; password: string }> {
       `user creation failed (without SUPABASE_API_KEY, turn off "Confirm email" in Supabase Auth): ${JSON.stringify(body)}`,
     )
   }
+  if (body.id) createdUserIds.push(body.id)
   return { email, password }
 }
 
@@ -169,6 +173,19 @@ async function expectTitles(p: Page, expected: string[], timeout = SYNC_BUDGET_M
 
 test.describe('sync spike', () => {
   let user: { email: string; password: string }
+  test.afterAll(async () => {
+    const adminKey = process.env.SUPABASE_API_KEY
+    if (!adminKey) return
+    // Their notes go with them (the notes table deletes with its user).
+    await Promise.all(
+      createdUserIds
+        .splice(0)
+        .map((id) =>
+          fetch(`${SUPABASE_URL}/auth/v1/admin/users/${id}`, { method: 'DELETE', headers: { apikey: adminKey } }),
+        ),
+    )
+  })
+
   test.beforeAll(async () => {
     user = await createUser()
   })
