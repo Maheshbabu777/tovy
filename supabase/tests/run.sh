@@ -7,7 +7,6 @@ set -euo pipefail
 run_tests() {
   psql "$1" -v ON_ERROR_STOP=1 -q -f supabase/tests/local-stubs.sql
   for f in supabase/migrations/*.sql; do psql "$1" -v ON_ERROR_STOP=1 -q -f "$f"; done
-  psql "$1" -v ON_ERROR_STOP=1 -q -t -f supabase/tests/notes_rls.sql
   psql "$1" -v ON_ERROR_STOP=1 -q -t -f supabase/tests/tasks_rls.sql
 }
 

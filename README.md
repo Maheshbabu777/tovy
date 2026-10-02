@@ -6,7 +6,7 @@
 
 Tovy is a local-first task and routine app that connects to the AI apps you already use. Tasks carry partial progress with a log, streaks forgive a missed day, and everything works offline. Android and web first.
 
-Status: foundation phase. The app today is the proven sync layer (a notes list that syncs through Supabase). The full plan is in `.context/project-plan.md`.
+Status: phase 2 (tasks). The app today is a task list with subtasks and projects that works offline and syncs through Supabase. The full plan is in `.context/project-plan.md`.
 
 ## Getting started
 
@@ -30,7 +30,7 @@ Status: foundation phase. The app today is the proven sync layer (a notes list t
 - Environment variables: `.env.example`
 - Data model: `supabase/migrations/`
 - CI: `.github/workflows/ci.yml` (checks on every PR), `.github/workflows/migrate-dev.yml` (migrations on merge)
-- Folders: `app/` screens, `src/core/db/` Supabase client, `src/core/sync/` notes store and sync, `tests/e2e/` Playwright tests
+- Folders: `app/` screens, `src/core/db/` Supabase client, `src/core/sync/` tasks store and sync, `tests/e2e/` Playwright tests
 
 ## Architecture and decisions
 

@@ -1,4 +1,4 @@
-// Web: notes are persisted in IndexedDB, with one database per store name (one per user), so a late write from one
+// Web: the tasks and projects are persisted in IndexedDB, with one database per store name (one per user), so a late write from one
 // user's session can never end up in another user's data.
 import { observablePersistIndexedDB } from '@legendapp/state/persist-plugins/indexeddb'
 
