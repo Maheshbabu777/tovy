@@ -37,6 +37,8 @@ export const ACCENTS: Record<AccentName, { label: string; light: Rgb; dark: Rgb 
   iris: { label: 'Iris', light: [108, 52, 214], dark: [176, 140, 255] },
 }
 
+export const accentColor = (name: AccentName, mode: ThemeMode) => `rgb(${ACCENTS[name][mode].join(',')})`
+
 // The five project colours. They are small markers only (a dot or a bar), the same in both themes.
 export const PROJECT_COLORS: Record<string, string> = {
   indigo: '#4F46E5',

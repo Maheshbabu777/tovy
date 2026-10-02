@@ -1,9 +1,5 @@
-import { Text, View } from 'react-native'
+import { ProfileScreen } from '../../src/ui/ProfileScreen'
 
 export default function Profile() {
-  return (
-    <View style={{ padding: 24 }}>
-      <Text>Profile</Text>
-    </View>
-  )
+  return <ProfileScreen />
 }

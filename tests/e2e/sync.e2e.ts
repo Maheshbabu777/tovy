@@ -239,6 +239,13 @@ async function renameTask(p: Page, from: string, to: string) {
   await row.locator('[data-testid^="open-"]').click()
   await row.locator('[data-testid^="edit-title-"]').fill(to)
 }
+// A tap that lands while the screen re-renders after an edit can be lost, so tap again until the Profile screen is up.
+async function openProfile(p: Page) {
+  await expect(async () => {
+    await p.getByTestId('tab-profile').click({ timeout: 2_000 })
+    await expect(p.getByTestId('sign-out')).toBeVisible({ timeout: 2_000 })
+  }).toPass({ timeout: 15_000 })
+}
 async function waitSynced(d: Device) {
   await expect(d.page.getByTestId('status')).toHaveText('synced', { timeout: 15_000 })
 }
@@ -746,8 +753,10 @@ test.describe('sync spike', () => {
     await waitSynced(a)
     await expect.poll(() => serverTitles(user), { timeout: 10_000 }).toContain('private-so1') // really saved
 
+    await openProfile(a.page)
     await a.page.getByTestId('sign-out').click()
     await expect(a.page.getByTestId('unsynced-note')).toHaveCount(0) // nothing to warn about
+    await a.page.getByTestId('confirm-sign-out').click()
     await expect(a.page.getByTestId('email')).toBeVisible() // back on the sign-in screen
     // this device keeps no profile of the person who signed out
     expect(await a.page.evaluate(() => Object.keys(localStorage).filter((k) => k.startsWith('tovy-profile-')))).toEqual(
@@ -767,6 +776,7 @@ test.describe('sync spike', () => {
     await a.setOffline(true)
     await addNote(a.page, 'unsynced-so2')
     // No waiting for the "pending" label first: tapping Sign out right after an edit must still warn.
+    await openProfile(a.page)
     await a.page.getByTestId('sign-out').click()
     await expect(a.page.getByTestId('unsynced-note')).toContainText('1 change is not saved to the server yet')
     await a.page.getByTestId('cancel-sign-out').click()
@@ -784,6 +794,7 @@ test.describe('sync spike', () => {
     await addNote(a.page, 'unsynced-so3')
     await expect(a.page.getByTestId('status')).toHaveText('pending 1')
 
+    await openProfile(a.page)
     await a.page.getByTestId('sign-out').click()
     await a.page.getByTestId('confirm-sign-out').click()
     await expect(a.page.getByTestId('email')).toBeVisible()
