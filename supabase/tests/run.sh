@@ -9,6 +9,7 @@ run_tests() {
   for f in supabase/migrations/*.sql; do psql "$1" -v ON_ERROR_STOP=1 -q -f "$f"; done
   psql "$1" -v ON_ERROR_STOP=1 -q -t -f supabase/tests/tasks_rls.sql
   psql "$1" -v ON_ERROR_STOP=1 -q -t -f supabase/tests/profiles_rls.sql
+  psql "$1" -v ON_ERROR_STOP=1 -q -t -f supabase/tests/proposals_rls.sql
 }
 
 if [ -n "${DATABASE_URL:-}" ]; then
