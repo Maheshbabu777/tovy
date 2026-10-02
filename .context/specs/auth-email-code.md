@@ -1,6 +1,6 @@
 # Auth email code and registration
 
-Status: draft
+Status: in progress
 
 Size: risky (sign-in, a new table with row security, a migration).
 
@@ -36,8 +36,8 @@ The code also unblocks testing on a real phone: Google sign in needs a dev build
 
 - Which details at registration? Answer: first name, last name and a username, all required (2026-10-02).
 - How is the email sent while there is no domain? Answer: Gmail SMTP (2026-10-02). It works now and sends to any address, unlike Resend, which only delivers to the owner's own address until a domain is verified.
-- Do the setup below (the human does it, I can't): see Setup. Answer: pending.
-- Assumption to confirm: the username is shown nowhere yet and cannot be changed in this spec. Fine to keep it that simple? Answer: pending.
+- Do the setup below (the human does it, I can't): see Setup. Answer: done (2026-10-02, "done from my side"). Not yet proven: that mail really arrives and shows a code. Reading a code through the admin API proves nothing about delivery, so the real check is the human asking for a code for their own address once the sign in screen exists (slice 2).
+- Assumption to confirm: the username is shown nowhere yet and cannot be changed in this spec. Fine to keep it that simple? Answer: pending, treated as yes unless the human says otherwise.
 
 ## Setup (human)
 
@@ -45,7 +45,7 @@ The code also unblocks testing on a real phone: Google sign in needs a dev build
 2. Supabase, Authentication, Emails, SMTP Settings: enable custom SMTP. Host `smtp.gmail.com`, port `465`, username the Gmail address, password the App Password, sender email the same Gmail address, sender name `Tovy`.
 3. Supabase, Authentication, Emails, Templates: there are two that matter. A new email gets the Confirm signup template and a known email gets the Magic Link template. Change the body of both to show the code, for example `Your Tovy code is {{ .Token }}` and nothing that needs a link. (These templates are locked until custom SMTP is on.)
 4. Supabase, Authentication, Providers, Email: leave email sign in on. Under Sign In / Providers, check the email code length is 6 and the expiry is 1 hour or less.
-5. Tell me when it is done. I then check it by asking for a code through the API for a test address and reading it through the admin API (no inbox needed).
+5. Tell me when it is done. The real delivery check is yours: once the sign in screen exists (slice 2), ask for a code for your own address and see that an email with 6 digits arrives. A code read through the admin API (used by the tests) does not prove the email was sent.
 
 ## Plan
 
@@ -65,17 +65,22 @@ Risks:
 
 ## Progress
 
-- [ ] Questions answered
-- [ ] Setup done by the human
-- [ ] Plan approved
-- [ ] 1 Profiles table and row security
+- [x] Questions answered (the username assumption above is open)
+- [x] Setup done by the human (2026-10-02), delivery still to be checked in slice 2
+- [x] Plan approved (treated as approved when the human said "done from my side", 2026-10-02, after sending the setup and the spec; say so if not)
+- [x] 1 Profiles table and row security
 - [ ] 2 Email code sign in
 - [ ] 3 Profile step
 - [ ] 4 Phone check
 
 ## Evidence
 
-(none yet)
+Slice 1 (criteria 8 and the table part of 9), branch `feat/auth-profiles-table`:
+
+- `supabase/migrations/0005_profiles.sql` adds `profiles` (id is the user id with a default of `auth.uid()`, first and last name 1 to 50 characters, username 3 to 20 of lowercase letters, digits and underscore, server-set timestamps, names trimmed), a unique index on `lower(username)`, owner-only select, insert and update, no delete policy, and `username_available(text)` (security definer, returns only true or false, false for a badly formed name, executable by signed in users only). It has its own timestamp trigger because `handle_times()` sets `user_id`, which this table has no column for. `supabase/tests/local-stubs.sql` gained an `anon` role so the signed out checks can run, and `profiles_rls.sql` is run by `run.sh`.
+- `bash supabase/tests/run.sh`: `PASS: profiles are private and their rules hold` (and the tasks test still passes). The test covers: trimmed names and server timestamps, one profile per user, the id cannot be changed, ten bad inputs refused (empty, blank, too long, short, uppercase, space, hyphen, taken), `username_available` for taken, taken in another case, free and malformed names, user B cannot see, change, forge a profile for a third user, take A's username by editing or hard delete, and a signed out visitor cannot call the function or read rows.
+- Mutation checks (each applied alone to the migration, then restored): select policy opened gave `FAIL: user B saw 2 profiles`; unique index removed gave `FAIL: this profile was accepted: Bob|Smith|ada_l`; function left open to anon gave `FAIL: a signed out visitor can ask about usernames`; format check removed gave `FAIL: this profile was accepted: Bob|Smith|ab`; insert policy opened gave `FAIL: user B created a profile for another user` (the first version of this check was vacuous, because A already had a profile, and was fixed by forging one for a third user). Opening only the update policy changes nothing, because Postgres also applies the select policy to the row being updated, so the select policy covers it.
+- Not yet proven: the table on the real dev project (CI applies `0005` on merge to `main`, check it answers 200 and that a second user cannot read a profile through the API after that).
 
 ## Notes
 
