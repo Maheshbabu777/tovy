@@ -57,6 +57,24 @@ describe('dates and words', () => {
 })
 
 describe('groupTasks', () => {
+  it('puts partly done tasks that are not late or due today under In progress', () => {
+    const g = groupTasks(
+      [
+        task('half-later', { kind: 'deep', progress: 50, due_date: '2026-10-05' }),
+        task('half-nodate', { kind: 'deep', progress: 20 }),
+        task('half-today', { kind: 'deep', progress: 50, due_date: '2026-10-02' }),
+        task('half-late', { kind: 'deep', progress: 50, due_date: '2026-09-30' }),
+        task('zero', { kind: 'deep', due_date: '2026-10-06' }),
+      ],
+      NOW,
+    )
+    expect(g.inProgress.map((t) => t.id)).toEqual(['half-later', 'half-nodate'])
+    expect(g.dueToday.map((t) => t.id)).toEqual(['half-today'])
+    expect(g.overdue.map((t) => t.id)).toEqual(['half-late'])
+    expect(g.comingUp.map((t) => t.id)).toEqual(['zero']) // not started, so still just coming up
+    expect(g.anytime).toEqual([])
+  })
+
   it('sorts open tasks into the four groups', () => {
     const g = groupTasks(
       [

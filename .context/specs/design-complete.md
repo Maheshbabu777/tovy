@@ -32,7 +32,7 @@ Phase 1 is its own pull request (migration and row security test), merged first.
 - [x] 3 Projects
 - [x] 4 Profile
 - [x] 5 Task detail
-- [ ] 6 Today
+- [x] 6 Today
 
 ## Evidence
 

@@ -593,6 +593,27 @@ test.describe('sync spike', () => {
     await expect.poll(background).toBe('rgb(11, 11, 17)')
   })
 
+  test('h1: Today shows the daily ring, partly done tasks get their own section, and closing the ring celebrates', async ({
+    browser,
+  }) => {
+    const a = await newDevice(browser, await createUser())
+    await addNote(a.page, 'ring-h1')
+    await expect(a.page.getByTestId('hero-headline')).toHaveText('150 points to close')
+    await openTask(a.page, 'ring-h1')
+    await a.page.getByTestId('detail-track').click()
+    await a.page.getByTestId('step-25').click() // 25% is 38 points
+    await expect(a.page.getByTestId('hero-headline')).toHaveText('112 points to close')
+    await expect(a.page.getByTestId('hero-sub')).toContainText('38 of 150 progress points today')
+    // partly done and no date: it moves to In progress
+    await expect(a.page.getByTestId('section-in-progress')).toContainText('ring-h1')
+    await expect(a.page.getByTestId('section-anytime')).toHaveCount(0)
+    // finishing the rest closes the ring
+    await a.page.getByTestId('detail-done').click()
+    await expect(a.page.getByTestId('ring-closed')).toBeVisible()
+    await a.page.getByTestId('ring-closed-dismiss').click()
+    await expect(a.page.getByTestId('hero-headline')).toHaveText('Ring closed')
+  })
+
   test('i1: proposals from AI apps wait in the Inbox until approved, rejected or approved all', async ({ browser }) => {
     const u = await createUser()
     const api = await asUser(u)
