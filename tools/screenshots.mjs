@@ -16,7 +16,7 @@ const BASE = process.env.BASE_URL ?? 'http://localhost:8081'
 const [outDir, ...asked] = process.argv.slice(2)
 if (!SB || !ANON || !ADMIN || !outDir) throw new Error('usage: see the top of this file')
 let launchId = ''
-const screens = asked.length ? asked : ['signin', 'code', 'setup', 'today', 'projects', 'project', 'profile']
+const screens = asked.length ? asked : ['signin', 'code', 'setup', 'today', 'projects', 'project', 'inbox', 'profile']
 const SIZES = [
   ['phone', 430, 900],
   ['wide', 1280, 800],
@@ -89,6 +89,21 @@ async function sampleData(token) {
   await task({ title: 'Review launch checklist', project_id: launch, due_date: day(-2) })
   await task({ title: 'Rewrite onboarding copy', project_id: launch, due_date: day(3) })
   await task({ title: 'Morning walk', project_id: health })
+  const proposal = (app_name, kind, title, extra = {}) =>
+    call(
+      'POST',
+      '/rest/v1/proposals',
+      ANON,
+      { app_name, kind, title, task_id: null, before: {}, after: {}, ...extra },
+      token,
+    )
+  await proposal('Claude', 'add_task', 'Add task: Prepare sprint review', { after: { title: 'Prepare sprint review' } })
+  await proposal('Claude', 'update_progress', 'Draft API doc 42% to 60%', {
+    task_id: deep,
+    before: { progress: 42 },
+    after: { progress: 60 },
+  })
+  await proposal('ChatGPT', 'reschedule', 'Move Dentist to Friday', { after: { due_date: day(1) } })
   await task({ title: 'Call mum', done_at: new Date().toISOString() })
 }
 
@@ -112,6 +127,7 @@ try {
         projects: '/projects',
         project: `/projects?id=${launchId}`,
         profile: '/profile',
+        inbox: '/inbox',
       }[screen] ?? screen
     for (const [name, width, height, scheme] of VARIANTS) {
       const context = await browser.newContext({ viewport: { width, height }, colorScheme: scheme })
