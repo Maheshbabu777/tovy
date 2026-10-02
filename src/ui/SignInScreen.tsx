@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Platform, Pressable, Text, View } from 'react-native'
-import { ChevronLeft } from 'lucide-react-native'
+import { Icons } from './icons'
 import { supabase } from '../core/db/supabase'
 import { describeAuthError, isValidEmail } from '../core/auth/errors'
 import { AuthLayout } from './components/AuthLayout'
@@ -104,7 +104,7 @@ export function SignInScreen() {
             marginLeft: -4,
           }}
         >
-          <ChevronLeft size={16} color={c.ink6} strokeWidth={1.75} />
+          <Icons.back size={16} color={c.ink6} strokeWidth={1.75} />
           <Text style={[type.bodySMedium, { color: c.ink6 }]}>Back</Text>
         </Pressable>
         <Text style={[type.h1Large, { color: c.ink }]}>Check your email</Text>

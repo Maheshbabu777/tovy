@@ -1,10 +1,10 @@
 import { Modal, Pressable, Text, useWindowDimensions, View } from 'react-native'
-import type { LucideIcon } from 'lucide-react-native'
+import { type ToolkitIcon } from '../icons'
 import { useTheme } from '../theme'
 import { radius, type } from './../tokens'
 import { shadow, SHADOWS, useHover } from './web'
 
-export type MenuItem = { label: string; icon: LucideIcon; onPress: () => void; danger?: boolean; testID?: string }
+export type MenuItem = { label: string; icon: ToolkitIcon; onPress: () => void; danger?: boolean; testID?: string }
 
 // Design 7.20: 208 wide, padding 4, radius 14, items 36 tall with a 16 px icon and a 14 px label. It opens at the
 // pointer and stays inside the screen. Right-click on the web, long-press on a phone.

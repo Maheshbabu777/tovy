@@ -1,5 +1,5 @@
 import { Pressable } from 'react-native'
-import type { LucideIcon } from 'lucide-react-native'
+import { type ToolkitIcon } from '../icons'
 import { useTheme } from '../theme'
 import { radius } from '../tokens'
 import { transition, useFocusRing, useHover } from './web'
@@ -12,7 +12,7 @@ export function IconButton({
   color,
   testID,
 }: {
-  icon: LucideIcon
+  icon: ToolkitIcon
   label: string
   onPress?: () => void
   color?: string

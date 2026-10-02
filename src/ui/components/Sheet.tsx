@@ -1,7 +1,7 @@
 import { useEffect, useState, type ReactNode } from 'react'
 import { Animated, Easing, Modal, Platform, Pressable, Text, useWindowDimensions, View } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
-import { X } from 'lucide-react-native'
+import { Icons } from '../icons'
 import { useTheme } from '../theme'
 import { motion, radius, type, WIDE_BREAKPOINT } from '../tokens'
 import { IconButton } from './IconButton'
@@ -102,7 +102,7 @@ export function Sheet({
             }}
           >
             <Text style={[type.title, { color: c.ink }]}>{title}</Text>
-            {wide ? <IconButton icon={X} label="Close" onPress={onClose} testID="sheet-close" /> : null}
+            {wide ? <IconButton icon={Icons.close} label="Close" onPress={onClose} testID="sheet-close" /> : null}
           </View>
           <View style={{ paddingHorizontal: 20 }}>{children}</View>
         </Animated.View>

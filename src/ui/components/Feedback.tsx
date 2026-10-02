@@ -1,6 +1,6 @@
 import { useEffect, useState, type ReactNode } from 'react'
 import { Animated, Easing, Platform, Text, View } from 'react-native'
-import { Cloud, type LucideIcon } from 'lucide-react-native'
+import { Icons, type ToolkitIcon } from '../icons'
 import { useTheme } from '../theme'
 import { radius, type } from '../tokens'
 
@@ -11,7 +11,7 @@ export function EmptyState({
   body,
   children,
 }: {
-  icon: LucideIcon
+  icon: ToolkitIcon
   title: string
   body: string
   children?: ReactNode
@@ -112,7 +112,7 @@ export function Banner({ kind, children }: { kind: 'offline' | 'error'; children
         backgroundColor: error ? c.badSoft : c.ink1,
       }}
     >
-      <Cloud size={16} color={error ? c.bad : c.ink7} strokeWidth={1.75} />
+      <Icons.sync size={16} color={error ? c.bad : c.ink7} strokeWidth={1.75} />
       <Text style={[type.label, { color: error ? c.bad : c.ink7, flexShrink: 1, fontFamily: undefined }]}>
         {children}
       </Text>

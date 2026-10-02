@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react'
 import { Text, View } from 'react-native'
-import { ChevronLeft } from 'lucide-react-native'
+import { Icons } from '../icons'
 import { useTheme } from '../theme'
 import { type } from '../tokens'
 import { IconButton } from './IconButton'
@@ -24,7 +24,7 @@ export function ScreenHeader({
     <View style={{ minHeight: 56, flexDirection: 'row', alignItems: 'center', gap: 4 }}>
       {onBack ? (
         <View style={{ marginLeft: -8 }}>
-          <IconButton icon={ChevronLeft} label="Back" onPress={onBack} testID="back" />
+          <IconButton icon={Icons.back} label="Back" onPress={onBack} testID="back" />
         </View>
       ) : null}
       <View style={{ flex: 1, minWidth: 0 }}>

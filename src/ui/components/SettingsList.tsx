@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react'
 import { Pressable, Text, View } from 'react-native'
-import { ChevronRight, type LucideIcon } from 'lucide-react-native'
+import { Icons, type ToolkitIcon } from '../icons'
 import { useTheme } from '../theme'
 import { fonts, radius, type } from '../tokens'
 import { transition, useFocusRing, useHover } from './web'
@@ -39,7 +39,7 @@ export function Row({
   valueTestID,
 }: {
   label: string
-  icon?: LucideIcon
+  icon?: ToolkitIcon
   value?: string
   onPress?: () => void
   danger?: boolean
@@ -83,7 +83,7 @@ export function Row({
         </Text>
       ) : null}
       {control}
-      {onPress && chevron && !control ? <ChevronRight size={16} color={c.ink5} strokeWidth={1.75} /> : null}
+      {onPress && chevron && !control ? <Icons.forward size={16} color={c.ink5} strokeWidth={1.75} /> : null}
     </Pressable>
   )
 }

@@ -3,7 +3,7 @@ import { Animated, Easing, Image, Platform, Pressable, Text, useWindowDimensions
 import { useGlobalSearchParams, usePathname, useRouter } from 'expo-router'
 import { TabSlot, TabTrigger, useTabsWithTriggers } from 'expo-router/ui'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
-import { CircleCheck, Folder, Inbox, PanelLeft, Plus, User, type LucideIcon } from 'lucide-react-native'
+import { Icons, type ToolkitIcon } from './icons'
 import { use$ } from '@legendapp/state/react'
 import type { Proposal } from '../core/sync/tasks'
 import { useStore } from './StoreContext'
@@ -20,13 +20,13 @@ const TABS: {
   name: string
   href: '/' | '/inbox' | '/projects' | '/profile'
   label: string
-  Icon: LucideIcon
+  Icon: ToolkitIcon
   key?: string
 }[] = [
-  { name: 'index', href: '/', label: 'Today', Icon: CircleCheck, key: 'T' },
-  { name: 'inbox', href: '/inbox', label: 'Inbox', Icon: Inbox, key: 'I' },
-  { name: 'projects', href: '/projects', label: 'Projects', Icon: Folder, key: 'P' },
-  { name: 'profile', href: '/profile', label: 'Profile', Icon: User },
+  { name: 'index', href: '/', label: 'Today', Icon: Icons.today, key: 'T' },
+  { name: 'inbox', href: '/inbox', label: 'Inbox', Icon: Icons.inbox, key: 'I' },
+  { name: 'projects', href: '/projects', label: 'Projects', Icon: Icons.projects, key: 'P' },
+  { name: 'profile', href: '/profile', label: 'Profile', Icon: Icons.account },
 ]
 
 const SIDEBAR = { open: 240, collapsed: 68 }
@@ -45,7 +45,7 @@ function NavItem({
   onPress,
 }: {
   label: string
-  Icon: LucideIcon
+  Icon: ToolkitIcon
   wide: boolean
   collapsed: boolean
   shortcut?: string
@@ -69,7 +69,7 @@ function NavItem({
         {...ring.handlers}
       >
         <View>
-          <Icon size={22} color={on ? c.accent : c.ink6} strokeWidth={on ? 2.1 : 1.75} />
+          <Icon size={24} color={on ? c.text : c.text2} filled={on} />
           {badge > 0 ? <Badge count={badge} floating /> : null}
         </View>
         <Text style={[type.micro, { color: on ? c.accent : c.ink6 }]}>{label}</Text>
@@ -103,7 +103,7 @@ function NavItem({
       {...ring.handlers}
     >
       <View>
-        <Icon size={19} color={on ? c.ink : c.ink6} strokeWidth={on ? 2.1 : 1.75} />
+        <Icon size={18} color={on ? c.text : c.text2} filled={on} />
         {badge > 0 && collapsed ? <Badge count={badge} floating /> : null}
       </View>
       {collapsed ? null : (
@@ -381,7 +381,7 @@ function QuickAddButton({ collapsed, onPress }: { collapsed: boolean; onPress: (
       {...hover}
       {...ring.handlers}
     >
-      <Plus size={18} color={c.onAccent} strokeWidth={1.75} />
+      <Icons.add size={18} color={c.onAccent} strokeWidth={1.75} />
       {collapsed ? null : <Text style={{ fontFamily: fonts.medium, fontSize: 14, color: c.onAccent }}>Quick add</Text>}
     </Pressable>
   )
@@ -417,7 +417,7 @@ function CollapseButton({ collapsed, onPress }: { collapsed: boolean; onPress: (
       {...hover}
       {...ring.handlers}
     >
-      <PanelLeft size={18} color={c.ink5} strokeWidth={1.75} />
+      <Icons.sidebar size={18} color={c.ink5} strokeWidth={1.75} />
       {collapsed ? null : <Text style={[type.label, { color: c.ink5 }]}>Collapse</Text>}
     </Pressable>
   )

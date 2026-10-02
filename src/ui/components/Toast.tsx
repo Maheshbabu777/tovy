@@ -1,7 +1,7 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react'
 import { Animated, Easing, Platform, Pressable, Text, useWindowDimensions, View } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
-import { X } from 'lucide-react-native'
+import { Icons } from '../icons'
 import { useTheme } from '../theme'
 import { fonts, motion, radius, type, WIDE_BREAKPOINT } from '../tokens'
 import { shadow, SHADOWS } from './web'
@@ -106,7 +106,7 @@ function ToastView({ toast, onDone }: { toast: ToastInput; onDone: () => void })
           onPress={onDone}
           style={{ width: 36, height: 36, alignItems: 'center', justifyContent: 'center' }}
         >
-          <X size={16} color={c.toastText} strokeWidth={1.75} />
+          <Icons.close size={16} color={c.toastText} strokeWidth={1.75} />
         </Pressable>
         <Animated.View
           style={{

@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Animated, Easing, View } from 'react-native'
 import Svg, { Circle } from 'react-native-svg'
-import { Check } from 'lucide-react-native'
+import { Icons } from '../icons'
 import { useTheme } from '../theme'
 import { motion } from '../tokens'
 
@@ -56,7 +56,7 @@ export function ProgressRing({
           />
         ) : null}
       </Svg>
-      {done ? <Check size={Math.round(size * 0.5)} color={c.ok} strokeWidth={2.6} /> : null}
+      {done ? <Icons.check size={Math.round(size * 0.5)} color={c.ok} strokeWidth={2.6} /> : null}
     </View>
   )
 }

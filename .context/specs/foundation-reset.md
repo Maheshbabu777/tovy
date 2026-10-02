@@ -31,7 +31,7 @@ This spec covers stage 1, the design system. Stages 2 onward get their own specs
 
 - Visual direction: what should Tovy feel like (Todoist, Things 3, native Android Material 3, or something else)? Answer: black and white, modern, after the human's inspirations (Devin and Cursor sites) (human, 2026-10-03). Structure still follows Todoist. Earlier answers the same day (Todoist colours, Jomo) were replaced. The source of truth is the Paper file `tovy`, page Design system.
 - Accent colour: Answer: none. Primary is black (white in dark), red only for overdue and delete (human, 2026-10-03).
-- Font: Answer: Geist and Geist Mono, as drawn in Paper (pending the human's review).
+- Font: Answer: Geist and Geist Mono, as drawn in Paper (approved 2026-10-03).
 - Icon set: switch from Lucide to Phosphor for filled active states, or keep Lucide? Answer: Phosphor (human, 2026-10-03).
 - The word Inbox: every other app uses Inbox for captured tasks with no project. Tovy uses it for AI approvals. Rename the AI screen (for example "Requests") and use Inbox the usual way? Built in stage 2. Answer: Inbox means captured tasks (human, 2026-10-03). There is no AI approval screen at all: AI apps write directly and ask the user inside the AI app before deleting or removing (human, 2026-10-03, see `decisions.md`). The current approval Inbox and the proposals table are retired in stage 2.
 - Points data: hide only (keep tables and the log's point math for a later stats screen), or remove the point math too? Answer: hide only, keep the data and the math for a later stats screen (human, 2026-10-03).
@@ -63,13 +63,16 @@ Risks:
 - [x] Style guide drafted (`.context/design/style-guide.md`, rendered as the Tovy Design System artifact)
 - [x] Logo received (human, 2026-10-03): `assets/brand/tovy-mark-black.png`, `tovy-mark-white.png`, `tovy-app-icon.png`
 - [x] Design system drawn in Paper (foundations, icons, components, phone light and dark, web)
-- [ ] Design system approved in Paper
-- [ ] `style-guide.md` rewritten from the approved Paper file
-- [ ] Tokens and icon toolkit
+- [x] Design system approved in Paper (human, 2026-10-03: "Perfect")
+- [x] `style-guide.md` rewritten from the approved Paper file
+- [x] Tokens and icon toolkit (black and white palette in `theme.tsx`, older colour names kept as aliases; `src/ui/icons.ts` on Phosphor, lucide removed; `icons.test.ts` checks nobody else imports an icon library)
 - [ ] Component gallery
-- [ ] Points removed, loading screen
+- [x] Points removed, loading screen (Today title and date, no hero card or Ring closed overlay; the logo on the page ground while loading; the accent choice removed from Appearance; e2e `h1` rewritten, `t2` and the dark background check updated)
 - [ ] Checks pass
 
 ## Notes
+
+- Projects keep their colour name in the database, but every project colour shows as the secondary grey for now (`PROJECT_COLORS` in `theme.tsx`) until projects get their own design.
+- Checks run in a cloud copy of the repo (the local shell cannot finish `npm ci` within its time limit): lint, format, typecheck and 49 unit tests pass. The e2e suite needs the Supabase secrets and was not run.
 
 - Supersedes the visual parts of `design-complete.md` and `ui-shell.md`. Their data and sync work stays.

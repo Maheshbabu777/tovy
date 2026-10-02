@@ -3,7 +3,7 @@ import { Text, useWindowDimensions, View } from 'react-native'
 import { useGlobalSearchParams, useLocalSearchParams, useRouter } from 'expo-router'
 import { use$ } from '@legendapp/state/react'
 import { syncState } from '@legendapp/state'
-import { FolderPlus, ListChecks, Pencil, Plus } from 'lucide-react-native'
+import { Icons } from './icons'
 import { projectStats, sortProjects, taskCountLabel } from '../core/projects'
 import { percentOf } from '../core/progress'
 import type { Project, Task } from '../core/sync/tasks'
@@ -73,14 +73,16 @@ function ProjectList() {
     <Page>
       <ScreenHeader
         title="Projects"
-        right={<IconButton icon={Plus} label="New project" onPress={() => setCreating(true)} testID="new-project" />}
+        right={
+          <IconButton icon={Icons.add} label="New project" onPress={() => setCreating(true)} testID="new-project" />
+        }
       />
       <View style={{ marginTop: 8, gap: 8 }}>
         {!loaded ? (
           <Skeleton rows={3} />
         ) : cards.length === 0 ? (
           <EmptyState
-            icon={FolderPlus}
+            icon={Icons.newProject}
             title="No projects yet"
             body="Group related tasks under a project, like Work or Home."
           >
@@ -176,7 +178,11 @@ function ProjectPage({ id }: { id: string }) {
     return (
       <Page>
         <ScreenHeader title="Project" onBack={back} />
-        <EmptyState icon={ListChecks} title="This project is gone" body="It may have been deleted on another device." />
+        <EmptyState
+          icon={Icons.subtasks}
+          title="This project is gone"
+          body="It may have been deleted on another device."
+        />
       </Page>
     )
   }
@@ -205,9 +211,14 @@ function ProjectPage({ id }: { id: string }) {
         onBack={back}
         right={
           <>
-            <IconButton icon={Plus} label="Add task" onPress={() => setAdding(true)} testID="project-add-task" />
+            <IconButton icon={Icons.add} label="Add task" onPress={() => setAdding(true)} testID="project-add-task" />
             {loose ? null : (
-              <IconButton icon={Pencil} label="Edit project" onPress={() => setEditing(true)} testID="project-edit" />
+              <IconButton
+                icon={Icons.edit}
+                label="Edit project"
+                onPress={() => setEditing(true)}
+                testID="project-edit"
+              />
             )}
           </>
         }
@@ -216,7 +227,7 @@ function ProjectPage({ id }: { id: string }) {
         {!loaded ? (
           <Skeleton rows={4} />
         ) : own.length === 0 ? (
-          <EmptyState icon={ListChecks} title="No tasks yet" body="Add a task here, or move one in from its page.">
+          <EmptyState icon={Icons.subtasks} title="No tasks yet" body="Add a task here, or move one in from its page.">
             <Button label="Add a task" onPress={() => setAdding(true)} testID="project-empty-add" />
           </EmptyState>
         ) : (

@@ -3,7 +3,7 @@ import { Modal, Pressable, Text, View } from 'react-native'
 import { useLocalSearchParams, useRouter } from 'expo-router'
 import { syncState } from '@legendapp/state'
 import { use$ } from '@legendapp/state/react'
-import { Check, Cloud, Info, LogOut, Sun, User } from 'lucide-react-native'
+import { Icons } from './icons'
 import { supabase } from '../core/db/supabase'
 import { readCachedProfile, type Profile } from '../core/profile/profile'
 import { Avatar } from './components/Avatar'
@@ -117,7 +117,7 @@ function ProfileHome({ profile, open }: { profile: Profile | null; open: (page: 
           </Text>
           {account ? (
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
-              {account.provider === 'google' ? <Check size={13} color={c.ok} strokeWidth={2} /> : null}
+              {account.provider === 'google' ? <Icons.check size={13} color={c.ok} strokeWidth={2} /> : null}
               <Text style={[type.meta, { color: c.ink6 }]}>
                 {account.provider === 'google' ? 'Google linked' : 'Signed in with an email code'}
               </Text>
@@ -129,7 +129,7 @@ function ProfileHome({ profile, open }: { profile: Profile | null; open: (page: 
       <Group title="Account">
         <Row
           label="Edit profile"
-          icon={User}
+          icon={Icons.account}
           value={profile ? `@${profile.username}` : undefined}
           onPress={() => open('edit')}
           testID="edit-profile"
@@ -139,17 +139,17 @@ function ProfileHome({ profile, open }: { profile: Profile | null; open: (page: 
       <Group title="Settings">
         <Row
           label="Appearance"
-          icon={Sun}
+          icon={Icons.themeLight}
           value={THEME_LABEL[preference]}
           onPress={() => open('appearance')}
           testID="appearance"
         />
-        <Row label="Sync status" icon={Cloud} value={syncLabel} valueTestID="sync-status" />
+        <Row label="Sync status" icon={Icons.sync} value={syncLabel} valueTestID="sync-status" />
       </Group>
 
       <Group>
-        <Row label="About Tovy" icon={Info} onPress={() => open('about')} testID="about" />
-        <Row label="Sign out" icon={LogOut} onPress={requestSignOut} chevron={false} testID="sign-out" />
+        <Row label="About Tovy" icon={Icons.info} onPress={() => open('about')} testID="about" />
+        <Row label="Sign out" icon={Icons.signOut} onPress={requestSignOut} chevron={false} testID="sign-out" />
       </Group>
 
       <Modal visible={confirming} transparent animationType="fade" onRequestClose={() => setConfirming(false)}>

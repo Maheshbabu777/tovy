@@ -20,6 +20,7 @@ import { Button } from './components/Button'
 import { Input } from './components/Input'
 import { useTheme } from './theme'
 import { type } from './tokens'
+import { LoadingScreen } from './Brand'
 
 type State = { kind: 'loading' } | { kind: 'ready' } | { kind: 'setup' } | { kind: 'unavailable'; message: string }
 
@@ -68,8 +69,7 @@ export function ProfileGate({
 }
 
 function Loading() {
-  const { theme } = useTheme()
-  return <View testID="profile-loading" style={{ flex: 1, backgroundColor: theme.colors.bg }} />
+  return <LoadingScreen testID="profile-loading" />
 }
 
 function Unavailable({ onRetry }: { onRetry: () => void }) {

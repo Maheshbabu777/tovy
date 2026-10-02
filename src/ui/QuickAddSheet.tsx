@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { ScrollView, Text, TextInput, View } from 'react-native'
-import { Calendar } from 'lucide-react-native'
+import { Icons } from './icons'
 import type { Project } from '../core/sync/tasks'
 import { nextDays } from '../core/today'
 import { Button } from './components/Button'
@@ -80,7 +80,7 @@ function QuickAddForm({
           <Chip
             key={day}
             label={label}
-            icon={Calendar}
+            icon={Icons.date}
             active={dueDate === day}
             onPress={() => setDueDate(dueDate === day ? null : day)}
           />

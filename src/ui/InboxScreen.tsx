@@ -3,7 +3,7 @@ import { Animated, PanResponder, Platform, Pressable, ScrollView, Text, useWindo
 import { syncState } from '@legendapp/state'
 import { use$ } from '@legendapp/state/react'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
-import { Check, Inbox, X } from 'lucide-react-native'
+import { Icons } from './icons'
 import { changeSummary, groupByApp, kindLabel, timeAgo, waitingLabel } from '../core/inbox'
 import type { Proposal, Task } from '../core/sync/tasks'
 import { AIBadge, AppMark } from './components/AppMark'
@@ -94,7 +94,7 @@ export function InboxScreen() {
             <Skeleton rows={3} />
           ) : waiting.length === 0 ? (
             <EmptyState
-              icon={Inbox}
+              icon={Icons.inbox}
               title="Nothing to approve"
               body="When an AI app proposes a task or change, it waits here until you say yes."
             />
@@ -276,9 +276,9 @@ function SwipeRow({
         }}
       >
         {dx > 0 ? (
-          <Check size={18} color={c.ok} strokeWidth={1.75} />
+          <Icons.check size={18} color={c.ok} strokeWidth={1.75} />
         ) : (
-          <X size={18} color={c.bad} strokeWidth={1.75} />
+          <Icons.close size={18} color={c.bad} strokeWidth={1.75} />
         )}
         <Text style={[type.bodySMedium, { color: dx > 0 ? c.ok : c.bad }]}>{dx > 0 ? 'Approve' : 'Reject'}</Text>
       </View>

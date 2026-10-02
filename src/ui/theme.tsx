@@ -2,90 +2,91 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useState, t
 import { Platform, StyleSheet, useColorScheme } from 'react-native'
 import storage from '../core/db/authStorage'
 
-// The colours of the design (design-spec.md section 1). Every neutral is the ink colour at an opacity, nothing is a
-// raw grey. Components read colours from `useTheme()` only, so both themes and the accent choice work everywhere.
+// The colours of the design system (`.context/design/style-guide.md`, drawn in the Paper file `tovy`). Black and
+// white, with red as the only colour. Components read colours from `useTheme()` only, so both themes work everywhere.
+// The older names (ink1 to ink7, accent, ok, bad) are kept as aliases of the new palette so every screen follows it.
 
-type Rgb = readonly [number, number, number]
 export type ThemeMode = 'light' | 'dark'
 export type ThemePreference = ThemeMode | 'system'
-export type AccentName = 'indigo' | 'ultramarine' | 'iris'
 
-const BASE: Record<ThemeMode, { bg: Rgb; surface: Rgb; ink: Rgb; onAccent: Rgb; ok: Rgb; warn: Rgb; bad: Rgb }> = {
+export const PALETTE = {
   light: {
-    bg: [255, 255, 255],
-    surface: [248, 248, 251],
-    ink: [17, 17, 26],
-    onAccent: [255, 255, 255],
-    ok: [17, 122, 85],
-    warn: [176, 80, 10],
-    bad: [190, 40, 60],
+    bg: '#FFFFFF',
+    panel: '#F6F6F6',
+    hover: '#EFEFEF',
+    line: '#E6E6E6',
+    lineStrong: '#D4D4D4',
+    text: '#0A0A0A',
+    text2: '#5C5C5C',
+    text3: '#9A9A9A',
+    primary: '#0A0A0A',
+    onPrimary: '#FFFFFF',
+    red: '#D93025',
   },
   dark: {
-    bg: [11, 11, 17],
-    surface: [19, 19, 27],
-    ink: [238, 238, 248],
-    onAccent: [14, 14, 30],
-    ok: [80, 200, 150],
-    warn: [240, 170, 90],
-    bad: [255, 120, 135],
+    bg: '#0A0A0A',
+    panel: '#141414',
+    hover: '#1F1F1F',
+    line: '#262626',
+    lineStrong: '#3A3A3A',
+    text: '#F5F5F5',
+    text2: '#A3A3A3',
+    text3: '#6B6B6B',
+    primary: '#F5F5F5',
+    onPrimary: '#0A0A0A',
+    red: '#FF6B5E',
   },
-}
+} as const
 
-export const ACCENTS: Record<AccentName, { label: string; light: Rgb; dark: Rgb }> = {
-  indigo: { label: 'Indigo', light: [67, 56, 202], dark: [139, 141, 251] },
-  ultramarine: { label: 'Ultramarine', light: [36, 70, 212], dark: [120, 160, 255] },
-  iris: { label: 'Iris', light: [108, 52, 214], dark: [176, 140, 255] },
-}
-
-export const accentColor = (name: AccentName, mode: ThemeMode) => `rgb(${ACCENTS[name][mode].join(',')})`
-
-// The five project colours. They are small markers only (a dot or a bar), the same in both themes.
+// Projects carry a colour name in the database. The black and white design does not colour them, so every name shows
+// as the secondary text grey until projects get their own design.
 export const PROJECT_COLORS: Record<string, string> = {
-  indigo: '#4F46E5',
-  teal: '#0F8A74',
-  amber: '#C2670E',
-  rose: '#C0364F',
-  slate: '#5B6B7F',
+  indigo: '#5C5C5C',
+  teal: '#5C5C5C',
+  amber: '#5C5C5C',
+  rose: '#5C5C5C',
+  slate: '#5C5C5C',
 }
 
-const rgb = (c: Rgb) => `rgb(${c[0]},${c[1]},${c[2]})`
-const rgba = (c: Rgb, a: number) => `rgba(${c[0]},${c[1]},${c[2]},${a})`
+const alpha = (hex: string, a: number) => {
+  const n = parseInt(hex.slice(1), 16)
+  return `rgba(${(n >> 16) & 255},${(n >> 8) & 255},${n & 255},${a})`
+}
 
-function buildColors(mode: ThemeMode, accentName: AccentName) {
-  const b = BASE[mode]
-  const accent = ACCENTS[accentName][mode]
+function buildColors(mode: ThemeMode) {
+  const p = PALETTE[mode]
   return {
-    bg: rgb(b.bg),
-    bgClear: rgba(b.bg, 0), // for fades
-    surface: rgb(b.surface),
-    ink: rgb(b.ink),
-    // The ink ladder (section 1.2): 4, 8, 12, 24, 46, 68 and 92 percent.
-    ink1: rgba(b.ink, 0.04),
-    ink2: rgba(b.ink, 0.08),
-    ink3: rgba(b.ink, 0.12),
-    ink4: rgba(b.ink, 0.24),
-    ink5: rgba(b.ink, 0.46),
-    ink6: rgba(b.ink, 0.68),
-    ink7: rgba(b.ink, 0.92),
-    accent: rgb(accent),
-    accentSoft: rgba(accent, 0.11),
-    accentHover: rgba(accent, 0.15),
-    accentFaint: rgba(accent, 0.4),
-    onAccent: rgb(b.onAccent),
-    ok: rgb(b.ok),
-    okSoft: rgba(b.ok, 0.15),
-    warn: rgb(b.warn),
-    bad: rgb(b.bad),
-    badSoft: rgba(b.bad, 0.1),
+    ...p,
+    bgClear: alpha(p.bg, 0), // for fades
+    // Aliases used by the screens built before the black and white system.
+    surface: p.panel,
+    ink: p.text,
+    ink1: p.panel,
+    ink2: p.hover,
+    ink3: p.line,
+    ink4: p.lineStrong,
+    ink5: p.text3,
+    ink6: p.text2,
+    ink7: p.text,
+    accent: p.primary,
+    accentSoft: p.hover,
+    accentHover: p.lineStrong,
+    accentFaint: p.lineStrong,
+    onAccent: p.onPrimary,
+    ok: p.primary,
+    okSoft: p.hover,
+    warn: p.text2,
+    bad: p.red,
+    badSoft: alpha(p.red, mode === 'light' ? 0.08 : 0.16),
     sheetScrim: 'rgba(0,0,0,0.35)',
     dialogScrim: 'rgba(0,0,0,0.40)',
-    barBg: rgba(b.bg, 0.95),
-    bgOverlay: rgba(b.bg, 0.92), // the ring closed celebration (design 11.14)
-    // The toast is inverted: ink background, bg text (section 1.6).
-    toastBg: rgb(b.ink),
-    toastText: rgb(b.bg),
-    toastUndo: mode === 'light' ? '#A5A8FF' : rgb(accent),
-    selection: rgba(accent, 0.25),
+    barBg: p.bg,
+    bgOverlay: alpha(p.bg, 0.92),
+    // The toast is inverted: text colour ground, bg text.
+    toastBg: p.text,
+    toastText: p.bg,
+    toastUndo: p.bg,
+    selection: alpha(p.text, 0.14),
   }
 }
 
@@ -95,9 +96,7 @@ export type Theme = { mode: ThemeMode; colors: Colors }
 type ThemeContextValue = {
   theme: Theme
   preference: ThemePreference
-  accent: AccentName
   setPreference: (p: ThemePreference) => void
-  setAccent: (a: AccentName) => void
 }
 
 const ThemeContext = createContext<ThemeContextValue | null>(null)
@@ -109,8 +108,8 @@ export function resolveMode(preference: ThemePreference, system: string | null |
   return preference
 }
 
-export function makeTheme(mode: ThemeMode, accent: AccentName): Theme {
-  return { mode, colors: buildColors(mode, accent) }
+export function makeTheme(mode: ThemeMode): Theme {
+  return { mode, colors: buildColors(mode) }
 }
 
 // On the web the change of theme cross-fades for 220 ms (section 4): a class on the page turns transitions on for a
@@ -132,25 +131,23 @@ function crossFade() {
 export function ThemeProvider({ children }: { children: ReactNode }) {
   const system = useColorScheme()
   const [preference, setPreferenceState] = useState<ThemePreference>('system')
-  const [accent, setAccentState] = useState<AccentName>('indigo')
 
   // Read the saved choice once. A blank or broken value means the defaults.
   useEffect(() => {
     void (async () => {
       try {
         const raw = await storage.getItem(STORAGE_KEY)
-        const saved = raw ? (JSON.parse(raw) as { preference?: ThemePreference; accent?: AccentName }) : {}
+        const saved = raw ? (JSON.parse(raw) as { preference?: ThemePreference }) : {}
         if (saved.preference === 'light' || saved.preference === 'dark' || saved.preference === 'system') {
           setPreferenceState(saved.preference)
         }
-        if (saved.accent && saved.accent in ACCENTS) setAccentState(saved.accent)
       } catch {
         // keep the defaults
       }
     })()
   }, [])
 
-  const save = useCallback((next: { preference: ThemePreference; accent: AccentName }) => {
+  const save = useCallback((next: { preference: ThemePreference }) => {
     void Promise.resolve(storage.setItem(STORAGE_KEY, JSON.stringify(next))).catch(() => undefined)
   }, [])
 
@@ -158,22 +155,14 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
     (p: ThemePreference) => {
       crossFade()
       setPreferenceState(p)
-      save({ preference: p, accent })
+      save({ preference: p })
     },
-    [accent, save],
-  )
-  const setAccent = useCallback(
-    (a: AccentName) => {
-      crossFade()
-      setAccentState(a)
-      save({ preference, accent: a })
-    },
-    [preference, save],
+    [save],
   )
 
   const mode = resolveMode(preference, system)
   // The page behind everything and the text selection colour follow the theme too (web).
-  const themeColors = buildColors(mode, accent)
+  const themeColors = buildColors(mode)
   useEffect(() => {
     if (Platform.OS !== 'web' || typeof document === 'undefined') return
     document.body.style.backgroundColor = themeColors.bg
@@ -186,8 +175,8 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
     style.textContent = `::selection { background: ${themeColors.selection}; }`
   }, [themeColors.bg, themeColors.selection])
   const value = useMemo<ThemeContextValue>(
-    () => ({ theme: makeTheme(mode, accent), preference, accent, setPreference, setAccent }),
-    [mode, accent, preference, setPreference, setAccent],
+    () => ({ theme: makeTheme(mode), preference, setPreference }),
+    [mode, preference, setPreference],
   )
   return <ThemeContext.Provider value={value}>{children}</ThemeContext.Provider>
 }

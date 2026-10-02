@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { ScrollView, Text, TextInput, useWindowDimensions, View } from 'react-native'
 import { use$ } from '@legendapp/state/react'
-import { Calendar, ChevronLeft, ListChecks, Trash2, X } from 'lucide-react-native'
+import { Icons } from './icons'
 import { logStamp, percentOf, pointsLabel, hasSubtasks, type LogEntry } from '../core/progress'
 import type { Project, Task } from '../core/sync/tasks'
 import { byCreated, dueLabel, isOverdue } from '../core/today'
@@ -43,7 +43,11 @@ export function TaskDetail({
   if (!task) {
     return (
       <Frame label="" onClose={onClose}>
-        <EmptyState icon={ListChecks} title="This task is gone" body="It may have been deleted on another device." />
+        <EmptyState
+          icon={Icons.subtasks}
+          title="This task is gone"
+          body="It may have been deleted on another device."
+        />
       </Frame>
     )
   }
@@ -78,13 +82,15 @@ function Frame({
         }}
       >
         {onBack || !wide ? (
-          <IconButton icon={ChevronLeft} label="Back" onPress={onBack ?? onClose} testID="detail-back" />
+          <IconButton icon={Icons.back} label="Back" onPress={onBack ?? onClose} testID="detail-back" />
         ) : null}
         <View style={{ flex: 1, paddingLeft: wide && !onBack ? 4 : 0 }}>
           {wide ? <Text style={[type.label, { color: c.ink6 }]}>{label}</Text> : null}
         </View>
-        {onDelete ? <IconButton icon={Trash2} label="Delete task" onPress={onDelete} testID="detail-delete" /> : null}
-        {wide ? <IconButton icon={X} label="Close" onPress={onClose} testID="detail-close" /> : null}
+        {onDelete ? (
+          <IconButton icon={Icons.delete} label="Delete task" onPress={onDelete} testID="detail-delete" />
+        ) : null}
+        {wide ? <IconButton icon={Icons.close} label="Close" onPress={onClose} testID="detail-close" /> : null}
       </View>
       <ScrollView
         contentContainerStyle={{ paddingHorizontal: wide ? 20 : 16, paddingBottom: 48 }}
@@ -192,7 +198,7 @@ function Body({
       <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 12 }}>
         <Chip
           testID="chip-date"
-          icon={Calendar}
+          icon={Icons.date}
           label={dueLabel(task, now)}
           active={!!task.due_date}
           onPress={() => setSheet('date')}

@@ -1,5 +1,5 @@
 import { Pressable, View } from 'react-native'
-import { Check } from 'lucide-react-native'
+import { Icons } from '../icons'
 import { useTheme } from '../theme'
 import { useFocusRing } from './web'
 
@@ -41,7 +41,7 @@ export function Checkbox({
           justifyContent: 'center',
         }}
       >
-        {checked ? <Check size={13} color={c.onAccent} strokeWidth={3} /> : null}
+        {checked ? <Icons.check size={13} color={c.onAccent} strokeWidth={3} /> : null}
       </View>
     </Pressable>
   )

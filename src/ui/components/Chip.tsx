@@ -1,5 +1,5 @@
 import { Pressable, Text, View } from 'react-native'
-import type { LucideIcon } from 'lucide-react-native'
+import { type ToolkitIcon } from '../icons'
 import { useTheme } from '../theme'
 import { type } from '../tokens'
 import { transition, useFocusRing, useHover } from './web'
@@ -16,7 +16,7 @@ export function Chip({
   label: string
   onPress?: () => void
   active?: boolean
-  icon?: LucideIcon
+  icon?: ToolkitIcon
   dot?: string // a project colour for the leading 6 px dot
   testID?: string
 }) {

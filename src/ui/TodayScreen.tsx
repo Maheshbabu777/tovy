@@ -4,16 +4,13 @@ import { syncState } from '@legendapp/state'
 import { use$ } from '@legendapp/state/react'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useGlobalSearchParams } from 'expo-router'
-import { CircleCheck, Plus } from 'lucide-react-native'
-import { readCachedProfile } from '../core/profile/profile'
-import { DAILY_GOAL, percentOf, pointsOnDay, type LogEntry } from '../core/progress'
+import { Icons } from './icons'
+import { percentOf } from '../core/progress'
 import type { Project, Task } from '../core/sync/tasks'
-import { addDays, dateLine, greeting, groupTasks, localDay } from '../core/today'
+import { addDays, dateLine, groupTasks, localDay } from '../core/today'
 import { Banner, EmptyState, Skeleton } from './components/Feedback'
 import { useToast } from './components/Toast'
 import { webStyle } from './components/web'
-import { HeroCard } from './HeroCard'
-import { RingClosed } from './RingClosed'
 import { onQuickAdd } from './quickAdd'
 import { QuickAddSheet } from './QuickAddSheet'
 import { useStore } from './StoreContext'
@@ -23,7 +20,7 @@ import { fonts, radius, type, WIDE_BREAKPOINT } from './tokens'
 import { useOnline } from './useOnline'
 import { useTaskActions } from './useTaskActions'
 
-// The date and the greeting stay right across midnight and a long session.
+// The date stays right across midnight and a long session.
 function useNow(): Date {
   const [now, setNow] = useState(() => new Date())
   useEffect(() => {
@@ -33,7 +30,7 @@ function useNow(): Date {
   return now
 }
 
-// Design 11.6, without the points ring, routines and streak line (their own specs). Groups: Overdue, Due today, Coming
+// Today (`.context/design/style-guide.md`): the title, the date, then the list. No points or ring. Groups: Overdue, Due today, Coming
 // up, Anytime, and what was finished today.
 export function TodayScreen() {
   const store = useStore()
@@ -53,24 +50,11 @@ export function TodayScreen() {
   const loaded = use$(taskState.isPersistLoaded)
   const syncError = use$(taskState.error)
 
-  const logsMap = use$(store.logs$) as Record<string, LogEntry> | undefined
-  const points = pointsOnDay(Object.values(logsMap ?? {}) as LogEntry[], localDay(now))
-  // Closing the ring (crossing 150 points) shows the celebration once, when it happens.
-  const [seenPoints, setSeenPoints] = useState(points)
-  const [celebrate, setCelebrate] = useState(false)
-  if (points !== seenPoints) {
-    setSeenPoints(points)
-    if (seenPoints < DAILY_GOAL && points >= DAILY_GOAL) setCelebrate(true)
-  }
-  const [firstName, setFirstName] = useState('')
   const [sheetOpen, setSheetOpen] = useState(false)
   const [draft, setDraft] = useState('')
 
   useEffect(() => store.catchUpAfterRealtime(), [store])
   useEffect(() => onQuickAdd(() => setSheetOpen(true)), [])
-  useEffect(() => {
-    void readCachedProfile(store.userId).then((p) => setFirstName(p?.first_name ?? ''))
-  }, [store.userId])
 
   // Not memoised on `tasksMap`: Legend-State changes that object in place, so its identity does not change when a task does.
   const tasks = Object.values(tasksMap ?? {}).filter(Boolean) as Task[]
@@ -111,7 +95,7 @@ export function TodayScreen() {
         paddingHorizontal: 16,
       }}
     >
-      <Plus size={18} color={c.accent} strokeWidth={1.75} />
+      <Icons.add size={18} color={c.accent} strokeWidth={1.75} />
       <TextInput
         testID="new-title"
         value={draft}
@@ -161,11 +145,10 @@ export function TodayScreen() {
             }}
           >
             <View style={{ flexShrink: 1 }}>
-              <Text style={[type.label, { color: c.ink6 }]}>{dateLine(now)}</Text>
-              <Text testID="greeting" accessibilityRole="header" style={[type.h1Large, { color: c.ink, marginTop: 2 }]}>
-                {greeting(now)}
-                {firstName ? `, ${firstName}` : ''}
+              <Text testID="today-title" accessibilityRole="header" style={[type.display, { color: c.text }]}>
+                Today
               </Text>
+              <Text style={[type.bodyS, { color: c.text2, marginTop: 4 }]}>{dateLine(now)}</Text>
             </View>
           </View>
 
@@ -174,18 +157,12 @@ export function TodayScreen() {
             {online && syncError ? <Banner kind="error">Sync failed. Your data is safe locally.</Banner> : null}
           </View>
 
-          {loaded ? (
-            <View style={{ marginTop: 16 }}>
-              <HeroCard points={points} />
-            </View>
-          ) : null}
-
           {!loaded ? (
             <View style={{ marginTop: 16 }}>
               <Skeleton />
             </View>
           ) : sections.length === 0 ? (
-            <EmptyState icon={CircleCheck} title="A clear day" body="Nothing scheduled. Add a task to get started." />
+            <EmptyState icon={Icons.today} title="A clear day" body="Nothing scheduled. Add a task to get started." />
           ) : (
             sections.map((section) => (
               <View key={section.key} testID={`section-${section.key}`}>
@@ -254,7 +231,7 @@ export function TodayScreen() {
               paddingHorizontal: 16,
             }}
           >
-            <Plus size={18} color={c.accent} strokeWidth={1.75} />
+            <Icons.add size={18} color={c.accent} strokeWidth={1.75} />
             <Text style={[type.body, { color: c.ink5 }]}>Add a task...</Text>
           </Pressable>
         </View>
@@ -267,7 +244,6 @@ export function TodayScreen() {
         onAdd={(t) => addTask(t)}
       />
       {menuElement}
-      <RingClosed visible={celebrate} points={points} onClose={() => setCelebrate(false)} />
     </View>
   )
 }

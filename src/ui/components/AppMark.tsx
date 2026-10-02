@@ -1,5 +1,5 @@
 import { Text, View } from 'react-native'
-import { Sparkles } from 'lucide-react-native'
+import { Icons } from '../icons'
 import { useTheme } from '../theme'
 import { type } from '../tokens'
 
@@ -44,7 +44,7 @@ export function AIBadge({ label = 'AI' }: { label?: string }) {
         gap: 3,
       }}
     >
-      <Sparkles size={11} color={c.accent} strokeWidth={1.75} />
+      <Icons.ai size={11} color={c.accent} strokeWidth={1.75} />
       <Text style={[type.micro, { color: c.accent }]}>{label}</Text>
     </View>
   )

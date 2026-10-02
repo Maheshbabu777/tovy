@@ -8,10 +8,9 @@ import { Input } from './components/Input'
 import { Segmented } from './components/Segmented'
 import { Group } from './components/SettingsList'
 import { useToast } from './components/Toast'
-import { accentColor, ACCENTS, useTheme, type AccentName, type ThemePreference } from './theme'
+import { useTheme, type ThemePreference } from './theme'
 import { fonts, radius, type } from './tokens'
 import { useUsernameFree } from './useUsernameFree'
-import { AccentOption } from './AccentOption'
 
 const THEMES: { value: ThemePreference; label: string }[] = [
   { value: 'light', label: 'Light' },
@@ -21,28 +20,14 @@ const THEMES: { value: ThemePreference; label: string }[] = [
 
 export const THEME_LABEL: Record<ThemePreference, string> = { light: 'Light', dark: 'Dark', system: 'System' }
 
-// Design 11.18: the theme, and three accent colours. Changes apply at once.
+// The theme: light, dark or follow the device. Changes apply at once.
 export function AppearancePage() {
-  const { theme, preference, accent, setPreference, setAccent } = useTheme()
+  const { preference, setPreference } = useTheme()
   return (
     <View>
       <Group title="Theme">
         <View style={{ padding: 12 }}>
           <Segmented options={THEMES} value={preference} onChange={setPreference} testID="theme-choice" />
-        </View>
-      </Group>
-      <Group title="Accent">
-        <View style={{ flexDirection: 'row', gap: 10, padding: 12 }}>
-          {(Object.keys(ACCENTS) as AccentName[]).map((name) => (
-            <AccentOption
-              key={name}
-              label={ACCENTS[name].label}
-              swatch={accentColor(name, theme.mode)}
-              selected={name === accent}
-              onPress={() => setAccent(name)}
-              testID={`accent-${name}`}
-            />
-          ))}
         </View>
       </Group>
     </View>
