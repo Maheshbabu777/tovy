@@ -6,7 +6,7 @@
 
 Tovy is a local-first task and routine app that connects to the AI apps you already use. Tasks carry partial progress with a log, streaks forgive a missed day, and everything works offline. Android and web first.
 
-Status: phase 2 (tasks). The app today is a task list with subtasks and projects that works offline and syncs through Supabase. The full plan is in `.context/project-plan.md`.
+Status: the core screens are built (Today, Inbox, Projects, task detail, Profile, sign in). See `.context/handoff.md` for what is done, what is not, and what a fresh clone needs. The full plan is in `.context/project-plan.md`.
 
 ## Getting started
 
