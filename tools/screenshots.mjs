@@ -4,7 +4,8 @@
 // Screens: signin, setup, today, projects, profile, or a path such as /task/<id>. Default: all of them.
 // It creates a temporary user (and one without a profile for `setup`), fills in a few projects and tasks through the
 // admin API, signs in by placing the session in the browser, and deletes the users again. Needs `npx serve` on 8081
-// (or set BASE_URL). Images: <screen>-phone.png (430 px wide) and <screen>-wide.png (1280 px wide).
+// (or set BASE_URL). Images: <screen>-phone-light.png, <screen>-phone-dark.png (430 px wide) and the same with -wide
+// (1280 px wide). Set SCHEMES=light to skip dark.
 import { chromium } from '@playwright/test'
 
 const SB = process.env.SUPABASE_URL
@@ -18,6 +19,10 @@ const SIZES = [
   ['phone', 430, 900],
   ['wide', 1280, 800],
 ]
+const SCHEMES = (process.env.SCHEMES ?? 'light,dark').split(',')
+const VARIANTS = SIZES.flatMap(([size, width, height]) =>
+  SCHEMES.map((scheme) => [`${size}-${scheme}`, width, height, scheme]),
+)
 
 const call = (method, path, key, body, token) =>
   fetch(SB + path, {
@@ -92,8 +97,8 @@ try {
   for (const screen of screens) {
     const who = screen === 'signin' ? null : screen === 'setup' ? bare : full
     const path = { signin: '/', setup: '/', today: '/', projects: '/projects', profile: '/profile' }[screen] ?? screen
-    for (const [name, width, height] of SIZES) {
-      const context = await browser.newContext({ viewport: { width, height } })
+    for (const [name, width, height, scheme] of VARIANTS) {
+      const context = await browser.newContext({ viewport: { width, height }, colorScheme: scheme })
       // Requests go through Node: in the cloud sandbox the browser cannot reach Supabase itself.
       await context.route(/supabase\.co/, async (route) => {
         try {
@@ -104,6 +109,15 @@ try {
       })
       if (who) await context.addInitScript(([k, v]) => localStorage.setItem(k, v), [key, JSON.stringify(who.session)])
       const page = await context.newPage()
+      // Anything the app complains about is printed, so a blank screenshot comes with its reason.
+      page.on('pageerror', (e) => console.log(`  [${screen} ${name}] page error:`, String(e).slice(0, 300)))
+      page.on(
+        'console',
+        (m) =>
+          m.type() === 'error' &&
+          !m.text().includes('WebSocket') &&
+          console.log(`  [${screen} ${name}] console error:`, m.text().slice(0, 300)),
+      )
       await page.goto(BASE + path)
       await page.waitForTimeout(3500)
       await page.screenshot({ path: `${outDir}/${screen}-${name}.png` })
