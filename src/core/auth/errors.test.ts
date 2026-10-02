@@ -6,11 +6,9 @@ describe('describeAuthError', () => {
       { status: 403, code: 'otp_expired', message: 'Token has expired or is invalid' },
       'verify',
     )
-    expect(wrong.text).toMatch(/wrong or has expired/)
+    expect(wrong.text).toMatch(/wrong or expired/)
     expect(wrong.waitSeconds).toBeUndefined()
-    expect(describeAuthError({ status: 400, message: 'Token is invalid' }, 'verify').text).toMatch(
-      /wrong or has expired/,
-    )
+    expect(describeAuthError({ status: 400, message: 'Token is invalid' }, 'verify').text).toMatch(/wrong or expired/)
   })
 
   it('shows a rate limit message with the wait the server asked for', () => {

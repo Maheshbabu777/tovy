@@ -1,18 +1,28 @@
 import { useEffect, useState } from 'react'
-import { Image, Platform, Pressable, StyleSheet, Text, TextInput, View } from 'react-native'
+import { Platform, Pressable, Text, View } from 'react-native'
+import { ChevronLeft } from 'lucide-react-native'
 import { supabase } from '../core/db/supabase'
 import { describeAuthError, isValidEmail } from '../core/auth/errors'
-import { colors, fonts, radius } from './tokens'
+import { AuthLayout } from './components/AuthLayout'
+import { Button } from './components/Button'
+import { Input } from './components/Input'
+import { OtpInput } from './components/OtpInput'
+import { useTheme } from './theme'
+import { fonts, type } from './tokens'
 
-const RESEND_SECONDS = 60
+const RESEND_SECONDS = 30
 
-// Sign in and register are the same two steps: the email, then the 6 digit code that was sent to it. An email that is
-// new gets an account. Google (web only for now) is the other way in.
+// Sign in and register are the same two steps (design 11.3 and 11.4): the email, then the 6 digit code sent to it.
+// An email that is new gets an account. Google (web only for now) is the other way in.
 export function SignInScreen() {
+  const { theme } = useTheme()
+  const c = theme.colors
   const [step, setStep] = useState<'email' | 'code'>('email')
   const [email, setEmail] = useState('')
+  const [emailError, setEmailError] = useState('')
   const [code, setCode] = useState('')
-  const [error, setError] = useState('')
+  const [codeError, setCodeError] = useState('')
+  const [formError, setFormError] = useState('') // trouble asking for a code (limit, network)
   const [busy, setBusy] = useState(false)
   const [wait, setWait] = useState(0) // seconds until another code may be asked for
 
@@ -24,37 +34,43 @@ export function SignInScreen() {
 
   async function sendCode() {
     const address = email.trim().toLowerCase()
-    if (!isValidEmail(address)) {
-      setError('That email address does not look right.')
-      return
-    }
+    // Validated on submit, the button is never disabled for it (design 7.1, 11.3).
+    if (!address) return setEmailError('Add your email address to continue.')
+    if (!isValidEmail(address)) return setEmailError('That email looks incomplete. Check for a missing @ or domain.')
     setBusy(true)
-    setError('')
+    setFormError('')
     const { error } = await supabase.auth.signInWithOtp({ email: address, options: { shouldCreateUser: true } })
     setBusy(false)
     if (error) {
       const described = describeAuthError(error, 'send')
-      setError(described.text)
       if (described.waitSeconds) setWait(described.waitSeconds)
+      if (step === 'email' && !described.waitSeconds && /address does not look right/.test(described.text)) {
+        setEmailError(described.text)
+      } else {
+        setFormError(described.text)
+      }
       return
     }
     setEmail(address)
     setCode('')
+    setCodeError('')
     setStep('code')
     setWait(RESEND_SECONDS)
   }
 
-  async function verifyCode() {
-    if (!/^\d{6}$/.test(code)) {
-      setError('The code has 6 digits.')
-      return
-    }
+  async function verifyCode(token: string) {
     setBusy(true)
-    setError('')
-    const { error } = await supabase.auth.verifyOtp({ email, token: code, type: 'email' })
+    setCodeError('')
+    const { error } = await supabase.auth.verifyOtp({ email, token, type: 'email' })
     setBusy(false)
-    // On success the session listener in the app switches to the signed in screen.
-    if (error) setError(describeAuthError(error, 'verify').text)
+    // On success the session listener in the app switches to the signed in screens.
+    if (error) setCodeError(describeAuthError(error, 'verify').text)
+  }
+
+  function changeCode(value: string) {
+    setCode(value)
+    setCodeError('') // typing again clears the error
+    if (value.length === 6 && !busy) void verifyCode(value) // the sixth digit sends it
   }
 
   // Google sign in is for web in this version (a phone needs a dev build, see the auth spec).
@@ -63,128 +79,125 @@ export function SignInScreen() {
       provider: 'google',
       options: { redirectTo: window.location.origin },
     })
-    if (error) setError(error.message)
+    if (error) setFormError(error.message)
+  }
+
+  if (step === 'code') {
+    return (
+      <AuthLayout logo={false}>
+        <Pressable
+          testID="change-email"
+          accessibilityRole="button"
+          accessibilityLabel="Back"
+          onPress={() => {
+            setStep('email')
+            setCode('')
+            setCodeError('')
+            setFormError('')
+          }}
+          style={{
+            flexDirection: 'row',
+            alignItems: 'center',
+            gap: 4,
+            alignSelf: 'flex-start',
+            marginBottom: 24,
+            marginLeft: -4,
+          }}
+        >
+          <ChevronLeft size={16} color={c.ink6} strokeWidth={1.75} />
+          <Text style={[type.bodySMedium, { color: c.ink6 }]}>Back</Text>
+        </Pressable>
+        <Text style={[type.h1Large, { color: c.ink }]}>Check your email</Text>
+        <Text testID="code-hint" style={[type.body, { color: c.ink6, marginTop: 12 }]}>
+          We sent a 6-digit code to <Text style={{ fontFamily: fonts.semibold, color: c.ink }}>{email}</Text>.
+        </Text>
+        <View style={{ marginTop: 32 }}>
+          <OtpInput testID="code" value={code} onChange={changeCode} error={!!codeError} />
+        </View>
+        {codeError ? (
+          <Text testID="auth-error" accessibilityRole="alert" style={[type.bodyS, { color: c.bad, marginTop: 12 }]}>
+            {codeError}
+          </Text>
+        ) : null}
+        <Pressable
+          testID="resend-code"
+          accessibilityRole="button"
+          disabled={busy || wait > 0}
+          onPress={sendCode}
+          style={{ marginTop: 24, alignSelf: 'flex-start' }}
+        >
+          <Text style={[type.bodySMedium, { color: busy || wait > 0 ? c.ink5 : c.accent }]}>
+            {wait > 0 ? `Resend code in ${wait}s` : 'Resend code'}
+          </Text>
+        </Pressable>
+        {formError ? (
+          <Text testID="resend-error" accessibilityRole="alert" style={[type.bodyS, { color: c.bad, marginTop: 12 }]}>
+            {formError}
+          </Text>
+        ) : null}
+      </AuthLayout>
+    )
   }
 
   return (
-    <View style={styles.pad}>
-      <Image source={require('../../assets/brand/tovy-logo.png')} style={styles.logo} accessibilityLabel="Tovy" />
-      <Text style={styles.title}>{step === 'email' ? 'Sign in or create an account' : 'Check your email'}</Text>
+    <AuthLayout>
+      <Text style={[type.display, { color: c.ink }]}>Welcome to Tovy</Text>
+      <Text style={[type.body, { color: c.ink6, marginTop: 12 }]}>
+        New or returning, it is the same step. We create your account if needed.
+      </Text>
 
-      {step === 'email' ? (
+      {Platform.OS === 'web' ? (
         <>
-          <TextInput
-            testID="email"
-            placeholder="you@example.com"
-            placeholderTextColor={colors.inkFaint}
-            value={email}
-            onChangeText={setEmail}
-            autoCapitalize="none"
-            autoCorrect={false}
-            autoComplete="email"
-            keyboardType="email-address"
-            style={styles.input}
-            onSubmitEditing={sendCode}
-          />
-          <Pressable
-            testID="send-code"
-            onPress={sendCode}
-            disabled={busy || wait > 0}
-            style={[styles.button, (busy || wait > 0) && styles.disabled]}
-          >
-            <Text style={styles.buttonText}>{busy ? 'Sending' : wait > 0 ? `Wait ${wait}s` : 'Email me a code'}</Text>
-          </Pressable>
-          {Platform.OS === 'web' ? (
-            <Pressable testID="google-sign-in" onPress={signInWithGoogle} style={styles.secondary}>
-              <Text style={styles.secondaryText}>Continue with Google</Text>
-            </Pressable>
-          ) : null}
-        </>
-      ) : (
-        <>
-          <Text testID="code-hint" style={styles.hint}>
-            We sent a 6 digit code to {email}. It can take a minute.
-          </Text>
-          <TextInput
-            testID="code"
-            placeholder="000000"
-            placeholderTextColor={colors.inkFaint}
-            value={code}
-            onChangeText={(v) => setCode(v.replace(/\D/g, '').slice(0, 6))}
-            keyboardType="number-pad"
-            textContentType="oneTimeCode"
-            autoComplete="one-time-code"
-            maxLength={6}
-            style={[styles.input, styles.codeInput]}
-            onSubmitEditing={verifyCode}
-          />
-          <Pressable
-            testID="verify-code"
-            onPress={verifyCode}
-            disabled={busy}
-            style={[styles.button, busy && styles.disabled]}
-          >
-            <Text style={styles.buttonText}>{busy ? 'Checking' : 'Sign in'}</Text>
-          </Pressable>
-          <View style={styles.row}>
-            <Pressable testID="resend-code" onPress={sendCode} disabled={busy || wait > 0}>
-              <Text style={[styles.link, (busy || wait > 0) && styles.disabledText]}>
-                {wait > 0 ? `Send a new code in ${wait}s` : 'Send a new code'}
-              </Text>
-            </Pressable>
-            <Pressable
-              testID="change-email"
-              onPress={() => {
-                setStep('email')
-                setError('')
-                setCode('')
-              }}
-            >
-              <Text style={styles.link}>Use a different email</Text>
-            </Pressable>
+          <View style={{ marginTop: 32 }}>
+            <Button
+              testID="google-sign-in"
+              label="Continue with Google"
+              variant="ghost"
+              bordered
+              fullWidth
+              onPress={signInWithGoogle}
+            />
+          </View>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, marginVertical: 20 }}>
+            <View style={{ flex: 1, height: 1, backgroundColor: c.ink3 }} />
+            <Text style={[type.meta, { color: c.ink5 }]}>or</Text>
+            <View style={{ flex: 1, height: 1, backgroundColor: c.ink3 }} />
           </View>
         </>
+      ) : (
+        <View style={{ height: 32 }} />
       )}
 
-      {error ? (
-        <Text testID="auth-error" style={styles.error}>
-          {error}
+      <Input
+        testID="email"
+        label="Email"
+        placeholder="you@example.com"
+        value={email}
+        onChangeText={(v) => {
+          setEmail(v)
+          setEmailError('') // the message clears as soon as the person types
+        }}
+        error={emailError}
+        autoCapitalize="none"
+        autoCorrect={false}
+        autoComplete="email"
+        keyboardType="email-address"
+        onSubmitEditing={sendCode}
+      />
+      <View style={{ marginTop: 12 }}>
+        <Button
+          testID="send-code"
+          label={busy ? 'Sending' : wait > 0 ? `Wait ${wait}s` : 'Email me a code'}
+          fullWidth
+          disabled={busy || wait > 0}
+          onPress={sendCode}
+        />
+      </View>
+      {formError ? (
+        <Text testID="auth-error" accessibilityRole="alert" style={[type.label, { color: c.bad, marginTop: 12 }]}>
+          {formError}
         </Text>
       ) : null}
-    </View>
+    </AuthLayout>
   )
 }
-
-const styles = StyleSheet.create({
-  pad: { padding: 24, gap: 12, maxWidth: 420, width: '100%', alignSelf: 'center' },
-  logo: { width: 56, height: 56, resizeMode: 'contain', marginBottom: 8 },
-  title: { fontFamily: fonts.sans, fontSize: 20, fontWeight: '600', color: colors.ink },
-  hint: { fontFamily: fonts.sans, fontSize: 14, color: colors.inkSoft },
-  input: {
-    borderWidth: 1,
-    borderColor: colors.ring,
-    borderRadius: radius.control,
-    padding: 12,
-    backgroundColor: colors.card,
-    fontFamily: fonts.sans,
-    fontSize: 15,
-    color: colors.ink,
-  },
-  codeInput: { fontFamily: fonts.mono, fontSize: 22, letterSpacing: 6, textAlign: 'center' },
-  button: { borderRadius: radius.pill, padding: 12, alignItems: 'center', backgroundColor: colors.accent },
-  buttonText: { color: 'white', fontFamily: fonts.sans, fontSize: 14.5, fontWeight: '600' },
-  secondary: {
-    borderRadius: radius.pill,
-    padding: 12,
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: colors.ring,
-    backgroundColor: colors.card,
-  },
-  secondaryText: { color: colors.ink, fontFamily: fonts.sans, fontSize: 14.5, fontWeight: '600' },
-  row: { flexDirection: 'row', justifyContent: 'space-between', gap: 12 },
-  link: { fontFamily: fonts.sans, fontSize: 13.5, color: colors.accent },
-  disabled: { opacity: 0.55 },
-  disabledText: { color: colors.inkFaint },
-  error: { color: colors.danger, fontFamily: fonts.sans, fontSize: 13 },
-})

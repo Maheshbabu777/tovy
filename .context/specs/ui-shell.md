@@ -72,12 +72,12 @@ Risks:
 ## Progress
 
 - [x] Plan approved (human, 2026-10-02: follow the design)
-- [ ] 1 Foundation and shell
-- [ ] 2 Sign in screens
-- [ ] 3 Today
+- [x] 1 Foundation and shell
+- [x] 2 Sign in screens
+- [x] 3 Today
 - [ ] 4 Task detail
 - [ ] 5 Projects
-- [ ] 6 Profile and polish
+- [ ] 6 Profile and polish (Profile, Appearance, sync status, About, sign out dialog done; polish pass left)
 
 ## Evidence
 

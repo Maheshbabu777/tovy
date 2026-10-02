@@ -1,13 +1,15 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { StyleSheet, Text } from 'react-native'
-import { supabase } from '../src/core/db/supabase'
-import { createTasksStore, type TasksStore } from '../src/core/sync/tasks'
-import { TasksScreen } from '../src/ui/TasksScreen'
-import { clearCachedProfile } from '../src/core/profile/profile'
-import { ProfileGate } from '../src/ui/ProfileGate'
-import { SignInScreen } from '../src/ui/SignInScreen'
+import { supabase } from '../core/db/supabase'
+import { clearCachedProfile } from '../core/profile/profile'
+import { createTasksStore, type TasksStore } from '../core/sync/tasks'
+import { ProfileGate } from './ProfileGate'
+import { SignInScreen } from './SignInScreen'
+import { StoreContext } from './StoreContext'
 
-export default function Index() {
+// Everything behind sign in. Signed out: the sign in screen. Signed in: the profile step if it is not done, then the
+// app, with the person's own tasks store available to every screen.
+export function AuthGate({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<'loading' | 'out' | 'in'>('loading')
   // The tasks store of the signed-in user. Each user gets their own, and it is thrown away at sign out.
   const [store, setStore] = useState<TasksStore | null>(null)
@@ -35,13 +37,14 @@ export default function Index() {
   }, [])
 
   if (session === 'loading') return <Text style={styles.pad}>Loading</Text>
-  return session === 'in' && store ? (
-    <ProfileGate key={store.userId} userId={store.userId} metadata={metadata}>
-      <TasksScreen store={store} />
-    </ProfileGate>
-  ) : (
-    <SignInScreen />
-  )
+  if (session === 'in' && store) {
+    return (
+      <ProfileGate key={store.userId} userId={store.userId} metadata={metadata}>
+        <StoreContext.Provider value={store}>{children}</StoreContext.Provider>
+      </ProfileGate>
+    )
+  }
+  return <SignInScreen />
 }
 
 const styles = StyleSheet.create({

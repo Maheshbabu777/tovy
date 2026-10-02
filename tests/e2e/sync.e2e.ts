@@ -216,7 +216,6 @@ async function signInThroughScreen(p: Page, u: { email: string }) {
   await p.getByTestId('send-code').click()
   await expect(p.getByTestId('code')).toBeVisible()
   await p.getByTestId('code').fill(await emailCodeFor(u.email))
-  await p.getByTestId('verify-code').click()
   await expect(p.getByTestId('status')).toHaveText('synced', { timeout: 15_000 })
 }
 
@@ -227,13 +226,25 @@ const titles = (p: Page) =>
     .evaluateAll((els) => els.map((e) => (e.textContent ?? '').trim()).sort())
 const addNote = async (p: Page, title: string) => {
   await p.getByTestId('new-title').fill(title)
-  await p.getByTestId('add').click()
+  await p.getByTestId('new-title').press('Enter')
+}
+// Deletes the task with this title through its right-click menu.
+const deleteTask = async (p: Page, title: string) => {
+  await p.getByTestId('task').filter({ hasText: title }).locator('[data-testid^="open-"]').click({ button: 'right' })
+  await p.getByTestId('menu-delete').click()
 }
 // Opens the task with this title and changes its title in the editor.
 async function renameTask(p: Page, from: string, to: string) {
   const row = p.getByTestId('task').filter({ hasText: from })
   await row.locator('[data-testid^="open-"]').click()
   await row.locator('[data-testid^="edit-title-"]').fill(to)
+}
+// A tap that lands while the screen re-renders after an edit can be lost, so tap again until the Profile screen is up.
+async function openProfile(p: Page) {
+  await expect(async () => {
+    await p.getByTestId('tab-profile').click({ timeout: 2_000 })
+    await expect(p.getByTestId('sign-out')).toBeVisible({ timeout: 2_000 })
+  }).toPass({ timeout: 15_000 })
 }
 async function waitSynced(d: Device) {
   await expect(d.page.getByTestId('status')).toHaveText('synced', { timeout: 15_000 })
@@ -340,8 +351,7 @@ test.describe('sync spike', () => {
     await expect.poll(() => titles(b.page), { timeout: 10_000 }).toContain('doomed-5')
 
     await b.setOffline(true)
-    const rowA = a.page.getByTestId('task').filter({ hasText: 'doomed-5' })
-    await rowA.locator('[data-testid^="delete-"]').click()
+    await deleteTask(a.page, 'doomed-5')
     await waitSynced(a)
     expect(await titles(a.page)).not.toContain('doomed-5')
     expect(await titles(b.page)).toContain('doomed-5') // B was offline, still shows it
@@ -355,22 +365,19 @@ test.describe('sync spike', () => {
     const a = await newDevice(browser, user)
     await addNote(a.page, 'undo-me')
     await addNote(a.page, 'let-go')
-    const del = (t: string) =>
-      a.page.getByTestId('task').filter({ hasText: t }).locator('[data-testid^="delete-"]').click()
-    await del('undo-me')
+    await deleteTask(a.page, 'undo-me')
     expect(await titles(a.page)).not.toContain('undo-me')
-    await a.page.getByTestId('undo').click()
-    expect(await titles(a.page)).toContain('undo-me')
-    await expect(a.page.getByTestId('undo-bar')).toHaveCount(0)
+    await expect(a.page.getByTestId('toast')).toContainText('Task deleted')
+    await a.page.getByTestId('toast-undo').click()
+    await expect.poll(() => titles(a.page)).toContain('undo-me')
+    await expect(a.page.getByTestId('toast')).toHaveCount(0)
 
-    await del('let-go')
-    await expect(a.page.getByTestId('undo-bar')).toBeVisible()
-    await expect(a.page.getByTestId('undo-bar')).toHaveCount(0, { timeout: 7_000 })
+    await deleteTask(a.page, 'let-go')
+    await expect(a.page.getByTestId('toast-undo')).toBeVisible()
+    await expect(a.page.getByTestId('toast')).toHaveCount(0, { timeout: 8_000 }) // gone after about 5 seconds
     expect(await titles(a.page)).not.toContain('let-go')
-    await waitSynced(a)
-    const server = await serverTitles(user)
-    expect(server).toContain('undo-me')
-    expect(server).not.toContain('let-go')
+    await expect.poll(() => serverTitles(user), { timeout: 15_000 }).toEqual(expect.arrayContaining(['undo-me']))
+    expect(await serverTitles(user)).not.toContain('let-go')
   })
 
   test('t2: subtasks nest, a deep task with subtasks stays deep, delete and Undo cover every level', async ({
@@ -480,7 +487,6 @@ test.describe('sync spike', () => {
     await p.getByTestId('email').fill(fresh.email)
     await p.getByTestId('send-code').click()
     await p.getByTestId('code').fill(await emailCodeFor(fresh.email))
-    await p.getByTestId('verify-code').click()
 
     // signed in, but nothing yet: the setup step comes before the task list
     await expect(p.getByTestId('first-name')).toBeVisible({ timeout: 15_000 })
@@ -538,14 +544,12 @@ test.describe('sync spike', () => {
     await d.page.getByTestId('send-code').click()
     await emailCodeFor(user.email) // a real code exists, the one typed below is not it
     await d.page.getByTestId('code').fill('000000')
-    await d.page.getByTestId('verify-code').click()
-    await expect(d.page.getByTestId('auth-error')).toContainText('wrong or has expired')
+    await expect(d.page.getByTestId('auth-error')).toContainText('wrong or expired')
     await expect(d.page.getByTestId('code')).toBeVisible() // still on the code step
     await expect(d.page.getByTestId('status')).toHaveCount(0) // not signed in
-    // a code that is not 6 digits is refused before anything is sent
+    // typing again clears the message, and a code that is not 6 digits is not sent
     await d.page.getByTestId('code').fill('123')
-    await d.page.getByTestId('verify-code').click()
-    await expect(d.page.getByTestId('auth-error')).toContainText('6 digits')
+    await expect(d.page.getByTestId('auth-error')).toHaveCount(0)
   })
 
   test('c4: when too many codes were asked for, the screen says so and waits', async ({ browser }) => {
@@ -749,8 +753,10 @@ test.describe('sync spike', () => {
     await waitSynced(a)
     await expect.poll(() => serverTitles(user), { timeout: 10_000 }).toContain('private-so1') // really saved
 
+    await openProfile(a.page)
     await a.page.getByTestId('sign-out').click()
     await expect(a.page.getByTestId('unsynced-note')).toHaveCount(0) // nothing to warn about
+    await a.page.getByTestId('confirm-sign-out').click()
     await expect(a.page.getByTestId('email')).toBeVisible() // back on the sign-in screen
     // this device keeps no profile of the person who signed out
     expect(await a.page.evaluate(() => Object.keys(localStorage).filter((k) => k.startsWith('tovy-profile-')))).toEqual(
@@ -770,6 +776,7 @@ test.describe('sync spike', () => {
     await a.setOffline(true)
     await addNote(a.page, 'unsynced-so2')
     // No waiting for the "pending" label first: tapping Sign out right after an edit must still warn.
+    await openProfile(a.page)
     await a.page.getByTestId('sign-out').click()
     await expect(a.page.getByTestId('unsynced-note')).toContainText('1 change is not saved to the server yet')
     await a.page.getByTestId('cancel-sign-out').click()
@@ -787,6 +794,7 @@ test.describe('sync spike', () => {
     await addNote(a.page, 'unsynced-so3')
     await expect(a.page.getByTestId('status')).toHaveText('pending 1')
 
+    await openProfile(a.page)
     await a.page.getByTestId('sign-out').click()
     await a.page.getByTestId('confirm-sign-out').click()
     await expect(a.page.getByTestId('email')).toBeVisible()

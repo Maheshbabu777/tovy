@@ -28,7 +28,7 @@ export function describeAuthError(error: AuthFailure, step: 'send' | 'verify'): 
 
   if (step === 'verify') {
     if (code === 'otp_expired' || /expired|invalid/i.test(message)) {
-      return { text: 'That code is wrong or has expired. Check it, or ask for a new one.' }
+      return { text: 'That code is wrong or expired. Try again, or ask for a new one.' }
     }
     return { text: 'The code could not be checked. Try again.' }
   }
