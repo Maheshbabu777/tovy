@@ -9,8 +9,6 @@ const ALLOWED = new Set([
   'web.ts', // shadow strings
   // Screens not rebuilt yet. Each one is removed from this list when its slice replaces it.
   'TasksScreen.tsx',
-  'ProfileGate.tsx',
-  'SignInScreen.tsx',
 ])
 
 function files(dir: string): string[] {

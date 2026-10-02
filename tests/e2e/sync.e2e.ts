@@ -216,7 +216,6 @@ async function signInThroughScreen(p: Page, u: { email: string }) {
   await p.getByTestId('send-code').click()
   await expect(p.getByTestId('code')).toBeVisible()
   await p.getByTestId('code').fill(await emailCodeFor(u.email))
-  await p.getByTestId('verify-code').click()
   await expect(p.getByTestId('status')).toHaveText('synced', { timeout: 15_000 })
 }
 
@@ -480,7 +479,6 @@ test.describe('sync spike', () => {
     await p.getByTestId('email').fill(fresh.email)
     await p.getByTestId('send-code').click()
     await p.getByTestId('code').fill(await emailCodeFor(fresh.email))
-    await p.getByTestId('verify-code').click()
 
     // signed in, but nothing yet: the setup step comes before the task list
     await expect(p.getByTestId('first-name')).toBeVisible({ timeout: 15_000 })
@@ -538,14 +536,12 @@ test.describe('sync spike', () => {
     await d.page.getByTestId('send-code').click()
     await emailCodeFor(user.email) // a real code exists, the one typed below is not it
     await d.page.getByTestId('code').fill('000000')
-    await d.page.getByTestId('verify-code').click()
-    await expect(d.page.getByTestId('auth-error')).toContainText('wrong or has expired')
+    await expect(d.page.getByTestId('auth-error')).toContainText('wrong or expired')
     await expect(d.page.getByTestId('code')).toBeVisible() // still on the code step
     await expect(d.page.getByTestId('status')).toHaveCount(0) // not signed in
-    // a code that is not 6 digits is refused before anything is sent
+    // typing again clears the message, and a code that is not 6 digits is not sent
     await d.page.getByTestId('code').fill('123')
-    await d.page.getByTestId('verify-code').click()
-    await expect(d.page.getByTestId('auth-error')).toContainText('6 digits')
+    await expect(d.page.getByTestId('auth-error')).toHaveCount(0)
   })
 
   test('c4: when too many codes were asked for, the screen says so and waits', async ({ browser }) => {

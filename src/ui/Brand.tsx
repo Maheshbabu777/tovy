@@ -1,18 +1,12 @@
-import { Image, StyleSheet, Text, View } from 'react-native'
-import { colors, fonts } from './tokens'
+import { Image } from 'react-native'
 
-// The logo and the name, at the top of the sign in and setup screens (the sidebar has its own, smaller one).
-export function Brand() {
+// The logo mark (design 8). It is a tile with its own colours, the same in both themes here.
+export function Logo({ size = 44 }: { size?: number }) {
   return (
-    <View style={styles.row}>
-      <Image source={require('../../assets/brand/tovy-logo.png')} style={styles.logo} accessibilityLabel="Tovy" />
-      <Text style={styles.name}>tovy</Text>
-    </View>
+    <Image
+      source={require('../../assets/brand/tovy-logo.png')}
+      style={{ width: size, height: size, resizeMode: 'contain' }}
+      accessibilityLabel="Tovy"
+    />
   )
 }
-
-const styles = StyleSheet.create({
-  row: { flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 12 },
-  logo: { width: 44, height: 44, resizeMode: 'contain' },
-  name: { fontFamily: fonts.bold, fontSize: 28, color: colors.ink },
-})

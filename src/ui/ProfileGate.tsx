@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react'
-import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native'
+import { Text, View } from 'react-native'
 import {
   cacheProfile,
   clearCachedProfile,
@@ -15,8 +15,11 @@ import {
   USERNAME_PATTERN,
   type ProfileErrors,
 } from '../core/profile/rules'
-import { Brand } from './Brand'
-import { colors, fonts, radius } from './tokens'
+import { AuthLayout } from './components/AuthLayout'
+import { Button } from './components/Button'
+import { Input } from './components/Input'
+import { useTheme } from './theme'
+import { type } from './tokens'
 
 type State = { kind: 'loading' } | { kind: 'ready' } | { kind: 'setup' } | { kind: 'unavailable'; message: string }
 
@@ -60,24 +63,28 @@ export function ProfileGate({
   if (state.kind === 'setup') {
     return <ProfileSetup userId={userId} defaults={prefillNames(metadata)} onDone={() => setState({ kind: 'ready' })} />
   }
-  if (state.kind === 'unavailable') {
-    return (
-      <View style={styles.pad}>
-        <Brand />
-        <Text testID="profile-unavailable" style={styles.title}>
-          Connect to the internet to finish setting up
-        </Text>
-        <Text style={styles.hint}>Tovy needs to check your profile once. After that it works offline.</Text>
-        <Pressable testID="profile-retry" style={styles.button} onPress={() => setAttempt((n) => n + 1)}>
-          <Text style={styles.buttonText}>Try again</Text>
-        </Pressable>
-      </View>
-    )
-  }
+  if (state.kind === 'unavailable') return <Unavailable onRetry={() => setAttempt((n) => n + 1)} />
+  return <Loading />
+}
+
+function Loading() {
+  const { theme } = useTheme()
+  return <View testID="profile-loading" style={{ flex: 1, backgroundColor: theme.colors.bg }} />
+}
+
+function Unavailable({ onRetry }: { onRetry: () => void }) {
+  const { theme } = useTheme()
+  const c = theme.colors
   return (
-    <Text testID="profile-loading" style={styles.pad}>
-      Loading
-    </Text>
+    <AuthLayout>
+      <Text testID="profile-unavailable" style={[type.h1Large, { color: c.ink }]}>
+        Connect to the internet to finish setting up
+      </Text>
+      <Text style={[type.body, { color: c.ink6, marginTop: 12, marginBottom: 24 }]}>
+        Tovy needs to check your profile once. After that it works offline.
+      </Text>
+      <Button testID="profile-retry" label="Try again" onPress={onRetry} />
+    </AuthLayout>
   )
 }
 
@@ -133,110 +140,74 @@ function ProfileSetup({
     }
   }
 
+  const { theme } = useTheme()
+  const c = theme.colors
+  const taken = available === false && USERNAME_PATTERN.test(username)
   const usernameHint = errors.username
     ? errors.username
     : available === true
       ? 'That username is free.'
-      : available === false && USERNAME_PATTERN.test(username)
+      : taken
         ? 'That username is taken. Try another.'
         : USERNAME_HELP
+  const hintColor = errors.username || taken ? c.bad : available === true ? c.ok : c.ink6
 
   return (
-    <View style={styles.pad}>
-      <Brand />
-      <Text style={styles.title}>Tell us who you are</Text>
-      <Text style={styles.hint}>Three details, once.</Text>
-
-      <TextInput
-        testID="first-name"
-        placeholder="First name"
-        placeholderTextColor={colors.inkFaint}
-        value={firstName}
-        onChangeText={(v) => {
-          setFirstName(v)
-          setErrors((e) => ({ ...e, firstName: undefined })) // the old message no longer applies
-        }}
-        autoComplete="given-name"
-        style={styles.input}
-      />
-      {errors.firstName ? <Text style={styles.error}>{errors.firstName}</Text> : null}
-      <TextInput
-        testID="last-name"
-        placeholder="Last name"
-        placeholderTextColor={colors.inkFaint}
-        value={lastName}
-        onChangeText={(v) => {
-          setLastName(v)
-          setErrors((e) => ({ ...e, lastName: undefined }))
-        }}
-        autoComplete="family-name"
-        style={styles.input}
-      />
-      {errors.lastName ? <Text style={styles.error}>{errors.lastName}</Text> : null}
-      <TextInput
-        testID="username"
-        placeholder="Username"
-        placeholderTextColor={colors.inkFaint}
-        value={username}
-        onChangeText={(v) => {
-          const next = v.toLowerCase().replace(/\s/g, '')
-          typedUsername.current = next
-          setUsername(next)
-          setAvailable(null) // the answer for the old text no longer applies
-          setErrors((e) => ({ ...e, username: undefined }))
-        }}
-        autoCapitalize="none"
-        autoCorrect={false}
-        style={styles.input}
-        onSubmitEditing={submit}
-      />
-      <Text
-        testID="username-hint"
-        style={errors.username || available === false ? styles.error : available === true ? styles.ok : styles.hint}
-      >
-        {usernameHint}
-      </Text>
-
-      <Pressable
-        testID="save-profile"
-        onPress={submit}
-        disabled={busy}
-        style={[styles.button, busy && styles.disabled]}
-      >
-        <Text style={styles.buttonText}>{busy ? 'Saving' : 'Continue'}</Text>
-      </Pressable>
+    <AuthLayout>
+      <Text style={[type.h1Large, { color: c.ink }]}>Tell us who you are</Text>
+      <Text style={[type.body, { color: c.ink6, marginTop: 12, marginBottom: 24 }]}>Three details, once.</Text>
+      <View style={{ gap: 16 }}>
+        <Input
+          testID="first-name"
+          label="First name"
+          value={firstName}
+          onChangeText={(v) => {
+            setFirstName(v)
+            setErrors((e) => ({ ...e, firstName: undefined })) // the old message no longer applies
+          }}
+          error={errors.firstName}
+          autoComplete="given-name"
+        />
+        <Input
+          testID="last-name"
+          label="Last name"
+          value={lastName}
+          onChangeText={(v) => {
+            setLastName(v)
+            setErrors((e) => ({ ...e, lastName: undefined }))
+          }}
+          error={errors.lastName}
+          autoComplete="family-name"
+        />
+        <View style={{ gap: 6 }}>
+          <Input
+            testID="username"
+            label="Username"
+            value={username}
+            onChangeText={(v) => {
+              const next = v.toLowerCase().replace(/\s/g, '')
+              typedUsername.current = next
+              setUsername(next)
+              setAvailable(null) // the answer for the old text no longer applies
+              setErrors((e) => ({ ...e, username: undefined }))
+            }}
+            autoCapitalize="none"
+            autoCorrect={false}
+            onSubmitEditing={submit}
+          />
+          <Text testID="username-hint" style={[type.label, { color: hintColor }]}>
+            {usernameHint}
+          </Text>
+        </View>
+      </View>
+      <View style={{ marginTop: 24 }}>
+        <Button testID="save-profile" label={busy ? 'Saving' : 'Continue'} fullWidth disabled={busy} onPress={submit} />
+      </View>
       {formError ? (
-        <Text testID="profile-error" style={styles.error}>
+        <Text testID="profile-error" accessibilityRole="alert" style={[type.label, { color: c.bad, marginTop: 12 }]}>
           {formError}
         </Text>
       ) : null}
-    </View>
+    </AuthLayout>
   )
 }
-
-const styles = StyleSheet.create({
-  pad: { padding: 24, gap: 10, maxWidth: 420, width: '100%', alignSelf: 'center' },
-  title: { fontFamily: fonts.semibold, fontSize: 20, color: colors.ink },
-  hint: { fontFamily: fonts.sans, fontSize: 13.5, color: colors.inkSoft },
-  input: {
-    borderWidth: 1,
-    borderColor: colors.ring,
-    borderRadius: radius.control,
-    padding: 12,
-    backgroundColor: colors.card,
-    fontFamily: fonts.sans,
-    fontSize: 15,
-    color: colors.ink,
-  },
-  button: {
-    borderRadius: radius.pill,
-    padding: 12,
-    alignItems: 'center',
-    backgroundColor: colors.accent,
-    marginTop: 6,
-  },
-  buttonText: { color: 'white', fontFamily: fonts.semibold, fontSize: 14.5 },
-  disabled: { opacity: 0.55 },
-  error: { color: colors.danger, fontFamily: fonts.sans, fontSize: 13 },
-  ok: { color: colors.ok, fontFamily: fonts.sans, fontSize: 13 },
-})

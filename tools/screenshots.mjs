@@ -1,7 +1,8 @@
 // Screenshots of the real app (the exported web build) with sample data, to compare with the design.
 //   npx expo export --platform web      (with EXPO_PUBLIC_SUPABASE_URL and EXPO_PUBLIC_SUPABASE_ANON_KEY set)
 //   SUPABASE_URL=... SUPABASE_ANON_KEY=... SUPABASE_API_KEY=... node tools/screenshots.mjs <outdir> [screen ...]
-// Screens: signin, setup, today, projects, profile, or a path such as /task/<id>. Default: all of them.
+// Screens: signin, code (the code step, the send request is mocked so no email goes out), setup, today, projects,
+// profile, or a path such as /task/<id>. Default: all of them.
 // It creates a temporary user (and one without a profile for `setup`), fills in a few projects and tasks through the
 // admin API, signs in by placing the session in the browser, and deletes the users again. Needs `npx serve` on 8081
 // (or set BASE_URL). Images: <screen>-phone-light.png, <screen>-phone-dark.png (430 px wide) and the same with -wide
@@ -14,7 +15,7 @@ const ADMIN = process.env.SUPABASE_API_KEY
 const BASE = process.env.BASE_URL ?? 'http://localhost:8081'
 const [outDir, ...asked] = process.argv.slice(2)
 if (!SB || !ANON || !ADMIN || !outDir) throw new Error('usage: see the top of this file')
-const screens = asked.length ? asked : ['signin', 'setup', 'today', 'projects', 'profile']
+const screens = asked.length ? asked : ['signin', 'code', 'setup', 'today', 'projects', 'profile']
 const SIZES = [
   ['phone', 430, 900],
   ['wide', 1280, 800],
@@ -95,8 +96,9 @@ try {
   const bare = screens.includes('setup') ? await newUser('bare', false) : null
   const key = `sb-${new URL(SB).hostname.split('.')[0]}-auth-token`
   for (const screen of screens) {
-    const who = screen === 'signin' ? null : screen === 'setup' ? bare : full
-    const path = { signin: '/', setup: '/', today: '/', projects: '/projects', profile: '/profile' }[screen] ?? screen
+    const who = screen === 'signin' || screen === 'code' ? null : screen === 'setup' ? bare : full
+    const path =
+      { signin: '/', code: '/', setup: '/', today: '/', projects: '/projects', profile: '/profile' }[screen] ?? screen
     for (const [name, width, height, scheme] of VARIANTS) {
       const context = await browser.newContext({ viewport: { width, height }, colorScheme: scheme })
       // Requests go through Node: in the cloud sandbox the browser cannot reach Supabase itself.
@@ -118,8 +120,18 @@ try {
           !m.text().includes('WebSocket') &&
           console.log(`  [${screen} ${name}] console error:`, m.text().slice(0, 300)),
       )
+      if (screen === 'code')
+        await page.route(/\/auth\/v1\/otp/, (route) =>
+          route.fulfill({ status: 200, contentType: 'application/json', body: '{}' }),
+        )
       await page.goto(BASE + path)
       await page.waitForTimeout(3500)
+      if (screen === 'code') {
+        await page.getByTestId('email').fill('maya@okafor.studio')
+        await page.getByTestId('send-code').click()
+        await page.getByTestId('code').fill('123')
+        await page.waitForTimeout(800)
+      }
       await page.screenshot({ path: `${outDir}/${screen}-${name}.png` })
       await context.close()
     }
