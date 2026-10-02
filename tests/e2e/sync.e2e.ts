@@ -145,6 +145,29 @@ async function serverTitles(u: { email: string; password: string }): Promise<str
   return serverTitlesOf(access_token)
 }
 
+// Live tasks (title and project) and live project names the server holds for a user, read directly.
+async function serverRows(u: { email: string; password: string }) {
+  const login = await fetch(`${SUPABASE_URL}/auth/v1/token?grant_type=password`, {
+    method: 'POST',
+    headers: { apikey: ANON_KEY, 'content-type': 'application/json' },
+    body: JSON.stringify(u),
+  })
+  const { access_token } = await login.json()
+  const get = async (path: string) =>
+    (
+      await fetch(`${SUPABASE_URL}/rest/v1/${path}`, {
+        headers: { apikey: ANON_KEY, authorization: `Bearer ${access_token}` },
+      })
+    ).json()
+  return {
+    tasks: (await get('tasks?select=title,project_id&deleted=eq.false')) as {
+      title: string
+      project_id: string | null
+    }[],
+    projects: (await get('projects?select=id,name&deleted=eq.false')) as { id: string; name: string }[],
+  }
+}
+
 // Signs in through the sign-in screen (used after a sign out, when the seeded session is gone).
 async function signInThroughScreen(p: Page, u: { email: string; password: string }) {
   await p.getByTestId('email').fill(u.email)
@@ -360,6 +383,38 @@ test.describe('sync spike', () => {
     await expect
       .poll(async () => (await serverTitles(user)).filter((t) => t.endsWith('-t3')).sort(), { timeout: 20_000 })
       .toEqual(['child-t3', 'parent-t3'])
+  })
+
+  test('t4: tasks move between projects, and deleting a project keeps its tasks under No project', async ({
+    browser,
+  }) => {
+    const a = await newDevice(browser, user)
+    await a.page.getByTestId('new-project').fill('proj-t4')
+    await a.page.getByTestId('add-project').click()
+    await addNote(a.page, 'moved-t4')
+    const project = a.page.getByTestId(/^project-(?!none)[0-9a-f-]{36}$/).filter({ hasText: 'No tasks' })
+    await expect(project).toHaveCount(1)
+    const projectId = ((await project.getAttribute('data-testid')) ?? '').replace('project-', '')
+
+    // the task starts under "No project", then moves into the project
+    await expect(a.page.getByTestId('project-none').getByText('moved-t4')).toBeVisible()
+    const row = a.page.getByTestId('task').filter({ hasText: 'moved-t4' })
+    await row.locator('[data-testid^="open-"]').click()
+    await row.locator(`[data-testid$="-${projectId}"]`).click()
+    await expect(a.page.getByTestId(`project-${projectId}`).getByText('moved-t4')).toBeVisible()
+    await waitSynced(a)
+    const moved = await serverRows(user)
+    expect(moved.tasks.find((t) => t.title === 'moved-t4')?.project_id).toBe(projectId)
+    expect(moved.projects.map((p) => p.name)).toContain('proj-t4')
+
+    // deleting the project keeps the task, now under "No project"
+    await a.page.getByTestId(`project-delete-${projectId}`).click()
+    await expect(a.page.getByTestId(`project-${projectId}`)).toHaveCount(0)
+    await expect(a.page.getByTestId('project-none').getByText('moved-t4')).toBeVisible()
+    await waitSynced(a)
+    const after = await serverRows(user)
+    expect(after.tasks.find((t) => t.title === 'moved-t4')?.project_id).toBeNull()
+    expect(after.projects.map((p) => p.name)).not.toContain('proj-t4')
   })
 
   test('6: unsynced changes survive an app restart and sync later', async ({ browser }) => {
