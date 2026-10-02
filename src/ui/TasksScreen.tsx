@@ -4,6 +4,7 @@ import { syncState } from '@legendapp/state'
 import { use$ } from '@legendapp/state/react'
 import { supabase } from '../core/db/supabase'
 import type { Project, Task, TaskEdit, TasksStore } from '../core/sync/tasks'
+import { onQuickAdd } from './quickAdd'
 import { colors, fonts, projectColors, radius } from './tokens'
 
 // Test hook: lets the end-to-end tests read tap-to-render timings.
@@ -38,6 +39,8 @@ export function TasksScreen({ store }: { store: TasksStore }) {
   const [confirmingSignOut, setConfirmingSignOut] = useState(false)
   const [unsyncedCount, setUnsyncedCount] = useState(0)
 
+  const addRef = useRef<TextInput>(null)
+  useEffect(() => onQuickAdd(() => addRef.current?.focus()), [])
   useEffect(() => store.catchUpAfterRealtime(), [store])
   useEffect(() => () => clearTimeout(undoTimer.current), [])
 
@@ -101,6 +104,7 @@ export function TasksScreen({ store }: { store: TasksStore }) {
       <View style={styles.addBar}>
         <TextInput
           testID="new-title"
+          ref={addRef}
           placeholder="Add a task"
           placeholderTextColor={colors.inkFaint}
           value={draft}
@@ -450,7 +454,7 @@ const styles = StyleSheet.create({
   },
   addInput: { flex: 1, fontFamily: fonts.sans, fontSize: 15, color: colors.ink, paddingVertical: 8 },
   addButton: { backgroundColor: colors.accent, borderRadius: radius.pill, paddingHorizontal: 16, paddingVertical: 9 },
-  addText: { color: 'white', fontFamily: fonts.sans, fontSize: 14, fontWeight: '600' },
+  addText: { color: 'white', fontFamily: fonts.semibold, fontSize: 14 },
   error: { color: colors.danger, fontFamily: fonts.sans, fontSize: 13 },
   card: {
     backgroundColor: colors.card,
@@ -473,14 +477,13 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   checkDone: { backgroundColor: colors.ok, borderColor: colors.ok },
-  tick: { color: 'white', fontSize: 13, fontWeight: '700' },
-  rowTitle: { fontFamily: fonts.sans, fontSize: 15, fontWeight: '500', color: colors.ink },
+  tick: { fontFamily: fonts.bold, color: 'white', fontSize: 13 },
+  rowTitle: { fontFamily: fonts.medium, fontSize: 15, color: colors.ink },
   rowDone: { color: colors.inkFaint, textDecorationLine: 'line-through' },
   metaRow: { flexDirection: 'row', gap: 8, alignItems: 'center', flexWrap: 'wrap' },
   badge: {
-    fontFamily: fonts.sans,
+    fontFamily: fonts.semibold,
     fontSize: 11,
-    fontWeight: '600',
     color: 'white',
     backgroundColor: colors.accent,
     borderRadius: radius.pill,
@@ -489,9 +492,9 @@ const styles = StyleSheet.create({
     marginTop: 2,
     overflow: 'hidden',
   },
-  meta: { fontFamily: fonts.sans, fontSize: 13, fontWeight: '500', color: colors.inkSoft, marginTop: 2 },
+  meta: { fontFamily: fonts.medium, fontSize: 13, color: colors.inkSoft, marginTop: 2 },
   dot: { width: 12, height: 12, borderRadius: 6 },
-  projectName: { fontFamily: fonts.sans, fontSize: 17, fontWeight: '600', color: colors.ink, padding: 0 },
+  projectName: { fontFamily: fonts.semibold, fontSize: 17, color: colors.ink, padding: 0 },
   chip: {
     fontFamily: fonts.sans,
     fontSize: 13,
@@ -528,7 +531,7 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
   },
   undoText: { color: 'white', fontFamily: fonts.sans, fontSize: 14 },
-  undoAction: { color: 'rgb(139,141,251)', fontFamily: fonts.sans, fontSize: 14, fontWeight: '600' },
+  undoAction: { color: 'rgb(139,141,251)', fontFamily: fonts.semibold, fontSize: 14 },
   warning: {
     backgroundColor: colors.card,
     borderRadius: radius.control,

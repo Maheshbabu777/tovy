@@ -3,6 +3,8 @@
   "version": "1.0.0",
   "main": "expo-router/entry",
   "dependencies": {
+    "@expo-google-fonts/geist": "^0.4.2",
+    "@expo-google-fonts/geist-mono": "^0.4.3",
     "@expo/metro-runtime": "~57.0.16",
     "@legendapp/state": "^3.0.0-beta.48",
     "@supabase/supabase-js": "^2.117.2",
@@ -12,12 +14,14 @@
     "expo-router": "~57.0.24",
     "expo-sqlite": "~57.0.3",
     "expo-status-bar": "~57.0.1",
+    "lucide-react-native": "^1.50.0",
     "react": "19.2.3",
     "react-dom": "19.2.3",
     "react-native": "0.86.3",
     "react-native-get-random-values": "^2.0.0",
     "react-native-safe-area-context": "~5.7.0",
     "react-native-screens": "~4.26.0",
+    "react-native-svg": "15.15.4",
     "react-native-web": "^0.21.2",
     "uuid": "^14.0.2"
   },

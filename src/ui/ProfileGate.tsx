@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react'
-import { Image, Pressable, StyleSheet, Text, TextInput, View } from 'react-native'
+import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native'
 import {
   cacheProfile,
   clearCachedProfile,
@@ -15,6 +15,7 @@ import {
   USERNAME_PATTERN,
   type ProfileErrors,
 } from '../core/profile/rules'
+import { Brand } from './Brand'
 import { colors, fonts, radius } from './tokens'
 
 type State = { kind: 'loading' } | { kind: 'ready' } | { kind: 'setup' } | { kind: 'unavailable'; message: string }
@@ -62,7 +63,7 @@ export function ProfileGate({
   if (state.kind === 'unavailable') {
     return (
       <View style={styles.pad}>
-        <Image source={require('../../assets/brand/tovy-logo.png')} style={styles.logo} accessibilityLabel="Tovy" />
+        <Brand />
         <Text testID="profile-unavailable" style={styles.title}>
           Connect to the internet to finish setting up
         </Text>
@@ -142,7 +143,7 @@ function ProfileSetup({
 
   return (
     <View style={styles.pad}>
-      <Image source={require('../../assets/brand/tovy-logo.png')} style={styles.logo} accessibilityLabel="Tovy" />
+      <Brand />
       <Text style={styles.title}>Tell us who you are</Text>
       <Text style={styles.hint}>Three details, once.</Text>
 
@@ -215,8 +216,7 @@ function ProfileSetup({
 
 const styles = StyleSheet.create({
   pad: { padding: 24, gap: 10, maxWidth: 420, width: '100%', alignSelf: 'center' },
-  logo: { width: 56, height: 56, resizeMode: 'contain', marginBottom: 8 },
-  title: { fontFamily: fonts.sans, fontSize: 20, fontWeight: '600', color: colors.ink },
+  title: { fontFamily: fonts.semibold, fontSize: 20, color: colors.ink },
   hint: { fontFamily: fonts.sans, fontSize: 13.5, color: colors.inkSoft },
   input: {
     borderWidth: 1,
@@ -235,7 +235,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.accent,
     marginTop: 6,
   },
-  buttonText: { color: 'white', fontFamily: fonts.sans, fontSize: 14.5, fontWeight: '600' },
+  buttonText: { color: 'white', fontFamily: fonts.semibold, fontSize: 14.5 },
   disabled: { opacity: 0.55 },
   error: { color: colors.danger, fontFamily: fonts.sans, fontSize: 13 },
   ok: { color: colors.ok, fontFamily: fonts.sans, fontSize: 13 },

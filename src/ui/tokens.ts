@@ -13,9 +13,14 @@ export const colors = {
 
 export const radius = { card: 22, control: 14, pill: 999 }
 
+// Geist is loaded by the root layout (`app/_layout.tsx`). Each weight is its own family, so use these instead of
+// `fontWeight`. `sans` is the regular weight.
 export const fonts = {
-  sans: 'Geist, system-ui, -apple-system, Segoe UI, sans-serif',
-  mono: 'Geist Mono, ui-monospace, monospace',
+  sans: 'Geist_400Regular',
+  medium: 'Geist_500Medium',
+  semibold: 'Geist_600SemiBold',
+  bold: 'Geist_700Bold',
+  mono: 'GeistMono_400Regular',
 }
 
 // Project colours (the design's five). Stored by name in `projects.color`.

@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react'
-import { Image, Platform, Pressable, StyleSheet, Text, TextInput, View } from 'react-native'
+import { Platform, Pressable, StyleSheet, Text, TextInput, View } from 'react-native'
 import { supabase } from '../core/db/supabase'
 import { describeAuthError, isValidEmail } from '../core/auth/errors'
+import { Brand } from './Brand'
 import { colors, fonts, radius } from './tokens'
 
 const RESEND_SECONDS = 60
@@ -68,7 +69,7 @@ export function SignInScreen() {
 
   return (
     <View style={styles.pad}>
-      <Image source={require('../../assets/brand/tovy-logo.png')} style={styles.logo} accessibilityLabel="Tovy" />
+      <Brand />
       <Text style={styles.title}>{step === 'email' ? 'Sign in or create an account' : 'Check your email'}</Text>
 
       {step === 'email' ? (
@@ -157,8 +158,7 @@ export function SignInScreen() {
 
 const styles = StyleSheet.create({
   pad: { padding: 24, gap: 12, maxWidth: 420, width: '100%', alignSelf: 'center' },
-  logo: { width: 56, height: 56, resizeMode: 'contain', marginBottom: 8 },
-  title: { fontFamily: fonts.sans, fontSize: 20, fontWeight: '600', color: colors.ink },
+  title: { fontFamily: fonts.semibold, fontSize: 20, color: colors.ink },
   hint: { fontFamily: fonts.sans, fontSize: 14, color: colors.inkSoft },
   input: {
     borderWidth: 1,
@@ -172,7 +172,7 @@ const styles = StyleSheet.create({
   },
   codeInput: { fontFamily: fonts.mono, fontSize: 22, letterSpacing: 6, textAlign: 'center' },
   button: { borderRadius: radius.pill, padding: 12, alignItems: 'center', backgroundColor: colors.accent },
-  buttonText: { color: 'white', fontFamily: fonts.sans, fontSize: 14.5, fontWeight: '600' },
+  buttonText: { color: 'white', fontFamily: fonts.semibold, fontSize: 14.5 },
   secondary: {
     borderRadius: radius.pill,
     padding: 12,
@@ -181,7 +181,7 @@ const styles = StyleSheet.create({
     borderColor: colors.ring,
     backgroundColor: colors.card,
   },
-  secondaryText: { color: colors.ink, fontFamily: fonts.sans, fontSize: 14.5, fontWeight: '600' },
+  secondaryText: { color: colors.ink, fontFamily: fonts.semibold, fontSize: 14.5 },
   row: { flexDirection: 'row', justifyContent: 'space-between', gap: 12 },
   link: { fontFamily: fonts.sans, fontSize: 13.5, color: colors.accent },
   disabled: { opacity: 0.55 },
