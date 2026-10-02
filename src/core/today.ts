@@ -1,3 +1,4 @@
+import { percentOf } from './progress'
 import type { Task } from './sync/tasks'
 
 // What the Today screen shows and how it words it (design 11.6, 7.14). Plain functions of the tasks and the clock, so
@@ -57,6 +58,7 @@ export const isOverdue = (task: Pick<Task, 'due_date' | 'done_at'>, now: Date) =
 export type TodayGroups = {
   overdue: Task[]
   dueToday: Task[]
+  inProgress: Task[]
   comingUp: Task[]
   anytime: Task[]
   doneToday: Task[]
@@ -70,17 +72,28 @@ export const byDue = (a: Task, b: Task) =>
   (a.due_time ?? '99:99').localeCompare(b.due_time ?? '99:99') ||
   byCreated(a, b)
 
-// Top level tasks only: a subtask lives under its parent. Deleted tasks never show. A done task shows only on the day
+// Top level tasks only: a subtask lives under its parent. A task is in one group: Overdue, Due today, In progress,
+// Coming up or Anytime. Deleted tasks never show. A done task shows only on the day
 // it was finished (in "Done today"), after that it is found in its project.
 export function groupTasks(tasks: Task[], now: Date): TodayGroups {
   const today = localDay(now)
   const live = tasks.filter((t) => t && !t.deleted && !t.parent_id)
   const open = live.filter((t) => !t.done_at)
+  const overdue = open.filter((t) => t.due_date && t.due_date < today)
+  const dueToday = open.filter((t) => t.due_date === today)
+  // Partly done tasks that are not late and not due today (design 11.6, "In progress"). They leave their date group.
+  const inProgress = open.filter((t) => {
+    const p = percentOf(t, tasks)
+    return p > 0 && p < 100 && !(t.due_date && t.due_date <= today)
+  })
+  const placed = new Set(inProgress.map((t) => t.id))
   return {
-    overdue: open.filter((t) => t.due_date && t.due_date < today).sort(byDue),
-    dueToday: open.filter((t) => t.due_date === today).sort(byDue),
-    comingUp: open.filter((t) => t.due_date && t.due_date > today).sort(byDue),
-    anytime: open.filter((t) => !t.due_date).sort(byCreated),
+    overdue: overdue.sort(byDue),
+    dueToday: dueToday.sort(byDue),
+    // dated ones first, soonest first, then the ones with no date
+    inProgress: inProgress.sort((a, b) => (a.due_date ?? '9999').localeCompare(b.due_date ?? '9999') || byDue(a, b)),
+    comingUp: open.filter((t) => t.due_date && t.due_date > today && !placed.has(t.id)).sort(byDue),
+    anytime: open.filter((t) => !t.due_date && !placed.has(t.id)).sort(byCreated),
     doneToday: live
       .filter((t) => t.done_at && localDay(new Date(t.done_at)) === today)
       .sort((a, b) => (a.done_at ?? '').localeCompare(b.done_at ?? '')),

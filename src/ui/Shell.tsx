@@ -216,6 +216,10 @@ export function Shell() {
       if (target && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable)) return
       if (e.metaKey || e.ctrlKey || e.altKey) return
       const key = e.key.toLowerCase()
+      if (key === 'escape' && openId) {
+        router.setParams({ task: undefined })
+        return
+      }
       const tab = TABS.find((t) => t.key?.toLowerCase() === key)
       if (tab) router.navigate(tab.href)
       else if (key === 'n') {
@@ -225,7 +229,7 @@ export function Shell() {
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [router])
+  }, [router, openId])
 
   const list = (
     <View style={wide ? { gap: 4 } : { flexDirection: 'row' }}>

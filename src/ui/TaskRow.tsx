@@ -14,6 +14,7 @@ export function TaskRow({
   project,
   progress,
   now,
+  selected = false,
   onToggleDone,
   onOpen,
   onMenu,
@@ -22,6 +23,7 @@ export function TaskRow({
   project: Project | undefined
   progress: number | null // 0 to 100 from the subtasks, or null
   now: Date
+  selected?: boolean // open in the side panel
   onToggleDone: () => void
   onOpen: () => void
   onMenu: (at: { x: number; y: number }) => void
@@ -46,7 +48,7 @@ export function TaskRow({
           paddingHorizontal: 4,
           paddingVertical: 2,
           borderRadius: radius.lg,
-          backgroundColor: hovered ? c.ink1 : 'transparent',
+          backgroundColor: selected ? c.accentSoft : hovered ? c.ink1 : 'transparent',
         },
         transition('background-color'),
       ]}

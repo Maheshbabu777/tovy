@@ -80,6 +80,7 @@ function buildColors(mode: ThemeMode, accentName: AccentName) {
     sheetScrim: 'rgba(0,0,0,0.35)',
     dialogScrim: 'rgba(0,0,0,0.40)',
     barBg: rgba(b.bg, 0.95),
+    bgOverlay: rgba(b.bg, 0.92), // the ring closed celebration (design 11.14)
     // The toast is inverted: ink background, bg text (section 1.6).
     toastBg: rgb(b.ink),
     toastText: rgb(b.bg),

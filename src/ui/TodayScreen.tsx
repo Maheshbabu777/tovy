@@ -3,14 +3,17 @@ import { Pressable, ScrollView, Text, TextInput, useWindowDimensions, View } fro
 import { syncState } from '@legendapp/state'
 import { use$ } from '@legendapp/state/react'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
+import { useGlobalSearchParams } from 'expo-router'
 import { CircleCheck, Plus } from 'lucide-react-native'
 import { readCachedProfile } from '../core/profile/profile'
-import { percentOf } from '../core/progress'
+import { DAILY_GOAL, percentOf, pointsOnDay, type LogEntry } from '../core/progress'
 import type { Project, Task } from '../core/sync/tasks'
 import { addDays, dateLine, greeting, groupTasks, localDay } from '../core/today'
 import { Banner, EmptyState, Skeleton } from './components/Feedback'
 import { useToast } from './components/Toast'
 import { webStyle } from './components/web'
+import { HeroCard } from './HeroCard'
+import { RingClosed } from './RingClosed'
 import { onQuickAdd } from './quickAdd'
 import { QuickAddSheet } from './QuickAddSheet'
 import { useStore } from './StoreContext'
@@ -42,6 +45,7 @@ export function TodayScreen() {
   const now = useNow()
   const online = useOnline()
   const { run, toggleDone, open, openMenu, menuElement } = useTaskActions(now)
+  const { task: openId } = useGlobalSearchParams<{ task?: string }>()
 
   const tasksMap = use$(store.tasks$) as Record<string, Task> | undefined
   const projectMap = use$(store.projects$) as Record<string, Project> | undefined
@@ -49,6 +53,15 @@ export function TodayScreen() {
   const loaded = use$(taskState.isPersistLoaded)
   const syncError = use$(taskState.error)
 
+  const logsMap = use$(store.logs$) as Record<string, LogEntry> | undefined
+  const points = pointsOnDay(Object.values(logsMap ?? {}) as LogEntry[], localDay(now))
+  // Closing the ring (crossing 150 points) shows the celebration once, when it happens.
+  const [seenPoints, setSeenPoints] = useState(points)
+  const [celebrate, setCelebrate] = useState(false)
+  if (points !== seenPoints) {
+    setSeenPoints(points)
+    if (seenPoints < DAILY_GOAL && points >= DAILY_GOAL) setCelebrate(true)
+  }
   const [firstName, setFirstName] = useState('')
   const [sheetOpen, setSheetOpen] = useState(false)
   const [draft, setDraft] = useState('')
@@ -68,6 +81,7 @@ export function TodayScreen() {
   const sections: { key: string; title: string; rows: Task[] }[] = [
     { key: 'overdue', title: 'Overdue', rows: groups.overdue },
     { key: 'due-today', title: 'Due today', rows: groups.dueToday },
+    { key: 'in-progress', title: 'In progress', rows: groups.inProgress },
     { key: 'coming-up', title: 'Coming up', rows: groups.comingUp },
     { key: 'anytime', title: 'Anytime', rows: groups.anytime },
     { key: 'done-today', title: 'Done today', rows: groups.doneToday },
@@ -160,6 +174,12 @@ export function TodayScreen() {
             {online && syncError ? <Banner kind="error">Sync failed. Your data is safe locally.</Banner> : null}
           </View>
 
+          {loaded ? (
+            <View style={{ marginTop: 16 }}>
+              <HeroCard points={points} />
+            </View>
+          ) : null}
+
           {!loaded ? (
             <View style={{ marginTop: 16 }}>
               <Skeleton />
@@ -189,6 +209,7 @@ export function TodayScreen() {
                     project={task.project_id ? projectMap?.[task.project_id] : undefined}
                     progress={percentOf(task, tasks)}
                     now={now}
+                    selected={openId === task.id}
                     onToggleDone={() => toggleDone(task)}
                     onOpen={() => open(task)}
                     onMenu={(at) => openMenu(task, at)}
@@ -246,6 +267,7 @@ export function TodayScreen() {
         onAdd={(t) => addTask(t)}
       />
       {menuElement}
+      <RingClosed visible={celebrate} points={points} onClose={() => setCelebrate(false)} />
     </View>
   )
 }

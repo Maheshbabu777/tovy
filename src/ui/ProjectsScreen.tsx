@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Text, useWindowDimensions, View } from 'react-native'
-import { useLocalSearchParams, useRouter } from 'expo-router'
+import { useGlobalSearchParams, useLocalSearchParams, useRouter } from 'expo-router'
 import { use$ } from '@legendapp/state/react'
 import { syncState } from '@legendapp/state'
 import { FolderPlus, ListChecks, Pencil, Plus } from 'lucide-react-native'
@@ -156,6 +156,7 @@ function ProjectPage({ id }: { id: string }) {
   const toast = useToast()
   const now = useNow()
   const { run, toggleDone, open, openMenu, menuElement } = useTaskActions(now)
+  const { task: openId } = useGlobalSearchParams<{ task?: string }>()
   const [editing, setEditing] = useState(false)
   const [adding, setAdding] = useState(false)
   const { theme } = useTheme()
@@ -189,6 +190,7 @@ function ProjectPage({ id }: { id: string }) {
         project={undefined}
         progress={percentOf(task, tasks)}
         now={now}
+        selected={openId === task.id}
         onToggleDone={() => toggleDone(task)}
         onOpen={() => open(task)}
         onMenu={(at) => openMenu(task, at)}
