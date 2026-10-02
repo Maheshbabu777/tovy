@@ -71,7 +71,7 @@ Risks:
 - [x] 1 Tables and row security
 - [x] 2 Store
 - [x] 3 Task list screen
-- [ ] 4 Subtasks
+- [x] 4 Subtasks
 - [ ] 5 Projects and No project
 - [ ] 6 End to end
 - [ ] 7 Remove the spike
@@ -99,6 +99,13 @@ Slice 3 (task list screen), branch `feat/tasks-screen`:
 - `src/ui/tokens.ts`: colours, radii, fonts and the five project colours from the prototype. Values I could not read from the prototype (add bar, chip, section label) are estimates from screenshots.
 - e2e: the 14 notes tests now drive tasks (helpers `titles`, `renameTask`, and the server read uses `tasks`). Tests 7 and 7b still check the `notes` table until slice 7. New test `t1`: Undo restores a task, and the Undo bar disappears after 5 seconds with the task still deleted on the server. `npm run test:e2e`: 15 passed. Worst local write render 16.2 ms (limit 100). Lint, format check, typecheck pass.
 - Not checked: the screen was not looked at in a browser or on a phone, only driven by tests. Subtasks, kind and projects have no UI yet (slices 4 and 5).
+
+Slice 4 (subtasks and kind), branch `feat/tasks-subtasks`:
+
+- `src/ui/TasksScreen.tsx`: rows are a tree. Each task shows its subtasks indented beneath it at any depth, a "Deep" badge, and its direct subtask count ("1 subtask"). The editor has a quick/deep switch and, for a deep task, an "Add a subtask" field. Store rules (cycle, quick parent, deep with subtasks stays deep) show as an error line. Delete hides the task and everything beneath it, and one Undo brings all of them back ("3 tasks deleted").
+- Found by the new e2e tests, and fixed in `src/core/sync/tasks.ts` (the plugin's create call): (1) a subtask added in the same offline session as its parent was sent at the same time and refused by the database (parent not there yet), so it never reached the server. Now a refusal that says the parent or project does not exist, or that the parent is not deep yet, is retried for a few seconds. (2) A task changed while its first insert was still in flight was sent as a second insert, got a duplicate key error and stayed pending forever, and in one case a deleted task came back on screen. Now a repeat insert of a row the server has is saved as an upsert. Both races were reproduced (request log showed the 403, 409 and 400 refusals) and gone after the fix.
+- e2e: `t2` (nest three levels, direct count, deep stays deep with an error, delete and Undo cover all three, and after the Undo expires all three are deleted on the server), `t3` (parent and subtask added offline both reach the server after reconnect). `npm run test:e2e`: 17 passed (the suite plus t1, t2, t3), worst local write 16.4 ms. 12 unit tests, lint, format check and typecheck pass.
+- Not proven: the retry gives up after about 14 seconds (8 tries) if a parent never saves, then the change stays pending. A slow network with many levels created at once is untested. The screen was not looked at by eye.
 
 ## Notes
 

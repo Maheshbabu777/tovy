@@ -45,6 +45,50 @@ export type NewTask = {
 
 export type TaskEdit = { title?: string; note?: string; dueDate?: string | null; dueTime?: string | null }
 
+// The plugin sends all new rows at once. A subtask (or a task in a new project) added in the same offline session as its
+// parent can arrive first, and the database refuses it until the parent exists (`check_task_links`). So a refusal that
+// says the parent or project does not exist is retried for a few seconds, which gives the parent's own insert time to
+// land. Network errors still throw, so the plugin retries them as before.
+const LINK_RETRIES = 8
+const insertsInFlight = new Map<string, Promise<unknown>>()
+
+async function saveRow(table: 'tasks' | 'projects', row: unknown, mode: 'insert' | 'upsert') {
+  const query = supabase.from(table)
+  const { data, error } = await (mode === 'insert' ? query.insert(row as never) : query.upsert(row as never)).select()
+  if (error?.message?.includes('Failed to fetch')) throw error
+  return { data: data?.[0], error }
+}
+
+// A task changed while its first insert is still in flight is sent as a whole new insert again. The server already has
+// the row (duplicate key) and the change would stay pending forever. So a repeat insert of a row that exists is saved
+// as an upsert, which keeps the latest values.
+const createWhenLinksExist = (table: 'tasks' | 'projects') => async (input: unknown) => {
+  const key = `${table}:${(input as { id: string }).id}`
+  const earlier = insertsInFlight.get(key)
+  const run = async () => {
+    if (earlier) {
+      await earlier.catch(() => undefined)
+      return saveRow(table, input, 'upsert')
+    }
+    for (let attempt = 1; ; attempt++) {
+      const result = await saveRow(table, input, 'insert')
+      const code = result.error?.code
+      if (code === '23505') return saveRow(table, input, 'upsert') // the row is already there
+      // the parent or project is not saved yet, or the parent's switch to deep has not landed yet
+      const waiting = /does not exist|only a deep task/.test(result.error?.message ?? '')
+      if (!waiting || attempt >= LINK_RETRIES) return result
+      await new Promise((resolve) => setTimeout(resolve, 400 * attempt))
+    }
+  }
+  const promise = run()
+  insertsInFlight.set(key, promise)
+  try {
+    return await promise
+  } finally {
+    if (insertsInFlight.get(key) === promise) insertsInFlight.delete(key)
+  }
+}
+
 // One store per signed-in user (see decisions.md): their tasks and projects, kept on the device, queued and synced with
 // Supabase in the background. The rules below mirror the database (`check_task_links` in 0003_tasks.sql), so a wrong
 // action fails at once on the device, offline too. The database still has the last word.
@@ -55,6 +99,7 @@ export function createTasksStore(userId: string) {
     syncedSupabase({
       supabase,
       collection: 'tasks',
+      create: createWhenLinksExist('tasks') as never,
       realtime: true,
       persist: { name: tasksName, plugin: createPersistPlugin(tasksName), retrySync: true },
     }),
