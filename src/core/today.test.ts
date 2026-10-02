@@ -1,15 +1,5 @@
 import type { Task } from './sync/tasks'
-import {
-  addDays,
-  dateLine,
-  dueLabel,
-  greeting,
-  groupTasks,
-  isOverdue,
-  localDay,
-  subtaskProgress,
-  timeLabel,
-} from './today'
+import { addDays, dateLine, dueLabel, greeting, groupTasks, isOverdue, localDay, timeLabel } from './today'
 
 const NOW = new Date(2026, 9, 2, 10, 30) // Fri 2 Oct 2026, 10:30
 
@@ -112,19 +102,5 @@ describe('groupTasks', () => {
     expect(g.doneToday.map((t) => t.id)).toEqual(['done-now'])
     expect(g.dueToday).toEqual([]) // a finished task leaves its group
     expect(g.anytime.map((t) => t.id)).toEqual(['open'])
-  })
-})
-
-describe('subtaskProgress', () => {
-  it('is done subtasks over all of them', () => {
-    const tasks = [
-      task('p', { kind: 'deep' }),
-      task('a', { parent_id: 'p', done_at: '2026-10-02T08:00:00Z' }),
-      task('b', { parent_id: 'p' }),
-      task('c', { parent_id: 'p' }),
-      task('d', { parent_id: 'p', deleted: true }),
-    ]
-    expect(subtaskProgress('p', tasks)).toBe(33)
-    expect(subtaskProgress('a', tasks)).toBeNull()
   })
 })

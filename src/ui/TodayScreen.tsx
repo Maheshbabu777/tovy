@@ -5,8 +5,9 @@ import { use$ } from '@legendapp/state/react'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { CircleCheck, Plus } from 'lucide-react-native'
 import { readCachedProfile } from '../core/profile/profile'
+import { percentOf } from '../core/progress'
 import type { Project, Task } from '../core/sync/tasks'
-import { addDays, dateLine, greeting, groupTasks, localDay, subtaskProgress } from '../core/today'
+import { addDays, dateLine, greeting, groupTasks, localDay } from '../core/today'
 import { Banner, EmptyState, Skeleton } from './components/Feedback'
 import { useToast } from './components/Toast'
 import { webStyle } from './components/web'
@@ -186,7 +187,7 @@ export function TodayScreen() {
                     key={task.id}
                     task={task}
                     project={task.project_id ? projectMap?.[task.project_id] : undefined}
-                    progress={subtaskProgress(task.id, tasks)}
+                    progress={percentOf(task, tasks)}
                     now={now}
                     onToggleDone={() => toggleDone(task)}
                     onOpen={() => open(task)}

@@ -62,10 +62,12 @@ function ProfileHome({ profile, open }: { profile: Profile | null; open: (page: 
   const taskState = syncState(store.tasks$)
   const projectState = syncState(store.projects$)
   const proposalState = syncState(store.proposals$)
+  const logState = syncState(store.logs$)
   const pending =
     (use$(taskState.numPendingSets) ?? 0) +
     (use$(projectState.numPendingSets) ?? 0) +
-    (use$(proposalState.numPendingSets) ?? 0)
+    (use$(proposalState.numPendingSets) ?? 0) +
+    (use$(logState.numPendingSets) ?? 0)
   const taskError = use$(taskState.error)
   const projectError = use$(projectState.error)
   const failed = Boolean(taskError || projectError)
@@ -84,7 +86,7 @@ function ProfileHome({ profile, open }: { profile: Profile | null; open: (page: 
   function requestSignOut() {
     const count = (st: typeof taskState) =>
       Math.max(st.numPendingSets.peek() ?? 0, Object.keys(st.getPendingChanges() ?? {}).length)
-    setUnsynced(count(taskState) + count(projectState) + count(proposalState))
+    setUnsynced(count(taskState) + count(projectState) + count(proposalState) + count(logState))
     setConfirming(true)
   }
   // This device only: other devices stay signed in. The user's store on this device is cleared once we are signed out.

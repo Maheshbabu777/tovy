@@ -1,12 +1,13 @@
 import { useEffect, useState, type ReactNode } from 'react'
 import { Animated, Easing, Image, Platform, Pressable, Text, useWindowDimensions, View } from 'react-native'
-import { usePathname, useRouter } from 'expo-router'
+import { useGlobalSearchParams, usePathname, useRouter } from 'expo-router'
 import { TabSlot, TabTrigger, useTabsWithTriggers } from 'expo-router/ui'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { CircleCheck, Folder, Inbox, PanelLeft, Plus, User, type LucideIcon } from 'lucide-react-native'
 import { use$ } from '@legendapp/state/react'
 import type { Proposal } from '../core/sync/tasks'
 import { useStore } from './StoreContext'
+import { TaskDetail } from './TaskDetail'
 import storage from '../core/db/authStorage'
 import { requestQuickAdd } from './quickAdd'
 import { useTheme } from './theme'
@@ -167,6 +168,11 @@ export function Shell() {
   const router = useRouter()
   const { theme } = useTheme()
   const c = theme.colors
+  // A task opens beside the page (wide) or over it (phone), chosen by `?task=` so it survives a reload and a back step.
+  const { task: openId } = useGlobalSearchParams<{ task?: string }>()
+  const openTask = (id: string) => router.setParams({ task: id })
+  const closeTask = () => router.setParams({ task: undefined })
+  const panel = openId ? <TaskDetail id={openId} onClose={closeTask} onOpenTask={openTask} /> : null
   const store = useStore()
   const proposals = use$(store.proposals$) as Record<string, Proposal> | undefined
   const waiting = Object.values(proposals ?? {}).filter((p) => p && !p.deleted && p.status === 'pending').length
@@ -286,6 +292,14 @@ export function Shell() {
               <TabSlot style={{ flex: 1 }} />
             </FadeIn>
           </View>
+          {panel ? (
+            <View
+              testID="task-panel"
+              style={{ width: 420, borderLeftWidth: 1, borderLeftColor: c.ink3, backgroundColor: c.bg }}
+            >
+              {panel}
+            </View>
+          ) : null}
         </View>
       ) : (
         <View style={{ flex: 1, backgroundColor: c.bg }}>
@@ -309,6 +323,22 @@ export function Shell() {
           >
             {list}
           </View>
+          {panel ? (
+            <View
+              testID="task-panel"
+              style={{
+                position: 'absolute',
+                top: 0,
+                left: 0,
+                right: 0,
+                bottom: 0,
+                paddingTop: insets.top,
+                backgroundColor: c.bg,
+              }}
+            >
+              {panel}
+            </View>
+          ) : null}
         </View>
       )}
     </NavigationContent>

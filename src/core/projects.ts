@@ -1,11 +1,7 @@
 import type { Project, Task } from './sync/tasks'
-import { subtaskProgress } from './today'
+import { percentOf } from './progress'
 
-// How far along one task is, 0 to 100: done is 100, a task with subtasks follows them, anything else is not started.
-export function taskPercent(task: Task, all: Task[]): number {
-  if (task.done_at) return 100
-  return subtaskProgress(task.id, all) ?? 0
-}
+export const taskPercent = percentOf
 
 // "N tasks . X% done" for a project card: top level tasks of the project (null: the ones with no project), and the
 // average progress of them.
