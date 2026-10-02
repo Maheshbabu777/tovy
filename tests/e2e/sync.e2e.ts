@@ -429,6 +429,7 @@ test.describe('sync spike', () => {
 
     // finishing the deepest task finishes the ones above it, because their progress follows their subtasks
     await a.page.getByTestId(/^sub-done-/).click()
+    await a.page.getByTestId('ring-closed-dismiss').click() // a whole task worth 150 points closes the ring
     await a.page.getByTestId('detail-back').click() // back to the parent
     await expect(a.page.getByTestId('detail-title')).toHaveValue('parent-t2')
     await expect(a.page.getByTestId('detail-percent')).toHaveText('100%')

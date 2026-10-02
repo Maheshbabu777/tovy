@@ -239,8 +239,9 @@ export function createTasksStore(userId: string) {
     if (projectId && !liveProjects().some((p) => p.id === projectId)) throw new Error('That project does not exist')
   }
 
-  // Counts deletes, so an Undo's late re-check can tell that the person deleted again since and stand down.
-  let deleteEpoch = 0
+  // Counts deletes per task, so an Undo's late re-check can tell that the person deleted that task again since and
+  // stand down for it.
+  const deleteEpoch = new Map<string, number>()
 
   // Runs a change to a task and, if it moved the top level task it belongs to, logs how far (design 11.9: "Each logged
   // change adds a log entry"). Points are earned on the top level task, however deep the change was.
@@ -345,30 +346,33 @@ export function createTasksStore(userId: string) {
     deleteTask(id: string): { ids: string[]; undo: () => void } {
       if (!getTask(id)) throw new Error('That task does not exist')
       const ids = [id, ...descendantIds(id)]
-      deleteEpoch++
+      ids.forEach((i) => deleteEpoch.set(i, (deleteEpoch.get(i) ?? 0) + 1))
       // Once the server confirms a delete the plugin drops the row from the store, so an Undo has to bring the whole
       // row back, not just switch `deleted` off.
       const snapshot = ids.map((i) => ({ ...(tasks$[i].peek() as Task) }))
       batch(() => ids.forEach((i) => tasks$[i].deleted.set(true)))
       const gone = () => snapshot.filter((t) => !tasks$[t.id].peek() || tasks$[t.id].deleted.peek() === true)
-      const restore = () =>
+      const restoreTasks = (rows: Task[]) =>
         batch(() =>
-          gone().forEach((t) => {
+          rows.forEach((t) => {
             if (tasks$[t.id].peek()) tasks$[t.id].deleted.set(false)
             else tasks$[t.id].set({ ...t, deleted: false })
           }),
         )
+      const restore = () => restoreTasks(gone())
       return {
         ids,
         undo: () => {
           restore()
-          const epochAtUndo = deleteEpoch
+          const epochAtUndo = new Map(ids.map((i) => [i, deleteEpoch.get(i) ?? 0]))
           // An Undo made while the delete is still being saved can be taken for "no change" by the plugin, and the
           // saved delete then comes back from the server. Once the saves are done, put the task back again if so.
           void (async () => {
             await writes.idle()
             await new Promise((resolve) => setTimeout(resolve, 600))
-            if (deleteEpoch === epochAtUndo && gone().length) restore()
+            // only the tasks not deleted again since this Undo
+            const lost = gone().filter((t) => (deleteEpoch.get(t.id) ?? 0) === epochAtUndo.get(t.id))
+            if (lost.length) restoreTasks(lost)
           })()
         },
       }
