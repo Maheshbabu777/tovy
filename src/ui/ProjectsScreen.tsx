@@ -5,6 +5,7 @@ import { Icons } from './icons'
 import { projectStats, taskCountLabel } from '../core/projects'
 import { byCreated, byDue } from '../core/today'
 import { Button } from './components/Button'
+import { Enter } from './components/Enter'
 import { EmptyState, Skeleton } from './components/Feedback'
 import { IconButton } from './components/IconButton'
 import { Page } from './components/Page'
@@ -13,7 +14,7 @@ import { useToast } from './components/Toast'
 import { transition, useFocusRing, useHover } from './components/web'
 import { ProjectSheet } from './ProjectSheet'
 import { QuickAddSheet } from './QuickAddSheet'
-import { AddTaskRow, TaskRows, TaskSection } from './TaskList'
+import { AddTaskRow, ListTop, TaskRows, TaskSection } from './TaskList'
 import { useTheme } from './theme'
 import { type } from './tokens'
 import { useTaskActions } from './useTaskActions'
@@ -24,7 +25,7 @@ const NONE = 'none' // the route id of the "No project" page
 // The Projects tab. With `?id=` it shows one project (the page stays inside the tab, so the tab bar or sidebar stays).
 export function ProjectsScreen() {
   const { id } = useLocalSearchParams<{ id?: string }>()
-  return id ? <ProjectPage id={id} /> : <ProjectList />
+  return <Enter key={id ?? 'list'}>{id ? <ProjectPage id={id} /> : <ProjectList />}</Enter>
 }
 
 function ProjectList() {
@@ -208,6 +209,7 @@ function ProjectPage({ id }: { id: string }) {
           </EmptyState>
         ) : (
           <>
+            <ListTop />
             <TaskRows rows={openRows} {...shared} />
             <AddTaskRow onAdd={addHere} testID="project-new-title" collapsible />
             <TaskSection id="done" title="Done" rows={done} {...shared} />

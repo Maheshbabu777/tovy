@@ -23,20 +23,19 @@ export function ScreenHeader({
   const { theme } = useTheme()
   const c = theme.colors
   const wide = useWindowDimensions().width >= WIDE_BREAKPOINT
+  const titleStyle = onBack ? type.h1 : wide ? type.displayXl : type.display
+  // The back button and the actions are 40 tall; centre them on the first line of the title, not on the whole block,
+  // so they stay level with the title when a subtitle sits under it.
+  const level = (titleStyle.lineHeight - 40) / 2
   return (
-    <View style={{ minHeight: 56, flexDirection: 'row', alignItems: 'flex-end', gap: 4, paddingTop: 8 }}>
+    <View style={{ minHeight: 56, flexDirection: 'row', alignItems: 'flex-start', gap: 4, paddingTop: 8 }}>
       {onBack ? (
-        <View style={{ marginLeft: -10, marginBottom: 2 }}>
+        <View style={{ marginLeft: -10, marginTop: level }}>
           <IconButton icon={Icons.back} label="Back" onPress={onBack} testID="back" />
         </View>
       ) : null}
       <View style={{ flex: 1, minWidth: 0 }}>
-        <Text
-          testID={titleTestID}
-          accessibilityRole="header"
-          numberOfLines={1}
-          style={[onBack ? type.h1 : wide ? type.displayXl : type.display, { color: c.text }]}
-        >
+        <Text testID={titleTestID} accessibilityRole="header" numberOfLines={1} style={[titleStyle, { color: c.text }]}>
           {title}
         </Text>
         {subtitle ? (
@@ -45,7 +44,9 @@ export function ScreenHeader({
           </Text>
         ) : null}
       </View>
-      {right ? <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>{right}</View> : null}
+      {right ? (
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: level }}>{right}</View>
+      ) : null}
     </View>
   )
 }

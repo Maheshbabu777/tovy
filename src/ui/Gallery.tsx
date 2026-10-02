@@ -14,6 +14,7 @@ import { Segmented } from './components/Segmented'
 import { Group, Row } from './components/SettingsList'
 import { useToast } from './components/Toast'
 import { AIBadge } from './components/AppMark'
+import { KeyCap } from './components/KeyCap'
 import { Logo } from './Brand'
 import { TaskRow } from './TaskRow'
 import { ThemeOverride, useTheme, type ThemeMode } from './theme'
@@ -136,6 +137,8 @@ function Board({ mode }: { mode: ThemeMode }) {
           <Chip label="Tomorrow" icon={Icons.date} onPress={noop} />
           <Chip label="Work" icon={Icons.project} onPress={noop} />
           <AIBadge label="Claude" />
+          <KeyCap label="N" />
+          <KeyCap label="Ctrl K" />
         </Wrap>
       </Block>
 

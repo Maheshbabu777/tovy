@@ -3,8 +3,7 @@ import { useTheme } from '../theme'
 import { radius, type } from '../tokens'
 import { shadow, SHADOWS, useFocusRing } from './web'
 
-// Style guide, Settings: a pill track on panel (padding 3) with segments 32 tall; the selected one is a bg pill with a
-// hairline.
+// Style guide, Settings: a pill track on panel (padding 3) with segments 32 tall; the selected one is a primary pill.
 export function Segmented<T extends string>({
   options,
   value,
@@ -55,14 +54,14 @@ function Segment({ selected, label, onPress }: { selected: boolean; label: strin
           paddingHorizontal: 16,
           borderRadius: radius.pill,
           justifyContent: 'center',
-          backgroundColor: selected ? c.bg : 'transparent',
+          backgroundColor: selected ? c.primary : 'transparent',
         },
         selected ? shadow(SHADOWS.raisedS) : {},
         ring.style,
       ]}
       {...ring.handlers}
     >
-      <Text style={[type.label, { color: selected ? c.text : c.text2 }]}>{label}</Text>
+      <Text style={[type.label, { color: selected ? c.onPrimary : c.text2 }]}>{label}</Text>
     </Pressable>
   )
 }

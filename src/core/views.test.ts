@@ -1,5 +1,5 @@
 import type { Task } from './sync/tasks'
-import { dayTitle, inboxTasks, todayCount, upcoming } from './views'
+import { daySummary, dayTitle, inboxTasks, timelyGreeting, todayCount, upcoming, weekStrip } from './views'
 
 const now = new Date(2026, 9, 3, 10) // Sat 3 Oct 2026
 const t = (id: string, extra: Partial<Task> = {}): Task => ({
@@ -63,5 +63,32 @@ describe('upcoming', () => {
 
   it('names days plainly after tomorrow', () => {
     expect(dayTitle('2026-10-06', now)).toBe('Tue 6 Oct')
+  })
+})
+
+describe('today header', () => {
+  it('fits the time of day and adds the first name', () => {
+    expect(timelyGreeting(new Date(2026, 9, 3, 3), 'Mahesh')).toBe('Up late, Mahesh')
+    expect(timelyGreeting(new Date(2026, 9, 3, 9), 'Mahesh')).toBe('Good morning, Mahesh')
+    expect(timelyGreeting(new Date(2026, 9, 3, 13), ' ')).toBe('Good afternoon')
+    expect(timelyGreeting(new Date(2026, 9, 3, 19), null)).toBe('Good evening')
+    expect(timelyGreeting(new Date(2026, 9, 3, 23), 'Mahesh')).toBe('Winding down, Mahesh')
+  })
+  it('sums up the day without zero parts', () => {
+    expect(daySummary({ overdue: [1, 2], dueToday: [1, 2, 3], doneToday: [1] })).toBe(
+      '2 overdue · 3 due today · 1 done',
+    )
+    expect(daySummary({ overdue: [], dueToday: [1], doneToday: [] })).toBe('1 due today')
+    expect(daySummary({ overdue: [], dueToday: [], doneToday: [] })).toBe('Nothing due today')
+  })
+})
+
+describe('week strip', () => {
+  it('marks the days that have open tasks', () => {
+    const strip = weekStrip([t('a', { due_date: '2026-10-04' }), t('b', { due_date: '2026-10-05', done_at: 'x' })], now)
+    expect(strip).toHaveLength(7)
+    expect(strip[0]).toEqual({ day: '2026-10-03', weekday: 'Sat', date: 3, busy: false })
+    expect(strip[1].busy).toBe(true)
+    expect(strip[2].busy).toBe(false)
   })
 })

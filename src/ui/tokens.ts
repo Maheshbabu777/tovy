@@ -65,7 +65,7 @@ export const motion = {
   hover: 150,
   route: 180,
   dialog: 200,
-  sheet: 280,
+  sheet: 250,
   sidebar: 200,
   theme: 220,
 }

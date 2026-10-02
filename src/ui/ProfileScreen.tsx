@@ -8,6 +8,7 @@ import { supabase } from '../core/db/supabase'
 import { readCachedProfile, type Profile } from '../core/profile/profile'
 import { Avatar } from './components/Avatar'
 import { Button } from './components/Button'
+import { Enter } from './components/Enter'
 import { Page } from './components/Page'
 import { ScreenHeader } from './components/ScreenHeader'
 import { Group, Row } from './components/SettingsList'
@@ -16,6 +17,7 @@ import { useStore } from './StoreContext'
 import { useTheme } from './theme'
 import { radius, type } from './tokens'
 import { useOnline } from './useOnline'
+import { profileSaved } from './useProfile'
 
 type SubPage = 'edit' | 'appearance' | 'about'
 const TITLES: Record<SubPage, string> = { edit: 'Edit profile', appearance: 'Appearance', about: 'About' }
@@ -35,23 +37,30 @@ export function ProfileScreen() {
   const back = () => router.setParams({ page: undefined })
   if (sub) {
     return (
-      <Page maxWidth={576}>
-        <ScreenHeader title={TITLES[sub]} onBack={back} />
-        {sub === 'appearance' ? <AppearancePage /> : null}
-        {sub === 'about' ? <AboutPage /> : null}
-        {sub === 'edit' && profile ? (
-          <EditProfilePage
-            profile={profile}
-            onSaved={(next) => {
-              setProfile(next)
-              back()
-            }}
-          />
-        ) : null}
-      </Page>
+      <Enter key={sub}>
+        <Page maxWidth={576}>
+          <ScreenHeader title={TITLES[sub]} onBack={back} />
+          {sub === 'appearance' ? <AppearancePage /> : null}
+          {sub === 'about' ? <AboutPage /> : null}
+          {sub === 'edit' && profile ? (
+            <EditProfilePage
+              profile={profile}
+              onSaved={(next) => {
+                setProfile(next)
+                profileSaved()
+                back()
+              }}
+            />
+          ) : null}
+        </Page>
+      </Enter>
     )
   }
-  return <ProfileHome profile={profile} open={(p) => router.push({ pathname: '/profile', params: { page: p } })} />
+  return (
+    <Enter key="home">
+      <ProfileHome profile={profile} open={(p) => router.push({ pathname: '/profile', params: { page: p } })} />
+    </Enter>
+  )
 }
 
 function ProfileHome({ profile, open }: { profile: Profile | null; open: (page: SubPage) => void }) {
@@ -109,7 +118,7 @@ function ProfileHome({ profile, open }: { profile: Profile | null; open: (page: 
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 16, marginTop: 24 }}>
         <Avatar initials={initials} size={56} />
         <View style={{ flexShrink: 1, gap: 2 }}>
-          <Text testID="profile-name" numberOfLines={1} style={[type.h3, { color: c.text }]}>
+          <Text testID="profile-name" numberOfLines={1} style={[type.h1, { color: c.text }]}>
             {name}
           </Text>
           <Text testID="profile-email" numberOfLines={1} style={[type.bodyS, { color: c.text2 }]}>

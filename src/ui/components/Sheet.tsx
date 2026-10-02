@@ -1,7 +1,8 @@
 import { useEffect, useState, type ReactNode } from 'react'
-import { Animated, Easing, Modal, Platform, Pressable, Text, useWindowDimensions, View } from 'react-native'
+import { Animated, Modal, Platform, Pressable, Text, useWindowDimensions, View } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { Icons } from '../icons'
+import { animate, prefersReducedMotion } from '../motion'
 import { useTheme } from '../theme'
 import { motion, radius, type, WIDE_BREAKPOINT } from '../tokens'
 import { IconButton } from './IconButton'
@@ -33,13 +34,8 @@ export function Sheet({
 
   useEffect(() => {
     if (!visible) return
-    enter.setValue(0)
-    Animated.timing(enter, {
-      toValue: 1,
-      duration: motion.sheet,
-      easing: Easing.bezier(...motion.easing),
-      useNativeDriver: Platform.OS !== 'web',
-    }).start()
+    enter.setValue(prefersReducedMotion() ? 1 : 0)
+    animate(enter, 1, motion.sheet)
     if (Platform.OS !== 'web' || typeof window === 'undefined') return
     const onKey = (e: KeyboardEvent) => e.key === 'Escape' && onClose()
     window.addEventListener('keydown', onKey)

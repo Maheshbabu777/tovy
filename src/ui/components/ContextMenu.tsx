@@ -1,5 +1,6 @@
-import { Modal, Pressable, Text, useWindowDimensions, View } from 'react-native'
+import { Animated, Modal, Pressable, Text, useWindowDimensions } from 'react-native'
 import { type ToolkitIcon } from '../icons'
+import { usePop } from '../motion'
 import { useTheme } from '../theme'
 import { radius, type } from './../tokens'
 import { shadow, SHADOWS, useHover } from './web'
@@ -9,8 +10,7 @@ const MENU_WIDTH = 232
 export type MenuItem = { label: string; icon: ToolkitIcon; onPress: () => void; danger?: boolean; testID?: string }
 
 // Style guide, Menu: 232 wide, padding 4, radius 12, a hairline and a soft shadow, items 34 tall with an 18 px icon and
-// a 14 px label; Delete last in red. It opens at the
-// pointer and stays inside the screen. Right-click on the web, long-press on a phone.
+// a 14 px label; Delete last in red. It pops in from 0.96 at the pointer and stays inside the screen. Right-click on the web, long-press on a phone.
 export function ContextMenu({
   at,
   items,
@@ -20,17 +20,34 @@ export function ContextMenu({
   items: MenuItem[]
   onClose: () => void
 }) {
-  const { theme } = useTheme()
-  const c = theme.colors
   const { width, height } = useWindowDimensions()
   if (!at) return null
+  return <MenuBody at={at} items={items} onClose={onClose} width={width} height={height} />
+}
+
+function MenuBody({
+  at,
+  items,
+  onClose,
+  width,
+  height,
+}: {
+  at: { x: number; y: number }
+  items: MenuItem[]
+  onClose: () => void
+  width: number
+  height: number
+}) {
+  const { theme } = useTheme()
+  const c = theme.colors
+  const pop = usePop(120)
   const menuHeight = items.length * 34 + 8
   const left = Math.max(8, Math.min(at.x, width - MENU_WIDTH - 8))
   const top = Math.max(8, Math.min(at.y, height - menuHeight - 8))
   return (
     <Modal visible transparent animationType="none" onRequestClose={onClose}>
       <Pressable accessibilityLabel="Close menu" onPress={onClose} style={{ flex: 1 }}>
-        <View
+        <Animated.View
           testID="context-menu"
           style={[
             {
@@ -45,12 +62,13 @@ export function ContextMenu({
               backgroundColor: c.bg,
             },
             shadow(SHADOWS.menu),
+            pop,
           ]}
         >
           {items.map((item) => (
             <MenuRow key={item.label} item={item} onClose={onClose} />
           ))}
-        </View>
+        </Animated.View>
       </Pressable>
     </Modal>
   )

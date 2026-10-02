@@ -41,7 +41,7 @@ export function Checkbox({
           justifyContent: 'center',
         }}
       >
-        {checked ? <Icons.check size={12} color={c.onPrimary} filled /> : null}
+        {checked ? <Icons.check size={12} color={c.onPrimary} bold /> : null}
       </View>
     </Pressable>
   )

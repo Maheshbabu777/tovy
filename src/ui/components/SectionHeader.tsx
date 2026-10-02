@@ -25,6 +25,9 @@ export function SectionHeader({
         gap: 8,
         paddingTop: 24,
         paddingBottom: 8,
+        // The hairline runs as wide as the rows' lines (they reach 8 px past the column for their hover fill).
+        marginHorizontal: -8,
+        paddingHorizontal: 8,
         borderBottomWidth: 1,
         borderBottomColor: c.line,
       }}

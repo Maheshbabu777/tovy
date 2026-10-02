@@ -592,12 +592,15 @@ test.describe('sync spike', () => {
     await expect.poll(background).toBe('rgb(10, 10, 10)')
   })
 
-  test('h1: Today shows a plain title and no points, and partly done tasks get their own section', async ({
+  test('h1: Today greets by the time of day with no points, and partly done tasks get their own section', async ({
     browser,
   }) => {
     const a = await newDevice(browser, await createUser())
     await addNote(a.page, 'ring-h1')
-    await expect(a.page.getByTestId('today-title')).toHaveText('Today')
+    await expect(a.page.getByTestId('today-title')).toHaveText(
+      /^(Up late|Good morning|Good afternoon|Good evening|Winding down)/,
+    )
+    await expect(a.page.getByTestId('day-summary')).toBeVisible()
     await expect(a.page.getByTestId('hero-headline')).toHaveCount(0)
     await openTask(a.page, 'ring-h1')
     await a.page.getByTestId('detail-track').click()

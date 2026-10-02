@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react'
-import { Animated, Easing, View } from 'react-native'
+import { Animated, Easing, Platform, View } from 'react-native'
 import Svg, { Circle } from 'react-native-svg'
 import { Icons } from '../icons'
 import { useTheme } from '../theme'
+import { EASE, prefersReducedMotion } from '../motion'
 import { motion } from '../tokens'
 
 const AnimatedCircle = Animated.createAnimatedComponent(Circle)
@@ -15,11 +16,13 @@ export function ProgressRing({
   stroke,
   progress,
   done = false,
+  doneAt = null,
 }: {
   size: number
   stroke: number
   progress: number // 0 to 1
   done?: boolean
+  doneAt?: string | null // when it was finished: within the last two seconds the filled circle pops in
 }) {
   const { theme } = useTheme()
   const c = theme.colors
@@ -36,20 +39,7 @@ export function ProgressRing({
     }).start()
   }, [target, circumference, offset])
   if (done) {
-    return (
-      <View
-        style={{
-          width: size,
-          height: size,
-          borderRadius: size / 2,
-          backgroundColor: c.primary,
-          alignItems: 'center',
-          justifyContent: 'center',
-        }}
-      >
-        <Icons.check size={Math.round(size * 0.6)} color={c.onPrimary} filled />
-      </View>
-    )
+    return <DoneCircle size={size} doneAt={doneAt} />
   }
   return (
     <View style={{ width: size, height: size }}>
@@ -80,6 +70,36 @@ export function ProgressRing({
         ) : null}
       </Svg>
     </View>
+  )
+}
+
+// The solid primary circle with an on-primary check. Finished a moment ago, it pops in (0.6, 1.15, 1 over 300 ms).
+function DoneCircle({ size, doneAt }: { size: number; doneAt: string | null }) {
+  const { theme } = useTheme()
+  const c = theme.colors
+  const [pop] = useState(() => !!doneAt && Date.now() - Date.parse(doneAt) < 2000)
+  const [scale] = useState(() => new Animated.Value(pop && !prefersReducedMotion() ? 0.6 : 1))
+  useEffect(() => {
+    if (!pop || prefersReducedMotion()) return
+    Animated.sequence([
+      Animated.timing(scale, { toValue: 1.15, duration: 160, easing: EASE, useNativeDriver: Platform.OS !== 'web' }),
+      Animated.timing(scale, { toValue: 1, duration: 140, easing: EASE, useNativeDriver: Platform.OS !== 'web' }),
+    ]).start()
+  }, [pop, scale])
+  return (
+    <Animated.View
+      style={{
+        width: size,
+        height: size,
+        borderRadius: size / 2,
+        backgroundColor: c.primary,
+        alignItems: 'center',
+        justifyContent: 'center',
+        transform: [{ scale }],
+      }}
+    >
+      <Icons.check size={Math.round(size * 0.6)} color={c.onPrimary} bold />
+    </Animated.View>
   )
 }
 

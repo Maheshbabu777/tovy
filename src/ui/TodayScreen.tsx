@@ -1,22 +1,32 @@
-import { useWindowDimensions, View } from 'react-native'
+import { Text, useWindowDimensions, View } from 'react-native'
+import { useRouter } from 'expo-router'
 import { batch } from '@legendapp/state'
 import { Icons } from './icons'
 import { dateLine, groupTasks, localDay } from '../core/today'
+import { daySummary, timelyGreeting } from '../core/views'
 import { Banner, EmptyState, Skeleton } from './components/Feedback'
 import { Page } from './components/Page'
-import { ScreenHeader } from './components/ScreenHeader'
+import { IconButton } from './components/IconButton'
 import { useToast } from './components/Toast'
-import { AddTaskRow, TaskSection } from './TaskList'
-import { WIDE_BREAKPOINT } from './tokens'
+import { Composer, TaskSection } from './TaskList'
+import { requestPalette } from './quickAdd'
+import { useTheme } from './theme'
+import { type, WIDE_BREAKPOINT } from './tokens'
+import { useProfile } from './useProfile'
 import { useOnline } from './useOnline'
 import { useTaskActions } from './useTaskActions'
 import { useNow, useTaskData } from './useTaskData'
 
-// Today (style guide, Navigation and Task row): the title and the date, then the list split by section headers.
+// Today: the date, a greeting for the time of day with the first name, a one line summary of the day, the composer
+// (wide), then the list split by section headers.
 // Overdue has a Reschedule action that moves every late task to today. No points or ring. A task added here has no date,
 // so it lands in Anytime.
 export function TodayScreen() {
   const toast = useToast()
+  const router = useRouter()
+  const { theme } = useTheme()
+  const c = theme.colors
+  const profile = useProfile()
   const wide = useWindowDimensions().width >= WIDE_BREAKPOINT
   const now = useNow()
   const online = useOnline()
@@ -61,7 +71,39 @@ export function TodayScreen() {
 
   return (
     <Page>
-      <ScreenHeader title="Today" subtitle={dateLine(now)} titleTestID="today-title" />
+      <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 8, paddingTop: 8 }}>
+        <View style={{ flex: 1, minWidth: 0 }}>
+          <Text testID="today-date" style={[type.monoS, { color: c.text2 }]}>
+            {dateLine(now)}
+          </Text>
+          <Text
+            testID="today-title"
+            accessibilityRole="header"
+            style={[wide ? type.displayXl : type.display, { color: c.text, marginTop: 6 }]}
+          >
+            {timelyGreeting(now, profile?.first_name)}
+          </Text>
+          <Text testID="day-summary" style={[type.bodyS, { color: c.text2, marginTop: 6 }]}>
+            {daySummary(groups)}
+          </Text>
+        </View>
+        {wide ? (
+          <View style={{ flexDirection: 'row', gap: 4, marginTop: 14 }}>
+            <IconButton icon={Icons.search} label="Search" onPress={requestPalette} testID="today-search" />
+            <IconButton
+              icon={Icons.upcoming}
+              label="Upcoming"
+              onPress={() => router.navigate('/upcoming')}
+              testID="today-upcoming"
+            />
+          </View>
+        ) : null}
+      </View>
+      {wide ? (
+        <View style={{ marginTop: 24 }}>
+          <Composer onAdd={addTask} placeholder="Add a task" testID="new-title" />
+        </View>
+      ) : null}
 
       <View style={{ gap: 8, marginTop: 8 }}>
         {!online ? <Banner kind="offline">Offline. Changes are saved on this device and sync later.</Banner> : null}
@@ -86,11 +128,6 @@ export function TodayScreen() {
               }
             />
           ))}
-          {wide ? (
-            <View style={{ marginTop: empty ? 8 : 0 }}>
-              <AddTaskRow onAdd={addTask} />
-            </View>
-          ) : null}
           {empty ? (
             <EmptyState icon={Icons.today} title="A clear day" body="Nothing scheduled. Add a task to get started." />
           ) : null}

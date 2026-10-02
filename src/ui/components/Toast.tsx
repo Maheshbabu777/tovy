@@ -1,9 +1,10 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react'
-import { Animated, Easing, Platform, Pressable, Text, useWindowDimensions, View } from 'react-native'
+import { Animated, Easing, Pressable, Text, useWindowDimensions, View } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { Icons } from '../icons'
+import { animate } from '../motion'
 import { useTheme } from '../theme'
-import { fonts, motion, radius, type, WIDE_BREAKPOINT } from '../tokens'
+import { fonts, radius, type, WIDE_BREAKPOINT } from '../tokens'
 import { shadow, SHADOWS } from './web'
 
 // Style guide, Toast: inverted (text colour ground), 48 tall, radius 12, Undo as a translucent pill. Bottom centre (84 up
@@ -43,8 +44,7 @@ function ToastView({ toast, onDone }: { toast: ToastInput; onDone: () => void })
   const [enter] = useState(() => new Animated.Value(0))
   const [drain] = useState(() => new Animated.Value(1))
   useEffect(() => {
-    const ease = Easing.bezier(...motion.easing)
-    Animated.timing(enter, { toValue: 1, duration: 250, easing: ease, useNativeDriver: Platform.OS !== 'web' }).start()
+    animate(enter, 1, 250)
     Animated.timing(drain, { toValue: 0, duration: TOAST_MS, easing: Easing.linear, useNativeDriver: false }).start(
       ({ finished }) => {
         if (finished) onDone()
