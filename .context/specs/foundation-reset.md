@@ -49,6 +49,8 @@ Stages, in order. Each stage is a spec and a pull request, approved before code,
 7. **AI connection:** MCP server with direct writes, destructive tools that ask in the AI app, activity feed with undo, Trash, per app access, as in `project-plan.md` phase 6.
 8. Then the rest of the project plan (reminders, search, onboarding, export).
 
+Open leftovers and ideas are tracked in `.context/backlog.md`.
+
 Files for stage 1, in order: `.context/design/style-guide.md`; the rendered style guide page for review; `src/ui/tokens.ts`, `src/ui/theme.tsx`; new `src/ui/icons.ts` and its test; `src/ui/components/*`; a dev gallery route under `app/`; `src/ui/TodayScreen.tsx`, `HeroCard.tsx`, `RingClosed.tsx`, `app/_layout.tsx` (loading); the e2e tests for the hero ring (`h1`).
 
 Risks:
