@@ -72,7 +72,7 @@ Risks:
 - [x] 1 Sync tests start from a saved session (first)
 - [ ] 2 Email code sign-in screen
 - [x] 3 Session and PKCE (web reload proven; phone restart not tested)
-- [ ] 4 Google on web (code and automated checks done, the real Google round trip needs the human, see Evidence)
+- [x] 4 Google on web (round trip proven by the human on 2026-10-02)
 - [x] 5 Sign out and local data
 - [x] 6 Signed-out access
 - [ ] 7 Security review
@@ -111,7 +111,8 @@ Slices 3 and 4 (criteria 3 and 4), branch `feat/auth-google-web`:
 - `g2` (browser): clicking the button sends the browser to Supabase's authorize address with `provider=google`, `redirect_to=http://localhost:8081`, a `code_challenge` of at least 43 characters and method `s256`.
 - `s1`: after a reload the app is still signed in and the note is still there. The session in that test is placed by the test harness, so this proves the app keeps and reuses a stored session, not yet the persistence of a session it created itself. The email code flow (slice 2) will cover that.
 - `npm run test:e2e`: 13 tests (14 with `s1`). 5 rebuild-then-run attempts all passed, plus 10 more full runs. One earlier full run failed once and could not be reproduced. I did not capture its message, so the cause is unknown (about 1 in 20 runs on this branch).
-- **Not proven, needs the human:** the real round trip through Google and back. It needs the app reachable at an address that is in Supabase's redirect allow-list: either run it on your own computer at `http://localhost:8081`, or put the web build on a free `*.pages.dev` address and add that to the allow-list. Until then criterion 3 is partly proven only (it reaches Google correctly, return not tried).
+- **Proven by the human (2026-10-02):** the real round trip through Google and back.
+- Evidence: after the human signed in with Google, the project's admin user list showed one non-test user created at 2026-10-02 09:23:48 with `app_metadata.provider` `google`, a `gmail.com` address, a confirmed email and Google profile fields in `user_metadata`; last sign in one second later. Read with the admin API, provider and time only. This also shows PKCE works end to end, since the client uses `flowType: 'pkce'`.
 - Supabase URL settings: the Redirect URLs allow-list is what permits `redirectTo`. The Site URL is the fallback when it is missing, and the address emails use. For development both are set to `http://localhost:8081`.
 
 ## Notes
