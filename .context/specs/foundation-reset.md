@@ -60,6 +60,7 @@ Risks:
 - [x] Research (`.context/research/task-and-habit-apps.md`)
 - [x] Open questions answered (accent and font are chosen on the style guide page)
 - [x] Spec and plan approved (human, 2026-10-03: "okay start")
+- [x] Style guide drafted (`.context/design/style-guide.md`, rendered as the Tovy Design System artifact)
 - [ ] Style guide approved
 - [ ] Tokens and icon toolkit
 - [ ] Component gallery
