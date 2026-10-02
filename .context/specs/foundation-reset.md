@@ -1,6 +1,6 @@
 # Foundation reset: design system first
 
-Status: draft
+Status: approved
 
 Size: risky (touches every screen, removes the points feature, and the next stages change the task schema). Done in stages, each with its own spec and pull request.
 
@@ -29,8 +29,8 @@ This spec covers stage 1, the design system. Stages 2 onward get their own specs
 
 ## Open questions
 
-- Visual direction: what should Tovy feel like (Todoist, Things 3, native Android Material 3, or something else)? Answer: the look follows Jomo (the screen time blocker app) on phone and as far as possible on web (human, 2026-10-03, replacing an earlier "Todoist-like" answer the same day). Structure (Inbox, Today, Upcoming, dense task lists, quick add) still follows Todoist. Jomo traits seen on its site and App Store page: one saturated blue, white cards with large radius and soft wide shadows, faint coloured washes per card, solid colour circles with white icons for categories, tall pill buttons, tight bold type and big numbers, sky and frosted glass moments. Its in-app screens still need checking from the human's screenshots.
-- Accent colour: keep indigo, or change? Answer: pending, a Jomo-like saturated blue is the lead option on the style guide page.
+- Visual direction: what should Tovy feel like (Todoist, Things 3, native Android Material 3, or something else)? Answer: Todoist-like design with a good colour palette (human, 2026-10-03). A Jomo-like look was considered the same day and dropped by the human.
+- Accent colour: keep indigo, or change? Answer: pending, chosen on the style guide page.
 - Font: keep Geist, or move to the platform font (Roboto on Android) or Inter? Answer: pending, shown as options on the style guide page.
 - Icon set: switch from Lucide to Phosphor for filled active states, or keep Lucide? Answer: Phosphor (human, 2026-10-03).
 - The word Inbox: every other app uses Inbox for captured tasks with no project. Tovy uses it for AI approvals. Rename the AI screen (for example "Requests") and use Inbox the usual way? Built in stage 2. Answer: Inbox means captured tasks (human, 2026-10-03). There is no AI approval screen at all: AI apps write directly and ask the user inside the AI app before deleting or removing (human, 2026-10-03, see `decisions.md`). The current approval Inbox and the proposals table are retired in stage 2.
@@ -59,7 +59,7 @@ Risks:
 
 - [x] Research (`.context/research/task-and-habit-apps.md`)
 - [x] Open questions answered (accent and font are chosen on the style guide page)
-- [ ] Spec and plan approved
+- [x] Spec and plan approved (human, 2026-10-03: "okay start")
 - [ ] Style guide approved
 - [ ] Tokens and icon toolkit
 - [ ] Component gallery
