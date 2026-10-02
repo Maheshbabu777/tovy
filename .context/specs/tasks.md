@@ -68,8 +68,8 @@ Risks:
 
 - [x] Questions answered (2026-10-02)
 - [x] Plan approved (human, 2026-10-02: "go ahead")
-- [ ] 1 Tables and row security (SQL test passes in CI, dev apply to be checked after merge)
-- [ ] 2 Store
+- [x] 1 Tables and row security
+- [x] 2 Store
 - [ ] 3 Task list screen
 - [ ] 4 Subtasks
 - [ ] 5 Projects and No project
@@ -84,7 +84,14 @@ Slice 1 (criteria 6, 10 and the table part of 11), branch `feat/tasks-tables`:
 - `bash supabase/tests/run.sh`: `PASS: tasks and projects are isolated and their rules hold` (exit 0), after the existing notes test.
 - Covered by the test: a subtask under a quick task is refused, a task cannot be its own parent, a task cannot move under its own descendant, a deep task with live subtasks cannot become quick, a due time needs a due date, an unknown kind is refused; user B sees none of A's rows, cannot update, delete or forge them, cannot link a task to A's project or put one under A's task; neither user can hard delete.
 - Mutation checks (each applied alone to the migration, then restored): cycle check removed gave `FAIL: a cycle was created`; quick parent allowed gave `FAIL: a subtask was added under a quick task`; project link unchecked gave `FAIL: user B linked a task to A's project`; select policy opened to everyone gave `FAIL: user B saw 4 of A's tasks`.
-- Not yet checked: the migration on the real dev project (CI applies it when this merges), and a very deep chain (the plan says test 50 levels, that comes with slice 4).
+- Checked on the real dev project after merge: CI applied `0003` (both tables answer HTTP 200). Through the API with two temporary users (deleted afterwards, 1 user left): 13 of 13 checks passed. A, a deep task with due date and time, a quick task and a subtask are accepted (201). A subtask under a quick task, a move under its own subtask, a deep task with a live subtask becoming quick and a due time without a date are refused (400). B sees 0 of A's tasks (200, empty), cannot link a task to A's project or put one under A's task (403). Signed out sees nothing (200, empty) and cannot write (401).
+
+Slice 2 (store), branch `feat/tasks-store`:
+
+- `src/core/sync/tasks.ts`: `createTasksStore(userId)` holds tasks and projects (one persisted store each, per user), with add, edit, done, kind, move to project, move under a parent, delete with everything beneath it and an `undo`, and project add, rename, colour and delete (its tasks move to "No project"). The rules mirror the database trigger, so a wrong action fails at once on the device. It keeps `dispose()` and the catch-up after realtime for both tables. The shared sync configuration moved to `src/core/sync/syncConfig.ts` and `notes.ts` uses it.
+- 9 new unit tests, 12 in total, all passing. They include a chain 50 levels deep (the plan's risk), cycle refusal at any depth, delete and undo of a three level tree, and project delete keeping tasks. Four deliberate breakages (cycle check removed, quick parent allowed, undo restoring nothing, project delete deleting tasks) each failed exactly one test, and the file was restored.
+- `npm run test:e2e`: 14 passed (the notes tests, unchanged), and the project had 1 user afterwards. Lint, format check and typecheck pass.
+- Not proven: sync of the tasks store against Supabase (that needs the screen and the ported e2e tests, slices 3 and 6), and the 5 second undo timing (a screen concern, slice 3).
 
 ## Notes
 

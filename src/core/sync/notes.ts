@@ -1,16 +1,9 @@
 import { v4 as uuidv4 } from 'uuid'
 import { observable, syncState } from '@legendapp/state'
-import { configureSyncedSupabase, syncedSupabase } from '@legendapp/state/sync-plugins/supabase'
+import { syncedSupabase } from '@legendapp/state/sync-plugins/supabase'
 import { supabase } from '../db/supabase'
+import './syncConfig'
 import { createPersistPlugin } from './persistPlugin'
-
-configureSyncedSupabase({
-  generateId: () => uuidv4(),
-  changesSince: 'last-sync',
-  fieldCreatedAt: 'created_at',
-  fieldUpdatedAt: 'updated_at',
-  fieldDeleted: 'deleted',
-})
 
 export type Note = {
   id: string
