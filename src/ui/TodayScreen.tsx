@@ -55,8 +55,6 @@ export function TodayScreen() {
   const tasksMap = use$(store.tasks$) as Record<string, Task> | undefined
   const projectMap = use$(store.projects$) as Record<string, Project> | undefined
   const taskState = syncState(store.tasks$)
-  const projectState = syncState(store.projects$)
-  const pending = (use$(taskState.numPendingSets) ?? 0) + (use$(projectState.numPendingSets) ?? 0)
   const loaded = use$(taskState.isPersistLoaded)
   const syncError = use$(taskState.error)
 
@@ -193,9 +191,6 @@ export function TodayScreen() {
                 {firstName ? `, ${firstName}` : ''}
               </Text>
             </View>
-            <Text testID="status" style={[type.monoXs, { color: c.ink5, marginTop: 4 }]}>
-              {!loaded ? 'loading' : pending > 0 ? `pending ${pending}` : 'synced'}
-            </Text>
           </View>
 
           <View style={{ gap: 8, marginTop: 16 }}>

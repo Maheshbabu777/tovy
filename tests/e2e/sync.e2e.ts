@@ -83,7 +83,7 @@ async function newDevice(
   const page = await context.newPage()
   await page.goto('/')
   if (user) {
-    await expect(page.getByTestId('status')).toHaveText('synced', { timeout: 15_000 })
+    await expect(page.locator('html')).toHaveAttribute('data-sync', 'synced', { timeout: 15_000 })
     await Promise.race([
       realtimeReady,
       new Promise<void>((_, reject) =>
@@ -216,7 +216,7 @@ async function signInThroughScreen(p: Page, u: { email: string }) {
   await p.getByTestId('send-code').click()
   await expect(p.getByTestId('code')).toBeVisible()
   await p.getByTestId('code').fill(await emailCodeFor(u.email))
-  await expect(p.getByTestId('status')).toHaveText('synced', { timeout: 15_000 })
+  await expect(p.locator('html')).toHaveAttribute('data-sync', 'synced', { timeout: 15_000 })
 }
 
 const titles = (p: Page) =>
@@ -247,7 +247,7 @@ async function openProfile(p: Page) {
   }).toPass({ timeout: 15_000 })
 }
 async function waitSynced(d: Device) {
-  await expect(d.page.getByTestId('status')).toHaveText('synced', { timeout: 15_000 })
+  await expect(d.page.locator('html')).toHaveAttribute('data-sync', 'synced', { timeout: 15_000 })
 }
 async function expectTitles(p: Page, expected: string[], timeout = SYNC_BUDGET_MS) {
   // poll every 50 ms so the measured sync time is not rounded up to the default back-off steps
@@ -475,7 +475,7 @@ test.describe('sync spike', () => {
     await expect(d.page.getByTestId('google-sign-in')).toBeVisible() // Google is the other way in
     await signInThroughScreen(d.page, user)
     await d.page.reload()
-    await expect(d.page.getByTestId('status')).toHaveText('synced', { timeout: 15_000 })
+    await expect(d.page.locator('html')).toHaveAttribute('data-sync', 'synced', { timeout: 15_000 })
     await expect(d.page.getByTestId('email')).toHaveCount(0) // still signed in after a reload
   })
 
@@ -490,7 +490,7 @@ test.describe('sync spike', () => {
 
     // signed in, but nothing yet: the setup step comes before the task list
     await expect(p.getByTestId('first-name')).toBeVisible({ timeout: 15_000 })
-    await expect(p.getByTestId('status')).toHaveCount(0)
+    await expect(p.locator('html')).not.toHaveAttribute('data-sync', /./)
     await expect(p.getByTestId('save-profile')).toBeVisible()
 
     // nothing filled in: every field says what is missing
@@ -517,7 +517,7 @@ test.describe('sync spike', () => {
     await p.getByTestId('username').fill(mine.toUpperCase())
     await expect(p.getByTestId('username-hint')).toContainText('free')
     await p.getByTestId('save-profile').click()
-    await expect(p.getByTestId('status')).toHaveText('synced', { timeout: 15_000 })
+    await expect(p.locator('html')).toHaveAttribute('data-sync', 'synced', { timeout: 15_000 })
 
     // the server holds the trimmed profile, and a reload goes straight to the tasks
     const login = await fetch(`${SUPABASE_URL}/auth/v1/admin/generate_link`, {
@@ -533,7 +533,7 @@ test.describe('sync spike', () => {
     ).json()
     expect(rows).toEqual([{ first_name: 'Ada', last_name: 'Lovelace', username: mine }])
     await p.reload()
-    await expect(p.getByTestId('status')).toHaveText('synced', { timeout: 15_000 })
+    await expect(p.locator('html')).toHaveAttribute('data-sync', 'synced', { timeout: 15_000 })
     await expect(p.getByTestId('first-name')).toHaveCount(0)
   })
 
@@ -546,7 +546,7 @@ test.describe('sync spike', () => {
     await d.page.getByTestId('code').fill('000000')
     await expect(d.page.getByTestId('auth-error')).toContainText('wrong or expired')
     await expect(d.page.getByTestId('code')).toBeVisible() // still on the code step
-    await expect(d.page.getByTestId('status')).toHaveCount(0) // not signed in
+    await expect(d.page.locator('html')).not.toHaveAttribute('data-sync', /./) // not signed in
     // typing again clears the message, and a code that is not 6 digits is not sent
     await d.page.getByTestId('code').fill('123')
     await expect(d.page.getByTestId('auth-error')).toHaveCount(0)
@@ -573,7 +573,7 @@ test.describe('sync spike', () => {
     const a = await newDevice(browser, user) // loading the profile also saves a copy on the device
     await a.setOffline(true)
     await a.page.reload()
-    await expect(a.page.getByTestId('status')).toBeVisible({ timeout: 15_000 }) // the task list, not a setup or error step
+    await expect(a.page.locator('html')).toHaveAttribute('data-sync', /./, { timeout: 15_000 }) // the task list, not a setup or error step
     await expect(a.page.getByTestId('profile-unavailable')).toHaveCount(0)
     await expect(a.page.getByTestId('first-name')).toHaveCount(0)
   })
@@ -584,10 +584,10 @@ test.describe('sync spike', () => {
     await a.setOffline(true)
     await a.page.reload()
     await expect(a.page.getByTestId('profile-unavailable')).toBeVisible({ timeout: 15_000 })
-    await expect(a.page.getByTestId('status')).toHaveCount(0)
+    await expect(a.page.locator('html')).not.toHaveAttribute('data-sync', /./)
     await a.setOffline(false)
     await a.page.getByTestId('profile-retry').click()
-    await expect(a.page.getByTestId('status')).toHaveText('synced', { timeout: 15_000 })
+    await expect(a.page.locator('html')).toHaveAttribute('data-sync', 'synced', { timeout: 15_000 })
   })
 
   test('6: unsynced changes survive an app restart and sync later', async ({ browser }) => {
@@ -767,7 +767,7 @@ test.describe('sync spike', () => {
     await signInThroughScreen(a.page, userB)
     expect(await titles(a.page)).toEqual([]) // the next user sees none of the first user's tasks
     await a.page.reload()
-    await expect(a.page.getByTestId('status')).toHaveText('synced', { timeout: 15_000 })
+    await expect(a.page.locator('html')).toHaveAttribute('data-sync', 'synced', { timeout: 15_000 })
     expect(await titles(a.page)).toEqual([]) // and none came back from the device's local copy
   })
 
@@ -792,7 +792,7 @@ test.describe('sync spike', () => {
     await expect.poll(() => serverTitles(user), { timeout: 10_000 }).toContain('saved-so3') // really saved
     await a.setOffline(true)
     await addNote(a.page, 'unsynced-so3')
-    await expect(a.page.getByTestId('status')).toHaveText('pending 1')
+    await expect(a.page.locator('html')).toHaveAttribute('data-sync', 'pending 1')
 
     await openProfile(a.page)
     await a.page.getByTestId('sign-out').click()
@@ -849,7 +849,7 @@ test.describe('sync spike', () => {
 
     await a.page.reload()
     await expect(a.page.getByTestId('email')).toHaveCount(0) // no sign in screen
-    await expect(a.page.getByTestId('status')).toHaveText('synced', { timeout: 15_000 })
+    await expect(a.page.locator('html')).toHaveAttribute('data-sync', 'synced', { timeout: 15_000 })
     await expect.poll(() => titles(a.page), { timeout: 10_000 }).toContain('still-here-s1')
   })
 })

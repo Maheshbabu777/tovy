@@ -33,6 +33,10 @@ Agents: add a line only when the human states a standing preference for this pro
 - No em dashes or en dashes in anything a human reads. Use periods, commas or hyphens.
 - No sycophantic openers.
 
+## Product
+
+- Design for the user and show only what is useful to them. No technical details like "synced" on screen; judge every screen from the user's point of view. Go all in and complete the whole design. (2026-10-02)
+
 ## Working style
 
 - 
