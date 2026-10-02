@@ -37,7 +37,7 @@ Tovy only has the spike's notes list. Phase 2 of `.context/project-plan.md` make
 
 - Fields for now: title, note, due date, done. Answer: yes (2026-10-02).
 - The spike `notes` table: drop it at the end of this spec, after the tasks screen replaces the notes list? Answer: yes, drop it last (2026-10-02). This deletes data in the database and cannot be undone, so it is the final slice.
-- Deleting a project: move its tasks to Inbox, or delete them too? Answer: move them to Inbox (2026-10-02).
+- Deleting a project: move its tasks to "No project" (first called Inbox when asked), or delete them too? Answer: move them to "No project" (2026-10-02).
 - Subtasks one level deep, or unlimited nesting? Answer: unlimited nesting (2026-10-02), against my recommendation of one level. That is why criteria 5 and 6 changed: depth is unbounded, a task can never end up under itself, and delete and undo cover every descendant.
 - Quick versus deep tasks (from the design): add a `kind` now, subtasks only on deep tasks? Answer: yes (2026-10-02).
 - Name for tasks with no project, since the design uses Inbox for the AI approval inbox? Answer: "No project" (2026-10-02).
