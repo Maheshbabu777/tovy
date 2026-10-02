@@ -70,7 +70,7 @@ Risks:
 - [x] Plan approved (treated as approved when the human said "done from my side", 2026-10-02, after sending the setup and the spec; say so if not)
 - [x] 1 Profiles table and row security
 - [x] 2 Email code sign in (real email delivery still to be checked by the human, see Evidence)
-- [ ] 3 Profile step
+- [x] 3 Profile step
 - [ ] 4 Phone check
 
 ## Evidence
@@ -87,6 +87,13 @@ Slice 2 (criteria 1 to 4 and part of 10), branch `feat/auth-email-code`:
 - `src/ui/SignInScreen.tsx` replaces the sign in form in `app/index.tsx`: email, then a 6 digit code (`signInWithOtp` with `shouldCreateUser`, then `verifyOtp` type `email`), a new code can be asked for after a 60 s wait (shown as a countdown, or the wait the server names), "use a different email", Google on web, no password field. `src/core/auth/errors.ts` turns Supabase errors into plain messages (wrong or expired code, rate limit with the wait, bad address, no connection) and has 4 unit tests.
 - e2e: the sign-out tests now sign in with the code. The code is read through the admin API `generate_link` and the screen's request to send mail is mocked in the test, so no real email is ever sent to the test addresses (they are made-up Gmail addresses, and bounces would hurt the sender). New tests: `c1` sign in with a code and stay signed in after a reload (criteria 1 and 4, no password field, Google button present), `c2` an email with no account gets one (register), `c3` a wrong code shows an error and does not sign in, and a code that is not 6 digits is refused on the screen, `c4` a rate limit answer shows "Too many codes" and the send button waits. `npm run test:e2e`: 22 passed (one earlier full run had test 7 stall for 2 minutes, a network stall, it passed alone in 6 s and in the next full run). Lint, format check, typecheck and 13 unit tests pass.
 - Not proven: that a real email arrives and shows 6 digits (Gmail SMTP and both templates). The tests never send mail, by design. The human checks this by opening the deployed app or a preview, asking for a code for their own address and reading the email. Also not proven: Expo Go (slice 4), and that a new address really gets the Confirm signup email with a code instead of a link (only the real email shows this).
+
+Slice 3 (criteria 5, 6, 7 and 9), branch `feat/auth-profile-step`:
+
+- `src/ui/ProfileGate.tsx` sits between sign in and the task list. It reads the copy of the profile kept on the device and asks the server. Found: the tasks show. None: the setup step (first name, last name, username, names prefilled from Google's `given_name` and `family_name`, or a split of its full name, `prefillNames`). Could not ask and no copy: "Connect to the internet to finish setting up" with a Try again button. The username is checked for being free shortly after typing (`username_available`), lowercased as typed, and saved with an insert. `src/core/profile/rules.ts` (rules and prefill, 7 unit tests) and `profile.ts` (device copy, load, save). `app/index.tsx` passes Google's details through and removes the device copy at sign out. The device copy lives in the same storage as the auth session (localStorage on web, SQLite key-value on a phone).
+- e2e: `createUser` now creates a profile for each test user (so every other test skips the step). `c2` registers a new email: setup step appears and the task list does not, every empty field says what is missing, a bad username is refused, a taken username shows "taken" live and on save and keeps the person on the step, a free one typed in capitals is saved lowercase, the server row has the trimmed names, and a reload goes straight to the tasks. `p1` offline start with a saved profile reaches the task list. `p2` no saved copy and offline shows the connect message, and Try again works once online. `so1` also checks that sign out leaves no `tovy-profile-` copy. `npm run test:e2e`: 24 passed. 20 unit tests, lint, format check and typecheck pass.
+- Found by `c2` and fixed: an old error message stayed on a field after the person corrected it and hid the live "taken" hint, and a late "taken" answer from a save in flight overwrote the hint for a username typed after it.
+- Not proven: Google prefill with a real Google account (only the function is unit tested, the e2e tests do not go through Google), the screens in Expo Go (slice 4), and the setup step looked at by eye.
 
 ## Notes
 
