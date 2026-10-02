@@ -72,7 +72,7 @@ Risks:
 - [x] 2 Store
 - [x] 3 Task list screen
 - [x] 4 Subtasks
-- [ ] 5 Projects and No project
+- [x] 5 Projects and No project
 - [ ] 6 End to end
 - [ ] 7 Remove the spike
 
@@ -106,6 +106,13 @@ Slice 4 (subtasks and kind), branch `feat/tasks-subtasks`:
 - Found by the new e2e tests, and fixed in `src/core/sync/tasks.ts` (the plugin's create call): (1) a subtask added in the same offline session as its parent was sent at the same time and refused by the database (parent not there yet), so it never reached the server. Now a refusal that says the parent or project does not exist, or that the parent is not deep yet, is retried for a few seconds. (2) A task changed while its first insert was still in flight was sent as a second insert, got a duplicate key error and stayed pending forever, and in one case a deleted task came back on screen. Now a repeat insert of a row the server has is saved as an upsert. Both races were reproduced (request log showed the 403, 409 and 400 refusals) and gone after the fix.
 - e2e: `t2` (nest three levels, direct count, deep stays deep with an error, delete and Undo cover all three, and after the Undo expires all three are deleted on the server), `t3` (parent and subtask added offline both reach the server after reconnect). `npm run test:e2e`: 17 passed (the suite plus t1, t2, t3), worst local write 16.4 ms. 12 unit tests, lint, format check and typecheck pass.
 - Not proven: the retry gives up after about 14 seconds (8 tries) if a parent never saves, then the change stays pending. A slow network with many levels created at once is untested. The screen was not looked at by eye.
+
+Slice 5 (projects and "No project"), branch `feat/tasks-projects`:
+
+- `src/ui/TasksScreen.tsx`: tasks are grouped in a card per project plus a "No project" card (shown when it has tasks, or when there are no projects). Each project header has its colour dot (tap to cycle the five colours), an editable name, a task count and delete (its tasks move to "No project", none are deleted). A "New project" bar adds projects. The task editor has a chip row to move a task to a project or back to "No project". Subtasks stay under their parent. The sync status and the sign-out warning now count unsynced project edits too.
+- e2e `t4`: create a project, a task starts under "No project", move it into the project (the server row holds the project id), delete the project: the task shows under "No project" and the server holds `project_id` null and no live project. `npm run test:e2e`: 18 passed, worst local write 12.6 ms. Lint, format check and typecheck pass.
+- Found: gating the "loading" label on the projects store's `isPersistLoaded` left every screen on "loading" (it does not become true here), so only the tasks store gates it. Not looked into further.
+- Not proven: project rename and colour change sync (only add and delete are checked by e2e, the store unit test covers rename and colour); a task moved to a project created in the same offline session (the create retry covers it in theory, not tested); the screen was not looked at by eye.
 
 ## Notes
 

@@ -3,8 +3,8 @@ import { Image, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 
 import { syncState } from '@legendapp/state'
 import { use$ } from '@legendapp/state/react'
 import { supabase } from '../core/db/supabase'
-import type { Task, TaskEdit, TasksStore } from '../core/sync/tasks'
-import { colors, fonts, radius } from './tokens'
+import type { Project, Task, TaskEdit, TasksStore } from '../core/sync/tasks'
+import { colors, fonts, projectColors, radius } from './tokens'
 
 // Test hook: lets the end-to-end tests read tap-to-render timings.
 const perf: number[] = []
@@ -24,10 +24,13 @@ function dueLabel(t: Task): string {
 
 export function TasksScreen({ store }: { store: TasksStore }) {
   const tasks = use$(store.tasks$) as Record<string, Task> | undefined
+  const projectMap = use$(store.projects$) as Record<string, Project> | undefined
   const state = syncState(store.tasks$)
-  const pending = use$(state.numPendingSets) ?? 0
+  const projectState = syncState(store.projects$)
+  const pending = (use$(state.numPendingSets) ?? 0) + (use$(projectState.numPendingSets) ?? 0)
   const loaded = use$(state.isPersistLoaded)
   const [draft, setDraft] = useState('')
+  const [projectDraft, setProjectDraft] = useState('')
   const [openId, setOpenId] = useState<string | null>(null)
   const [error, setError] = useState('')
   const [undo, setUndo] = useState<{ undo: () => void; count: number } | null>(null)
@@ -40,7 +43,9 @@ export function TasksScreen({ store }: { store: TasksStore }) {
 
   // Read the live count when the button is pressed, not the one from the last render, which can lag a fresh edit.
   function requestSignOut() {
-    const unsynced = Math.max(state.numPendingSets.peek() ?? 0, Object.keys(state.getPendingChanges() ?? {}).length)
+    const count = (st: typeof state) =>
+      Math.max(st.numPendingSets.peek() ?? 0, Object.keys(st.getPendingChanges() ?? {}).length)
+    const unsynced = count(state) + count(projectState)
     if (unsynced > 0) {
       setUnsyncedCount(unsynced)
       setConfirmingSignOut(true)
@@ -67,9 +72,13 @@ export function TasksScreen({ store }: { store: TasksStore }) {
     })
   }
 
+  const projects = Object.values(projectMap ?? {})
+    .filter((p) => p && !p.deleted)
+    .sort((a, b) => (a.created_at ?? '~').localeCompare(b.created_at ?? '~') || a.id.localeCompare(b.id))
   const ctx: TreeContext = {
     store,
     tasks: tasks ?? {},
+    projects,
     openId,
     setOpenId,
     run: (action) => run(() => measure(action)),
@@ -117,11 +126,46 @@ export function TasksScreen({ store }: { store: TasksStore }) {
         </Text>
       ) : null}
 
-      <View style={styles.card}>
-        {list.length === 0 ? <Text style={styles.empty}>No tasks yet</Text> : null}
-        {list.map((t) => (
-          <TaskTree key={t.id} task={t} depth={0} ctx={ctx} />
-        ))}
+      {[...projects.map((p) => ({ project: p as Project | null })), { project: null as Project | null }].map(
+        ({ project }) => {
+          const mine = list.filter((t) => (t.project_id ?? null) === (project?.id ?? null))
+          if (!project && mine.length === 0 && projects.length > 0) return null
+          return (
+            <View
+              key={project?.id ?? 'none'}
+              testID={project ? `project-${project.id}` : 'project-none'}
+              style={styles.card}
+            >
+              <ProjectHeader project={project} count={mine.length} ctx={ctx} />
+              {mine.length === 0 ? <Text style={styles.empty}>No tasks</Text> : null}
+              {mine.map((t) => (
+                <TaskTree key={t.id} task={t} depth={0} ctx={ctx} />
+              ))}
+            </View>
+          )
+        },
+      )}
+
+      <View style={styles.addBar}>
+        <TextInput
+          testID="new-project"
+          placeholder="New project"
+          placeholderTextColor={colors.inkFaint}
+          value={projectDraft}
+          onChangeText={setProjectDraft}
+          style={styles.addInput}
+        />
+        <Pressable
+          testID="add-project"
+          style={styles.addButton}
+          onPress={() => {
+            if (!projectDraft.trim()) return
+            run(() => store.addProject(projectDraft.trim(), 'indigo'))
+            setProjectDraft('')
+          }}
+        >
+          <Text style={styles.addText}>Add</Text>
+        </Pressable>
       </View>
 
       {undo ? (
@@ -167,6 +211,7 @@ export function TasksScreen({ store }: { store: TasksStore }) {
 type TreeContext = {
   store: TasksStore
   tasks: Record<string, Task>
+  projects: Project[]
   openId: string | null
   setOpenId: (id: string | null) => void
   run: (action: () => void) => void
@@ -189,6 +234,62 @@ function TaskTree({ task, depth, ctx }: { task: Task; depth: number; ctx: TreeCo
         <TaskTree key={t.id} task={t} depth={depth + 1} ctx={ctx} />
       ))}
     </>
+  )
+}
+
+const colorNames = Object.keys(projectColors)
+
+// "No project" (project is null) or a project: dot, name, count. A project's name can be edited here, its colour
+// cycled, and it can be deleted (its tasks move to "No project").
+function ProjectHeader({ project, count, ctx }: { project: Project | null; count: number; ctx: TreeContext }) {
+  const dot = projectColors[project?.color ?? 'slate'] ?? projectColors.slate
+  return (
+    <View style={styles.row}>
+      {project ? (
+        <Pressable
+          testID={`project-color-${project.id}`}
+          accessibilityLabel="Change colour"
+          style={styles.checkHit}
+          onPress={() =>
+            ctx.run(() =>
+              ctx.store.setProjectColor(
+                project.id,
+                colorNames[(colorNames.indexOf(project.color) + 1) % colorNames.length],
+              ),
+            )
+          }
+        >
+          <View style={[styles.dot, { backgroundColor: dot }]} />
+        </Pressable>
+      ) : (
+        <View style={styles.checkHit}>
+          <View style={[styles.dot, { backgroundColor: dot }]} />
+        </View>
+      )}
+      {project ? (
+        <TextInput
+          testID={`project-name-${project.id}`}
+          value={project.name}
+          onChangeText={(v) => ctx.run(() => ctx.store.renameProject(project.id, v))}
+          style={[styles.projectName, { flex: 1 }]}
+        />
+      ) : (
+        <Text testID="project-none-name" style={[styles.projectName, { flex: 1 }]}>
+          No project
+        </Text>
+      )}
+      <Text style={styles.meta}>{count === 1 ? '1 task' : `${count} tasks`}</Text>
+      {project ? (
+        <Pressable
+          testID={`project-delete-${project.id}`}
+          accessibilityLabel="Delete project"
+          style={styles.checkHit}
+          onPress={() => ctx.run(() => ctx.store.deleteProject(project.id))}
+        >
+          <Text style={styles.metaIcon}>✕</Text>
+        </Pressable>
+      ) : null}
+    </View>
   )
 }
 
@@ -279,6 +380,17 @@ function TaskRow({
               onChangeText={(v) => edit({ dueTime: v || null })}
               style={[styles.field, { flex: 1 }]}
             />
+          </View>
+          <View style={styles.metaRow}>
+            {[{ id: null as string | null, name: 'No project' }, ...ctx.projects].map((p) => (
+              <Pressable
+                key={p.id ?? 'none'}
+                testID={`move-${task.id}-${p.id ?? 'none'}`}
+                onPress={() => run(() => store.moveToProject(task.id, p.id))}
+              >
+                <Text style={[styles.chip, (task.project_id ?? null) === p.id && styles.chipOn]}>{p.name}</Text>
+              </Pressable>
+            ))}
           </View>
           <Pressable
             testID={`kind-${task.id}`}
@@ -378,6 +490,20 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
   },
   meta: { fontFamily: fonts.sans, fontSize: 13, fontWeight: '500', color: colors.inkSoft, marginTop: 2 },
+  dot: { width: 12, height: 12, borderRadius: 6 },
+  projectName: { fontFamily: fonts.sans, fontSize: 17, fontWeight: '600', color: colors.ink, padding: 0 },
+  chip: {
+    fontFamily: fonts.sans,
+    fontSize: 13,
+    color: colors.inkSoft,
+    borderWidth: 1,
+    borderColor: colors.ring,
+    borderRadius: radius.pill,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    overflow: 'hidden',
+  },
+  chipOn: { color: 'white', backgroundColor: colors.accent, borderColor: colors.accent },
   metaIcon: { color: colors.inkFaint, fontSize: 14 },
   editor: { gap: 8, paddingLeft: 42, paddingBottom: 8 },
   field: {
