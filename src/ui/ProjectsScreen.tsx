@@ -1,9 +1,8 @@
 import { useEffect, useState } from 'react'
-import { ScrollView, Text, useWindowDimensions, View } from 'react-native'
+import { Text, useWindowDimensions, View } from 'react-native'
 import { useLocalSearchParams, useRouter } from 'expo-router'
 import { use$ } from '@legendapp/state/react'
 import { syncState } from '@legendapp/state'
-import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { FolderPlus, ListChecks, Pencil, Plus } from 'lucide-react-native'
 import { projectStats, sortProjects, taskCountLabel } from '../core/projects'
 import type { Project, Task } from '../core/sync/tasks'
@@ -12,6 +11,7 @@ import { Button } from './components/Button'
 import { Card } from './components/Card'
 import { EmptyState, Skeleton } from './components/Feedback'
 import { IconButton } from './components/IconButton'
+import { Page } from './components/Page'
 import { ProgressBar } from './components/ProgressBar'
 import { ScreenHeader } from './components/ScreenHeader'
 import { useToast } from './components/Toast'
@@ -49,25 +49,6 @@ function useProjectData() {
   const tasks = Object.values(tasksMap ?? {}).filter(Boolean) as Task[]
   const projects = sortProjects((Object.values(projectMap ?? {}).filter((p) => p && !p.deleted) as Project[]) ?? [])
   return { store, tasks, projects, projectMap, loaded }
-}
-
-function Page({ children }: { children: React.ReactNode }) {
-  const { theme } = useTheme()
-  const insets = useSafeAreaInsets()
-  const wide = useWindowDimensions().width >= 768
-  return (
-    <View style={{ flex: 1, backgroundColor: theme.colors.bg }}>
-      <ScrollView
-        contentContainerStyle={{
-          paddingHorizontal: wide ? 32 : 16,
-          paddingTop: wide ? 16 : 8,
-          paddingBottom: wide ? 48 : 96 + insets.bottom,
-        }}
-      >
-        <View style={{ width: '100%', maxWidth: 672, alignSelf: 'center' }}>{children}</View>
-      </ScrollView>
-    </View>
-  )
 }
 
 function ProjectList() {

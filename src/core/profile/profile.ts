@@ -71,3 +71,16 @@ export async function saveProfile(userId: string, input: ProfileInput): Promise<
   }
   return { ok: false, field: 'form', message: 'Could not save. Check your connection and try again.' }
 }
+
+// Changes the names and username of an existing profile. The username may stay the same.
+export async function updateProfile(userId: string, input: ProfileInput): Promise<SaveResult> {
+  const { data, error } = await supabase
+    .from('profiles')
+    .update({ first_name: input.firstName, last_name: input.lastName, username: input.username })
+    .eq('id', userId)
+    .select(COLUMNS)
+    .single()
+  if (!error) return { ok: true, profile: data as Profile }
+  if (error.code === '23505') return { ok: false, field: 'username', message: 'That username is taken. Try another.' }
+  return { ok: false, field: 'form', message: 'Could not save. Check your connection and try again.' }
+}
