@@ -1,15 +1,13 @@
 import { useEffect, useState } from 'react'
 import { Pressable, ScrollView, Text, TextInput, useWindowDimensions, View } from 'react-native'
-import { useRouter } from 'expo-router'
 import { syncState } from '@legendapp/state'
 import { use$ } from '@legendapp/state/react'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
-import { ArrowUpRight, Calendar, CircleCheck, Plus, Trash2 } from 'lucide-react-native'
+import { CircleCheck, Plus } from 'lucide-react-native'
 import { readCachedProfile } from '../core/profile/profile'
 import type { Project, Task } from '../core/sync/tasks'
 import { addDays, dateLine, greeting, groupTasks, localDay, subtaskProgress } from '../core/today'
 import { Banner, EmptyState, Skeleton } from './components/Feedback'
-import { ContextMenu } from './components/ContextMenu'
 import { useToast } from './components/Toast'
 import { webStyle } from './components/web'
 import { onQuickAdd } from './quickAdd'
@@ -19,15 +17,7 @@ import { TaskRow } from './TaskRow'
 import { useTheme } from './theme'
 import { fonts, radius, type, WIDE_BREAKPOINT } from './tokens'
 import { useOnline } from './useOnline'
-
-// Test hook: lets the end-to-end tests read tap-to-render timings.
-const perf: number[] = []
-;(globalThis as any).__perf = perf
-function measure(action: () => void) {
-  const start = performance.now()
-  action()
-  requestAnimationFrame(() => perf.push(performance.now() - start))
-}
+import { useTaskActions } from './useTaskActions'
 
 // The date and the greeting stay right across midnight and a long session.
 function useNow(): Date {
@@ -43,7 +33,6 @@ function useNow(): Date {
 // up, Anytime, and what was finished today.
 export function TodayScreen() {
   const store = useStore()
-  const router = useRouter()
   const toast = useToast()
   const { theme } = useTheme()
   const c = theme.colors
@@ -51,6 +40,7 @@ export function TodayScreen() {
   const wide = useWindowDimensions().width >= WIDE_BREAKPOINT
   const now = useNow()
   const online = useOnline()
+  const { run, toggleDone, open, openMenu, menuElement } = useTaskActions(now)
 
   const tasksMap = use$(store.tasks$) as Record<string, Task> | undefined
   const projectMap = use$(store.projects$) as Record<string, Project> | undefined
@@ -61,7 +51,6 @@ export function TodayScreen() {
   const [firstName, setFirstName] = useState('')
   const [sheetOpen, setSheetOpen] = useState(false)
   const [draft, setDraft] = useState('')
-  const [menu, setMenu] = useState<{ task: Task; at: { x: number; y: number } } | null>(null)
 
   useEffect(() => store.catchUpAfterRealtime(), [store])
   useEffect(() => onQuickAdd(() => setSheetOpen(true)), [])
@@ -83,15 +72,6 @@ export function TodayScreen() {
     { key: 'done-today', title: 'Done today', rows: groups.doneToday },
   ].filter((s) => s.rows.length > 0)
 
-  // A store rule that refuses (it throws) is shown as a message instead of failing silently.
-  function run(action: () => void) {
-    try {
-      measure(action)
-    } catch (e) {
-      toast.show({ message: e instanceof Error ? e.message : String(e) })
-    }
-  }
-
   function addTask(input: { title: string; dueDate?: string | null; projectId?: string | null }) {
     run(() => {
       store.addTask({ title: input.title, dueDate: input.dueDate ?? null, projectId: input.projectId ?? null })
@@ -101,25 +81,6 @@ export function TodayScreen() {
       toast.show({ message: `Added "${input.title}"${when}` })
     })
   }
-
-  function toggleDone(task: Task) {
-    run(() => {
-      store.setDone(task.id, !task.done_at)
-      if (!task.done_at) toast.show({ message: `Done: ${task.title}` })
-    })
-  }
-
-  function remove(task: Task) {
-    run(() => {
-      const { ids, undo } = store.deleteTask(task.id)
-      toast.show({
-        message: ids.length === 1 ? 'Task deleted' : `${ids.length} tasks deleted`,
-        action: { label: 'Undo', onPress: undo },
-      })
-    })
-  }
-
-  const open = (task: Task) => router.push({ pathname: '/task/[id]', params: { id: task.id } })
 
   const quickBar = wide ? (
     <View
@@ -229,7 +190,7 @@ export function TodayScreen() {
                     now={now}
                     onToggleDone={() => toggleDone(task)}
                     onOpen={() => open(task)}
-                    onMenu={(at) => setMenu({ task, at })}
+                    onMenu={(at) => openMenu(task, at)}
                   />
                 ))}
               </View>
@@ -283,30 +244,7 @@ export function TodayScreen() {
         projects={projects}
         onAdd={(t) => addTask(t)}
       />
-      <ContextMenu
-        at={menu?.at ?? null}
-        onClose={() => setMenu(null)}
-        items={
-          menu
-            ? [
-                { label: 'Open', icon: ArrowUpRight, testID: 'menu-open', onPress: () => open(menu.task) },
-                {
-                  label: 'Move to tomorrow',
-                  icon: Calendar,
-                  testID: 'menu-tomorrow',
-                  onPress: () => run(() => store.editTask(menu.task.id, { dueDate: addDays(localDay(now), 1) })),
-                },
-                {
-                  label: 'Delete',
-                  icon: Trash2,
-                  danger: true,
-                  testID: 'menu-delete',
-                  onPress: () => remove(menu.task),
-                },
-              ]
-            : []
-        }
-      />
+      {menuElement}
     </View>
   )
 }

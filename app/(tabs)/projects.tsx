@@ -1,9 +1,5 @@
-import { Text, View } from 'react-native'
+import { ProjectsScreen } from '../../src/ui/ProjectsScreen'
 
 export default function Projects() {
-  return (
-    <View style={{ padding: 24 }}>
-      <Text>Projects</Text>
-    </View>
-  )
+  return <ProjectsScreen />
 }

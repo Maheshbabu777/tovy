@@ -19,16 +19,18 @@ export function QuickAddSheet({
   onClose,
   projects,
   onAdd,
+  defaultProjectId = null,
 }: {
   visible: boolean
   onClose: () => void
   projects: Project[]
+  defaultProjectId?: string | null
   onAdd: (task: { title: string; dueDate: string | null; projectId: string | null }) => void
 }) {
   // The form lives inside the sheet, which draws nothing while closed, so it starts empty every time it opens.
   return (
     <Sheet visible={visible} onClose={onClose} title="New task" testID="quick-add-sheet">
-      <QuickAddForm onClose={onClose} projects={projects} onAdd={onAdd} />
+      <QuickAddForm onClose={onClose} projects={projects} onAdd={onAdd} defaultProjectId={defaultProjectId} />
     </Sheet>
   )
 }
@@ -37,16 +39,18 @@ function QuickAddForm({
   onClose,
   projects,
   onAdd,
+  defaultProjectId,
 }: {
   onClose: () => void
   projects: Project[]
+  defaultProjectId: string | null
   onAdd: (task: { title: string; dueDate: string | null; projectId: string | null }) => void
 }) {
   const { theme } = useTheme()
   const c = theme.colors
   const [title, setTitle] = useState('')
   const [dueDate, setDueDate] = useState<string | null>(null)
-  const [projectId, setProjectId] = useState<string | null>(null)
+  const [projectId, setProjectId] = useState<string | null>(defaultProjectId)
 
   const today = localDay(new Date())
   const days = Array.from({ length: 7 }, (_, i) => {

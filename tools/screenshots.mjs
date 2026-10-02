@@ -15,7 +15,8 @@ const ADMIN = process.env.SUPABASE_API_KEY
 const BASE = process.env.BASE_URL ?? 'http://localhost:8081'
 const [outDir, ...asked] = process.argv.slice(2)
 if (!SB || !ANON || !ADMIN || !outDir) throw new Error('usage: see the top of this file')
-const screens = asked.length ? asked : ['signin', 'code', 'setup', 'today', 'projects', 'profile']
+let launchId = ''
+const screens = asked.length ? asked : ['signin', 'code', 'setup', 'today', 'projects', 'project', 'profile']
 const SIZES = [
   ['phone', 430, 900],
   ['wide', 1280, 800],
@@ -68,6 +69,7 @@ async function sampleData(token) {
       console.log('sample task not created:', row.title, res.status, JSON.stringify(res.json).slice(0, 160))
   }
   const launch = await project('Launch', 'indigo')
+  launchId = launch
   const health = await project('Health', 'teal')
   const studio = await project('Studio', 'amber')
   const today = new Date().toISOString().slice(0, 10)
@@ -102,7 +104,15 @@ try {
   for (const screen of screens) {
     const who = screen === 'signin' || screen === 'code' ? null : screen === 'setup' ? bare : full
     const path =
-      { signin: '/', code: '/', setup: '/', today: '/', projects: '/projects', profile: '/profile' }[screen] ?? screen
+      {
+        signin: '/',
+        code: '/',
+        setup: '/',
+        today: '/',
+        projects: '/projects',
+        project: `/projects?id=${launchId}`,
+        profile: '/profile',
+      }[screen] ?? screen
     for (const [name, width, height, scheme] of VARIANTS) {
       const context = await browser.newContext({ viewport: { width, height }, colorScheme: scheme })
       // Requests go through Node: in the cloud sandbox the browser cannot reach Supabase itself.

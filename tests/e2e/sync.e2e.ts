@@ -221,7 +221,7 @@ async function signInThroughScreen(p: Page, u: { email: string }) {
 
 const titles = (p: Page) =>
   p
-    .getByTestId('task')
+    .locator('[data-testid="task"]:visible')
     .locator('[data-testid^="title-"]')
     .evaluateAll((els) => els.map((e) => (e.textContent ?? '').trim()).sort())
 const addNote = async (p: Page, title: string) => {
@@ -230,12 +230,16 @@ const addNote = async (p: Page, title: string) => {
 }
 // Deletes the task with this title through its right-click menu.
 const deleteTask = async (p: Page, title: string) => {
-  await p.getByTestId('task').filter({ hasText: title }).locator('[data-testid^="open-"]').click({ button: 'right' })
+  await p
+    .locator('[data-testid="task"]:visible')
+    .filter({ hasText: title })
+    .locator('[data-testid^="open-"]')
+    .click({ button: 'right' })
   await p.getByTestId('menu-delete').click()
 }
 // Opens the task with this title and changes its title in the editor.
 async function renameTask(p: Page, from: string, to: string) {
-  const row = p.getByTestId('task').filter({ hasText: from })
+  const row = p.locator('[data-testid="task"]:visible').filter({ hasText: from })
   await row.locator('[data-testid^="open-"]').click()
   await row.locator('[data-testid^="edit-title-"]').fill(to)
 }
@@ -384,7 +388,7 @@ test.describe('sync spike', () => {
     browser,
   }) => {
     const a = await newDevice(browser, user)
-    const row = (t: string) => a.page.getByTestId('task').filter({ hasText: t })
+    const row = (t: string) => a.page.locator('[data-testid="task"]:visible').filter({ hasText: t })
     const addSub = async (parent: string, title: string) => {
       const r = row(parent)
       if ((await r.locator('[data-testid^="sub-title-"]').count()) === 0) {
@@ -425,7 +429,7 @@ test.describe('sync spike', () => {
     const a = await newDevice(browser, user)
     await a.setOffline(true)
     await addNote(a.page, 'parent-t3')
-    const r = a.page.getByTestId('task').filter({ hasText: 'parent-t3' })
+    const r = a.page.locator('[data-testid="task"]:visible').filter({ hasText: 'parent-t3' })
     await r.locator('[data-testid^="open-"]').click()
     await r.locator('[data-testid^="kind-"]').click()
     await r.locator('[data-testid^="sub-title-"]').fill('child-t3')
@@ -437,36 +441,57 @@ test.describe('sync spike', () => {
       .toEqual(['child-t3', 'parent-t3'])
   })
 
-  test('t4: tasks move between projects, and deleting a project keeps its tasks under No project', async ({
+  test('t4: a project holds its tasks, and deleting it keeps them under No project (Undo brings it back)', async ({
     browser,
   }) => {
     const a = await newDevice(browser, user)
-    await a.page.getByTestId('new-project').fill('proj-t4')
-    await a.page.getByTestId('add-project').click()
-    await addNote(a.page, 'moved-t4')
-    const project = a.page.getByTestId(/^project-(?!none)[0-9a-f-]{36}$/).filter({ hasText: 'No tasks' })
-    await expect(project).toHaveCount(1)
-    const projectId = ((await project.getAttribute('data-testid')) ?? '').replace('project-', '')
+    await a.page.getByTestId('tab-projects').click()
+    await expect(a.page.getByText('No projects yet')).toBeVisible() // nothing yet
+    await a.page.getByTestId('new-project').click()
+    await a.page.getByTestId('project-name').fill('proj-t4')
+    await a.page.getByTestId('swatch-teal').click()
+    await a.page.getByTestId('project-save').click()
+    const card = a.page.getByTestId(/^project-[0-9a-f-]{36}$/).filter({ hasText: 'proj-t4' })
+    await expect(card).toContainText('No tasks yet')
+    const projectId = ((await card.getAttribute('data-testid')) ?? '').replace('project-', '')
 
-    // the task starts under "No project", then moves into the project
-    await expect(a.page.getByTestId('project-none').getByText('moved-t4')).toBeVisible()
-    const row = a.page.getByTestId('task').filter({ hasText: 'moved-t4' })
-    await row.locator('[data-testid^="open-"]').click()
-    await row.locator(`[data-testid$="-${projectId}"]`).click()
-    await expect(a.page.getByTestId(`project-${projectId}`).getByText('moved-t4')).toBeVisible()
-    await waitSynced(a)
-    const moved = await serverRows(user)
-    expect(moved.tasks.find((t) => t.title === 'moved-t4')?.project_id).toBe(projectId)
-    expect(moved.projects.map((p) => p.name)).toContain('proj-t4')
+    // add a task from inside the project: it lands in that project
+    await card.click()
+    await a.page.getByTestId('project-empty-add').click()
+    await a.page.getByTestId('quick-add-title').fill('moved-t4')
+    await a.page.getByTestId('quick-add-submit').click()
+    await expect(a.page.locator('[data-testid="task"]:visible').filter({ hasText: 'moved-t4' })).toBeVisible()
+    await expect
+      .poll(async () => (await serverRows(user)).tasks.find((t) => t.title === 'moved-t4')?.project_id, {
+        timeout: 15_000,
+      })
+      .toBe(projectId)
+
+    // the card now counts it
+    await a.page.getByTestId('back').click()
+    await expect(a.page.getByTestId(`project-${projectId}`)).toContainText('1 task · 0% done')
 
     // deleting the project keeps the task, now under "No project"
-    await a.page.getByTestId(`project-delete-${projectId}`).click()
+    await a.page.getByTestId(`project-${projectId}`).click()
+    await a.page.getByTestId('project-edit').click()
+    await a.page.getByTestId('project-delete').click()
+    await expect(a.page.getByTestId('toast')).toContainText('Project deleted')
     await expect(a.page.getByTestId(`project-${projectId}`)).toHaveCount(0)
-    await expect(a.page.getByTestId('project-none').getByText('moved-t4')).toBeVisible()
-    await waitSynced(a)
-    const after = await serverRows(user)
-    expect(after.tasks.find((t) => t.title === 'moved-t4')?.project_id).toBeNull()
-    expect(after.projects.map((p) => p.name)).not.toContain('proj-t4')
+    await expect(a.page.getByTestId('project-none')).toContainText('1 task')
+    await expect
+      .poll(async () => (await serverRows(user)).tasks.find((t) => t.title === 'moved-t4')?.project_id, {
+        timeout: 15_000,
+      })
+      .toBeNull()
+
+    // Undo puts the project back with its task
+    await a.page.getByTestId('toast-undo').click()
+    await expect(a.page.getByTestId(`project-${projectId}`)).toContainText('1 task')
+    await expect
+      .poll(async () => (await serverRows(user)).tasks.find((t) => t.title === 'moved-t4')?.project_id, {
+        timeout: 15_000,
+      })
+      .toBe(projectId)
   })
 
   test('c1: a user signs in with an emailed code and stays signed in after a reload', async ({ browser }) => {
