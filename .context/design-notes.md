@@ -1,5 +1,7 @@
 # Design notes (Figma Make prototype)
 
+Superseded on 2026-10-03: there is no AI approval inbox any more and Inbox means captured tasks (`decisions.md`, `specs/foundation-reset.md`). Kept as a record of the prototype.
+
 Source: https://dress-potato-46293176.figma.site, reviewed on 2026-10-02 by rendering it in a headless browser on a phone width (430 px) and a desktop width (1280 px). Not every control was reachable: the deep task view, the quick add sheet, the search screen, the Month calendar and the Profile sub-screens were not opened.
 
 This is reference material only, to add detail to the specs. It is not the source of truth for functionality: the prototype has inconsistencies (listed below), and the human confirmed that the specs decide what gets built. Only things the human explicitly chose in a spec are scope.

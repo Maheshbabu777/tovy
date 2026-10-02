@@ -33,7 +33,7 @@ This spec covers stage 1, the design system. Stages 2 onward get their own specs
 - Accent colour: keep indigo, or change? Answer: pending, shown as options on the style guide page.
 - Font: keep Geist, or move to the platform font (Roboto on Android) or Inter? Answer: pending, shown as options on the style guide page.
 - Icon set: switch from Lucide to Phosphor for filled active states, or keep Lucide? Answer: Phosphor (human, 2026-10-03).
-- The word Inbox: every other app uses Inbox for captured tasks with no project. Tovy uses it for AI approvals. Rename the AI screen (for example "Requests") and use Inbox the usual way? Built in stage 2. Answer: Inbox means captured tasks, the AI approval screen gets another name such as Requests (human, 2026-10-03).
+- The word Inbox: every other app uses Inbox for captured tasks with no project. Tovy uses it for AI approvals. Rename the AI screen (for example "Requests") and use Inbox the usual way? Built in stage 2. Answer: Inbox means captured tasks (human, 2026-10-03). There is no AI approval screen at all: AI apps write directly and ask the user inside the AI app before deleting or removing (human, 2026-10-03, see `decisions.md`). The current approval Inbox and the proposals table are retired in stage 2.
 - Points data: hide only (keep tables and the log's point math for a later stats screen), or remove the point math too? Answer: hide only, keep the data and the math for a later stats screen (human, 2026-10-03).
 
 ## Plan
@@ -41,12 +41,12 @@ This spec covers stage 1, the design system. Stages 2 onward get their own specs
 Stages, in order. Each stage is a spec and a pull request, approved before code, and the human looks at screenshots before the next stage starts.
 
 1. **Design system** (this spec): style guide page for approval, then tokens, icon toolkit, component gallery, points removed from screens, loading screen.
-2. **Information architecture:** tabs and sidebar (Inbox, Today, Upcoming, Browse or similar), where AI approvals live, empty screens that teach.
+2. **Information architecture:** tabs and sidebar (Inbox, Today, Upcoming, Browse or similar), retire the approval Inbox screen, empty screens that teach.
 3. **Tasks done properly:** quick add that reads dates, times, repeats, `#project` and priority from words; priorities, labels, sections, due date and deadline; overdue with Reschedule; completed log.
 4. **Upcoming:** week strip with dots, days list, drag to reschedule.
 5. **Motion and gestures:** Reanimated, Gesture Handler, sheets, swipe actions, haptics, checked in Expo Go.
 6. **Habits:** per habit schedule (daily, chosen days, N times a week), done or count, per habit streak with skip and pause, per habit heatmap.
-7. **AI connection:** MCP server and approvals, as in `project-plan.md` phase 6.
+7. **AI connection:** MCP server with direct writes, destructive tools that ask in the AI app, activity feed with undo, Trash, per app access, as in `project-plan.md` phase 6.
 8. Then the rest of the project plan (reminders, search, onboarding, export).
 
 Files for stage 1, in order: `.context/design/style-guide.md`; the rendered style guide page for review; `src/ui/tokens.ts`, `src/ui/theme.tsx`; new `src/ui/icons.ts` and its test; `src/ui/components/*`; a dev gallery route under `app/`; `src/ui/TodayScreen.tsx`, `HeroCard.tsx`, `RingClosed.tsx`, `app/_layout.tsx` (loading); the e2e tests for the hero ring (`h1`).

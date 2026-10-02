@@ -6,17 +6,17 @@ Working model: the human directs and approves, Claude writes the code. Each slic
 
 ## 1. Project brief
 
-**Core problem: productivity and AI live in different places.** People now spend their day inside AI apps (Claude, ChatGPT and others), where they decide, plan and commit to things. Their tasks live somewhere else, so every commitment made in a chat is copied by hand into a task app, or forgotten. Tovy closes that gap: any AI app the user connects can read their day and add tasks, log progress and check in routines, and the user stays in control through an approval inbox.
+**Core problem: productivity and AI live in different places.** People now spend their day inside AI apps (Claude, ChatGPT and others), where they decide, plan and commit to things. Their tasks live somewhere else, so every commitment made in a chat is copied by hand into a task app, or forgotten. Tovy closes that gap: any AI app the user connects can read their day and add tasks, log progress and check in routines, and the user stays in control through the AI app's own permission prompts, an activity log with undo, and a Trash for anything deleted.
 
 Tovy is a local-first task and routine app built for that. It is not a chatbot and not a replacement for the AI apps. It is the place where what you committed to in AI chats actually gets done and tracked.
 
 Second problem it solves: checklists treat a task as 0% or 100%, so partial work disappears and streaks break on days that were not wasted. Tovy tasks carry real partial progress with a log, streaks forgive a missed day (2 freezes a month), and the heatmap counts progress points, not ticked checkboxes. None of Any.do, TickTick, Todoist, Things 3 or Microsoft To Do model partial progress, and none are built around being driven by AI apps.
 
-Why the two fit together: an append-only progress log is what an AI can safely write to ("API layer done, +20%"), and the approval inbox makes that trustworthy.
+Why the two fit together: an append-only progress log is what an AI can safely write to ("API layer done, +20%"), and the activity log with undo makes it trustworthy.
 
 Users and scale: people who already work through AI apps (any app that can connect to an MCP server) and juggle more than a checklist holds. Early testers are students. The Supabase free tier (50,000 monthly active users) covers the early scale. Pro ($25 a month) is needed before real users depend on it.
 
-v1 scope: quick tasks, deep tasks, routines, optional projects with an Inbox, Today screen with quick add, own week and month calendar view with drag to reschedule, progress log, streak with freezes, heatmap, daily ring, reminders, the web app, and the MCP server with approval inbox, per-AI permissions and activity feed.
+v1 scope: quick tasks, deep tasks, routines, optional projects with an Inbox, Today screen with quick add, own week and month calendar view with drag to reschedule, progress log, streak with freezes, heatmap, daily ring, reminders, the web app, and the MCP server with direct writes, per-AI permissions, an activity feed with undo and a Trash.
 
 Not in v1: XP and levels, achievements, weekly recap, widgets, Google Calendar overlay or sync, document library, multi-AI chat, native iOS, sharing with other people.
 
@@ -38,7 +38,7 @@ Done means: cold start under 1.5 s on a mid-range Android, tap response under 10
 
 **Decision: AI connection**
 - Options considered: remote MCP server over Streamable HTTP as a Supabase Edge Function; a custom per-AI integration (separate plugin for each app); a REST API only.
-- Recommendation: one remote MCP server, with Supabase Auth as the OAuth 2.1 server and an approval inbox for writes.
+- Recommendation: one remote MCP server, with Supabase Auth as the OAuth 2.1 server. Writes apply directly; delete and remove tools are marked destructive so the AI app asks the user first (decision 2026-10-03, replaces the approval inbox).
 - Reasoning: Claude, ChatGPT and other apps that support custom connectors all speak MCP, so one server reaches all of them. Every call runs as the user under row-level security.
 - Tradeoff: connector support varies by app and plan, and the user must paste the MCP URL once. Move to a Supabase custom domain early because that URL is pasted into AI apps.
 
@@ -92,7 +92,7 @@ tovy/
 │   │   ├── streaks/            # streak, freezes, heatmap
 │   │   ├── reminders/          # local notification scheduling
 │   │   ├── projects/
-│   │   ├── ai/                 # approval inbox, connected apps, activity feed
+│   │   ├── ai/                 # connected apps, activity feed with undo, Trash
 │   │   └── account/            # profile, export, delete
 │   ├── ui/                     # shared components, *.web.tsx where behaviour differs
 │   │   ├── tokens.ts           # ink opacity scale, Indigo accent, radius, spacing
@@ -152,10 +152,10 @@ Twelve slices, each one spec in `.context/specs/` (created with `.powers/scripts
 - [ ] Progress log, auto and manual modes, equal subtask weights, server trigger
 - [ ] Proof: logging on one device updates task and ring on the other
 
-**Phase 6: AI connection (MCP and approval inbox), first version**
+**Phase 6: AI connection (MCP with direct writes), first version**
 - [ ] Supabase Auth as OAuth 2.1 server, consent screen on web, token checks (signature, expiry, issuer, PKCE S256, client_id claim)
 - [ ] MCP Edge Function with the tools that exist so far: get_today, search_tasks, get_task, add_task, update_task, log_progress, complete_task
-- [ ] `ai_clients` and `ai_actions` tables, approval inbox with swipe actions, per-AI permissions, AI badge on items
+- [ ] `ai_clients` and `ai_actions` tables, per-AI permissions (read only, read and write), activity feed with undo, Trash for AI deletes, AI badge on items. No approval screen in Tovy
 - [ ] Proof: one AI app adds a task, it shows as pending, you approve, it appears on the phone
 - [ ] Security review from `.powers/on-demand/security-review.md`
 
@@ -240,7 +240,7 @@ TBD
 
 **Risk: the AI connection is a large security surface**
 - Likelihood: Medium. Impact: High.
-- Mitigation: no delete tool, every write goes through the approval inbox by default, strict token checks, row-level security on every call, rate limits, and a security review in phase 6.
+- Mitigation: delete and remove tools carry the MCP destructive hint and ask the user in the AI app (elicitation where the app supports it), deletes land in a 30 day Trash, every AI write is in the activity feed with undo, strict token checks, row-level security on every call, rate limits, and a security review in phase 6.
 
 **Risk: the sync layer does not hold up**
 - Likelihood: Medium. Impact: High.
