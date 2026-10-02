@@ -31,7 +31,7 @@ Built: Expo (React Native, TypeScript) with Expo Router, Legend-State v3 beta lo
 
 <!-- One line per important folder or entry point. Pointers, not descriptions of the code. -->
 - `.context/project-plan.md` - the approved plan and slice list
-- `app/` - Expo Router screens; `src/core/db/` Supabase client; `src/core/sync/` per-user notes store and sync; `tests/e2e/` Playwright sync tests
+- `app/` - Expo Router screens; `src/core/db/` Supabase client; `src/core/sync/` per-user tasks store and sync; `tests/e2e/` Playwright sync tests
 - `supabase/migrations/` - schema; `supabase/tests/` - row security test and runner (uses `DATABASE_URL` or a throwaway local Postgres)
 
 ## Conventions
@@ -46,8 +46,8 @@ Built: Expo (React Native, TypeScript) with Expo Router, Legend-State v3 beta lo
 
 <!-- One line each, with a file path. Things that cost time to discover. -->
 - Cloud sandbox: Chromium cannot reach Supabase, Node can, so tests fetch from Node and bridge the websocket by hand (`tests/e2e/sync.e2e.ts`).
-- Migrations reach the dev project only when they merge to `main` (`.github/workflows/migrate-dev.yml`). Never edit the dashboard by hand. The app shows `synced` even if the table is missing (`src/core/sync/notes.ts`).
-- Never clear synced data by emptying its observable (it would sync as deletes). Use `store.dispose()` (`syncState(obs$).reset()`), and keep one store per user (`src/core/sync/notes.ts`).
+- Migrations reach the dev project only when they merge to `main` (`.github/workflows/migrate-dev.yml`). Never edit the dashboard by hand. The app shows `synced` even if the table is missing (`src/core/sync/tasks.ts`).
+- Never clear synced data by emptying its observable (it would sync as deletes). Use `store.dispose()` (`syncState(obs$).reset()`), and keep one store per user (`src/core/sync/tasks.ts`).
 - `waitSynced` in the e2e tests can pass on a stale "synced" label. When a test needs a note really saved, poll the server for it (`serverTitles`).
 
 ## Ask the human
