@@ -1,6 +1,6 @@
 # Finish the design: Inbox, Projects, Profile, Task detail, Today
 
-Status: approved
+Status: approved (phases 1 to 6 done, items under criterion 8 are next)
 
 Size: large (new tables, every tab). Done in phases, each merged on its own so the database changes reach the dev project first (`decisions.md`: migrations apply when they merge to main).
 
@@ -36,7 +36,24 @@ Phase 1 is its own pull request (migration and row security test), merged first.
 
 ## Evidence
 
-(none yet)
+Phases 1 to 6 are merged to main (2026-10-02). Full e2e suite on the merged code: 28 tests, all pass when run in order after the fixes below (earlier runs failed `t1` and `t2`, both fixed). Unit tests 47 pass, lint, format and typecheck clean. Screenshots at 430 and 1280 px in light and dark were looked at for Today, Inbox, Projects, a project page, Profile and a task detail, against `.context/design/figma-*.png`.
+
+- Inbox: `i1` (badge, groups, detail sheet before and after, approve applies the change on the server, reject with Undo, approve all).
+- Projects: `t4` (create with a colour, add a task from inside, counts, delete keeps tasks under No project, Undo brings the project and tasks back).
+- Profile: `p3` (edit names and username, taken username refused, theme stays after a reload), `so1` to `so3`.
+- Task detail and progress: `d1` (ring, steps, note, log, points, finish), `t2`, `t3`; unit tests for percent roll up and points.
+- Today: `h1` (ring headline and sub line, In progress section, Ring closed celebration).
+
+Bugs found by the tests on the way and fixed: an Undo made while a delete was still being saved was lost (the plugin drops the row once the server confirms, so the whole row is restored, re-checked once saves are done and per task); a hook called conditionally on Profile; a stale "taken" message after a slow save.
+
+Deviations from the design, all deliberate:
+- Today has no search, calendar or streak icons, no Routines section and no streak line: those screens do not exist yet and a dead button helps nobody. They arrive with their specs.
+- Inbox rows on a phone swipe only on a device; the web shows the Reject and Approve buttons (as the design says for web). The swipe is not covered by a test yet (needs a device).
+- Appearance, Edit profile and About open inside the Profile tab (`?page=`) so the tab bar stays. "Delete account", export, notifications and the AI group rows are not shown until they work.
+- Task detail: reminder, repeat and attachments chips wait for their specs. A deep task cannot be switched back to quick from the screen (the store still refuses it when subtasks exist).
+- Sync state is not shown on Today: a hidden `data-sync` attribute carries it for the tests, Profile has a plain Sync status row, and the offline and error banners stay.
+
+Still open for the human: look at the Vercel preview and the Expo Go phone check; the real email check.
 
 ## Notes
 
