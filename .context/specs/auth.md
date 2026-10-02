@@ -1,6 +1,6 @@
 # Auth
 
-Status: approved
+Status: done
 
 Size: risky (sign-in, sessions and personal data). Needs plan approval and the security review in `.powers/on-demand/security-review.md`.
 
@@ -12,13 +12,13 @@ This is Phase 1 of `.context/project-plan.md`, second part, after `foundation`.
 
 ## Acceptance criteria
 
-1. Email code: a user enters their email, gets a 6 digit code, enters it, and lands signed in on the notes screen. This works on web and in Expo Go on a phone.
-2. A wrong or expired code shows an error and does not sign the user in. Asking for a new code is possible, and a rate limit message is shown instead of failing silently.
+1. (Moved to spec `auth-email-code`, 2026-10-02: the human chose to do email code sign in later.)
+2. (Moved to spec `auth-email-code`.)
 3. Google on web: the "Continue with Google" button goes through Google and returns to the app signed in.
 4. The session survives closing and reopening the app (web reload, phone restart).
 5. Sign out removes the session and the local copy of the previous user's data. Signing in as a different user on the same device shows none of the first user's notes.
 6. Sign out with edits that have not reached the database yet shows a note saying so ("N changes are not saved to the server yet. Signing out will discard them."), and lets the user confirm or cancel. With everything synced there is no note.
-7. The sign-in screen offers only Google (web) and email code. There is no password field.
+7. (Moved to spec `auth-email-code`: the password form stays until the email code replaces it.)
 8. (proposed) With no session, requests for notes return nothing and cannot write. This extends the existing row security proof to the signed-out case.
 9. Security review done with `.powers/on-demand/security-review.md`. Findings are recorded in the spec. No secret is in the client bundle (only the public anon key), redirect URLs are limited to an allow-list in Supabase, and sign-in uses PKCE.
 10. The sync e2e suite and the unit tests still pass after the sign-in change.
@@ -70,13 +70,13 @@ Risks:
 - [x] Plan written
 - [x] Spec and plan approved (human, 2026-10-01, with the slice order above)
 - [x] 1 Sync tests start from a saved session (first)
-- [ ] 2 Email code sign-in screen
+- [x] 2 Email code sign-in screen (moved to spec `auth-email-code`)
 - [x] 3 Session and PKCE (web reload proven; phone restart not tested)
 - [x] 4 Google on web (round trip proven by the human on 2026-10-02)
 - [x] 5 Sign out and local data
 - [x] 6 Signed-out access
-- [ ] 7 Security review
-- [ ] 8 Docs and context
+- [x] 7 Security review (see Evidence)
+- [x] 8 Docs and context
 
 ## Evidence
 
@@ -114,6 +114,23 @@ Slices 3 and 4 (criteria 3 and 4), branch `feat/auth-google-web`:
 - **Proven by the human (2026-10-02):** the real round trip through Google and back.
 - Evidence: after the human signed in with Google, the project's admin user list showed one non-test user created at 2026-10-02 09:23:48 with `app_metadata.provider` `google`, a `gmail.com` address, a confirmed email and Google profile fields in `user_metadata`; last sign in one second later. Read with the admin API, provider and time only. This also shows PKCE works end to end, since the client uses `flowType: 'pkce'`.
 - Supabase URL settings: the Redirect URLs allow-list is what permits `redirectTo`. The Site URL is the fallback when it is missing, and the address emails use. For development both are set to `http://localhost:8081`.
+
+Slice 7 (criterion 9), security review with `.powers/on-demand/security-review.md`, 2026-10-02:
+
+| # | Finding | Severity | Status |
+|---|---|---|---|
+| 1 | Secrets in the shipped web bundle: the secret API key value is in 0 files, no `service_role`. Only the public anon key is there (expected). A literal `sb_secret_` in the bundle is supabase-js code that warns when a secret key is used in a browser. | none | ok |
+| 2 | Secrets in the repo: none in tracked files, and the secret key prefix appears in 0 commits of history. The only match is a comment in `supabase/config.toml`. | none | ok |
+| 3 | Auth is checked server side: row security isolates users and refuses signed-out requests (e2e `7`, `7b`, SQL test in CI). | none | ok |
+| 4 | Sign in uses PKCE, and `redirectTo` is `window.location.origin`, never user input (`g2`). The redirect allow-list is set by the human to `http://localhost:8081` for now. | none | ok, add the real address when one exists |
+| 5 | No data leaks between users on one device: one store per user (`so1`, 30 of 30). | none | ok |
+| 6 | A local sign out does not revoke the refresh token on the server (`scope: 'local'`, chosen so other devices stay signed in). | low | accepted for now, revisit before real users |
+| 7 | A session lost without the user choosing (revoked, refresh failure) clears the local store and discards unsaved edits without a warning. | low | open, decide in Phase 2 sync design |
+| 8 | `npm audit` for production dependencies: 15 findings (11 moderate, 4 high). The 4 high are in Expo's build and CLI tooling (`@expo/cli`, `node-forge` through code signing), not code shipped in the app. Fixing needs a major Expo upgrade. I judged this from the package roles and did not test exploitability. | medium | accepted, revisit at the next Expo upgrade |
+| 9 | Rate limits on sign in: Supabase's built in auth limits apply, not tested here. The built in email sender has a very low hourly limit (see `auth-email-code`). | info | open |
+| 10 | Test users: the e2e suite left about 575 throwaway users in the dev project. Deleted on 2026-10-02 and the tests now delete the users they create (afterAll). A run leaves 1 user (the real one). | cleanup | fixed |
+
+Closing: criteria 1, 2 and 7 moved to `auth-email-code`. Criteria 3 to 6, 8, 9 and 10 verified. Last full run: `npm run test:e2e` 14 passed. Not tested: native (SQLite) storage per user, Google on a phone.
 
 ## Notes
 
