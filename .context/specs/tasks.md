@@ -14,14 +14,15 @@ Tovy only has the spike's notes list. Phase 2 of `.context/project-plan.md` make
 2. A task has a title, an optional note and an optional due date. Editing any of them shows instantly and syncs to the database.
 3. A task can be marked done and not done.
 4. Deleting a task hides it at once and shows an Undo for 5 seconds. Undo brings it back. After 5 seconds it stays deleted, and it disappears on the user's other devices after sync.
-5. A task can have subtasks, one level deep only. A task shows how many subtasks it has. Deleting a task also hides its subtasks, and Undo brings them all back.
-6. A user can create, rename and delete projects, and move a task to a project. Tasks with no project show under Inbox. Deleting a project moves its tasks to Inbox and deletes none of them.
-7. Offline: with the network off on device A, add one task, edit another and delete a third. The list updates instantly. After the network returns, device B shows all three changes within 2 s.
-8. Two devices edit different tasks offline: both edits survive after reconnect. Both edit the same task's title: after reconnect both show the same title (last write by server time wins).
-9. Row security: another user cannot read or change a user's tasks or projects, and cannot put their own task into someone else's project or under someone else's task (SQL test in CI plus an e2e check).
-10. The new tables come from a numbered migration that CI applies to dev on merge. After the tasks screen replaces the notes list, a later migration drops the `notes` table.
-11. Signing out clears the local copy of tasks and projects, and the next user on the device sees none of them (the existing per-user store behavior).
-12. The e2e suite is ported from notes to tasks, with the same behaviors covered, and passes. Lint, format check, typecheck, unit tests and the CI row security test pass.
+5. A task can have subtasks, and subtasks can have their own subtasks, with no fixed limit on depth. A task shows how many direct subtasks it has. Deleting a task also hides everything beneath it at every depth, and Undo brings them all back.
+6. A task can never end up under itself or under one of its own subtasks. The database refuses such a move, and the app does not offer it.
+7. A user can create, rename and delete projects, and move a task to a project. Tasks with no project show under Inbox. Deleting a project moves its tasks to Inbox and deletes none of them.
+8. Offline: with the network off on device A, add one task, edit another and delete a third. The list updates instantly. After the network returns, device B shows all three changes within 2 s.
+9. Two devices edit different tasks offline: both edits survive after reconnect. Both edit the same task's title: after reconnect both show the same title (last write by server time wins).
+10. Row security: another user cannot read or change a user's tasks or projects, and cannot put their own task into someone else's project or under someone else's task (SQL test in CI plus an e2e check).
+11. The new tables come from a numbered migration that CI applies to dev on merge. After the tasks screen replaces the notes list, a later migration drops the `notes` table.
+12. Signing out clears the local copy of tasks and projects, and the next user on the device sees none of them (the existing per-user store behavior).
+13. The e2e suite is ported from notes to tasks, with the same behaviors covered, and passes. Lint, format check, typecheck, unit tests and the CI row security test pass.
 
 ## Out of scope
 
@@ -33,25 +34,27 @@ Tovy only has the spike's notes list. Phase 2 of `.context/project-plan.md` make
 
 ## Open questions
 
-- Fields for now: title, note, due date, done. Is that the right set? My recommendation is yes, because due date is needed by Today in Phase 3, and priorities and tags can wait. Answer: pending.
-- The spike `notes` table: drop it at the end of this spec (after the tasks screen replaces the notes list)? My recommendation is yes, since it only holds test data. This deletes data in your database, so I will not do it without your answer. Answer: pending.
-- Deleting a project: move its tasks to Inbox, or delete them too? My recommendation is Inbox, so nothing is lost by accident. Answer: pending.
-- Subtasks one level deep, or unlimited nesting? My recommendation is one level, which matches the plan's "equal subtask weights" progress later and keeps the screen simple. Answer: pending.
-- (proposed) Plain unstyled screen now, with styling later in `design-tokens`. Answer: pending.
+- Fields for now: title, note, due date, done. Answer: yes (2026-10-02).
+- The spike `notes` table: drop it at the end of this spec, after the tasks screen replaces the notes list? Answer: yes, drop it last (2026-10-02). This deletes data in the database and cannot be undone, so it is the final slice.
+- Deleting a project: move its tasks to Inbox, or delete them too? Answer: move them to Inbox (2026-10-02).
+- Subtasks one level deep, or unlimited nesting? Answer: unlimited nesting (2026-10-02), against my recommendation of one level. That is why criteria 5 and 6 changed: depth is unbounded, a task can never end up under itself, and delete and undo cover every descendant.
+- (proposed) Plain unstyled screen now, with styling later in `design-tokens`. Answer: pending, treated as yes unless you say otherwise.
 
-## Plan (draft, to be firmed up after the answers)
+## Plan
 
 Branch per slice group, `feat/tasks-...`. Each slice ends green and is ticked below.
 
 1. **Tables and row security.** Migration `0003_tasks.sql`: `projects` (id, user_id, name, deleted, created_at, updated_at) and `tasks` (id, user_id, title, note, due_date, done_at, project_id null for Inbox, parent_id null for top level, deleted, created_at, updated_at), with the same server-set timestamps, the same row security pattern, and checks that `project_id` and `parent_id` belong to the same user. Extend `supabase/tests/` so user B cannot read or change user A's rows or link to them. Test: the SQL test passes and fails when a policy is weakened.
 2. **Store.** Replace the notes store with one per-user store holding tasks and projects (same Legend-State plugin, soft delete via `deleted`, realtime and catch-up kept). Functions to add, edit, mark done, delete and restore (a task with its subtasks), create, rename and delete a project. Unit tests for these without the network.
 3. **Task list screen.** Add, edit, done, delete with a 5 second Undo, plain layout. Port the timing check.
-4. **Subtasks.** Add and show under a parent, count, delete and undo together.
+4. **Subtasks.** Add and show under a parent at any depth (indented tree), direct subtask count, no moves that create a cycle, delete and undo together for every descendant.
 5. **Projects and Inbox.** Project list, move a task, Inbox for no project, project delete moves tasks to Inbox.
 6. **End to end.** Port the 14 e2e tests from notes to tasks, add tests for undo, subtasks, project delete and the cross-user link checks.
 7. **Remove the spike.** Migration `0004` drops `notes`, delete the notes code, update docs and context.
 
 Risks:
+- Unlimited nesting: a cycle (A under B under A) would hide tasks forever and break delete. The database trigger and the app both refuse it, tested in slice 1 and slice 4. Very deep chains make the screen and the "walk up" check slower, so I will test a chain of 50. If it is a problem, a depth cap is the fix and I will ask first.
+- Later progress (Phase 5) with equal subtask weights needs a rule for nested levels. It does not block this spec, but it is a design question to settle then.
 - Replacing the notes list breaks the existing e2e tests, which rely on notes element names. They move in the same slices as the screen so the suite is never left broken.
 - Two tables synced at once (realtime and the catch-up from `decisions.md` per table) is new. A missed change between tables, such as a task arriving before its project, is a risk. I would test that case explicitly.
 - Deleting a task with subtasks touches several rows. Each is a normal sync, but undo must restore all of them or none, so undo is tested together with a reload during the 5 second window.
@@ -59,8 +62,8 @@ Risks:
 
 ## Progress
 
-- [ ] Questions answered
-- [ ] Plan firmed up and approved (human)
+- [x] Questions answered (2026-10-02)
+- [ ] Plan approved (human)
 - [ ] 1 Tables and row security
 - [ ] 2 Store
 - [ ] 3 Task list screen
