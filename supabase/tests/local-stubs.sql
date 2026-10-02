@@ -16,7 +16,13 @@ do $$ begin
     create role authenticated nologin;
   end if;
 end $$;
+do $$ begin
+  if not exists (select 1 from pg_roles where rolname = 'anon') then
+    create role anon nologin;
+  end if;
+end $$;
 grant usage on schema auth, public to authenticated;
+grant usage on schema public to anon;
 grant execute on function auth.uid() to authenticated;
 create publication supabase_realtime;
 -- Supabase grants these by default on new public tables.
