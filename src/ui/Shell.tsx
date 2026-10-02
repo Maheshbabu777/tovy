@@ -1,151 +1,52 @@
 import { useEffect, useState, type ReactNode } from 'react'
-import { Animated, Easing, Image, Platform, Pressable, Text, useWindowDimensions, View } from 'react-native'
+import { Animated, Easing, Platform, Pressable, Text, useWindowDimensions, View } from 'react-native'
 import { useGlobalSearchParams, usePathname, useRouter } from 'expo-router'
-import { TabSlot, TabTrigger, useTabsWithTriggers } from 'expo-router/ui'
+import { TabSlot, useTabsWithTriggers } from 'expo-router/ui'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { Icons, type ToolkitIcon } from './icons'
-import { use$ } from '@legendapp/state/react'
-import type { Proposal } from '../core/sync/tasks'
-import { useStore } from './StoreContext'
-import { TaskDetail } from './TaskDetail'
+import { readCachedProfile } from '../core/profile/profile'
+import { projectStats } from '../core/projects'
+import { inboxTasks, todayCount } from '../core/views'
 import storage from '../core/db/authStorage'
-import { requestQuickAdd } from './quickAdd'
+import { Avatar } from './components/Avatar'
+import { useToast } from './components/Toast'
+import { shadow, SHADOWS, transition, useFocusRing, useHover } from './components/web'
+import { Logo } from './Brand'
+import { onQuickAdd, requestQuickAdd } from './quickAdd'
+import { QuickAddSheet } from './QuickAddSheet'
+import { TaskDetail } from './TaskDetail'
 import { useTheme } from './theme'
 import { fonts, motion, radius, type, WIDE_BREAKPOINT } from './tokens'
-import { transition, useFocusRing, useHover, webStyle } from './components/web'
+import { useNow, useTaskData } from './useTaskData'
 
-// The places a person can go. One line each: add a tab here and a route file under `app/(tabs)/`.
-// `key` is the keyboard shortcut on the web (design 6.1).
-const TABS: {
-  name: string
-  href: '/' | '/inbox' | '/projects' | '/profile'
-  label: string
-  Icon: ToolkitIcon
-  key?: string
-}[] = [
-  { name: 'index', href: '/', label: 'Today', Icon: Icons.today, key: 'T' },
-  { name: 'inbox', href: '/inbox', label: 'Inbox', Icon: Icons.inbox, key: 'I' },
-  { name: 'projects', href: '/projects', label: 'Projects', Icon: Icons.projects, key: 'P' },
-  { name: 'profile', href: '/profile', label: 'Profile', Icon: Icons.account },
+// Every route of the tab frame. Inbox, Today, Upcoming and Browse are the tabs (style guide, Navigation). Projects and
+// Profile are reached from the sidebar, Browse and the avatar. Add a route here and a file under `app/(tabs)/`.
+type Href = '/' | '/inbox' | '/upcoming' | '/browse' | '/projects' | '/profile'
+const ROUTES: { name: string; href: Href }[] = [
+  { name: 'inbox', href: '/inbox' },
+  { name: 'index', href: '/' },
+  { name: 'upcoming', href: '/upcoming' },
+  { name: 'browse', href: '/browse' },
+  { name: 'projects', href: '/projects' },
+  { name: 'profile', href: '/profile' },
+]
+// The main places, with their web keyboard shortcut.
+const MAIN: { href: Href; label: string; Icon: ToolkitIcon; key: string }[] = [
+  { href: '/inbox', label: 'Inbox', Icon: Icons.inbox, key: 'I' },
+  { href: '/', label: 'Today', Icon: Icons.today, key: 'T' },
+  { href: '/upcoming', label: 'Upcoming', Icon: Icons.upcoming, key: 'U' },
 ]
 
-const SIDEBAR = { open: 240, collapsed: 68 }
+const SIDEBAR = { open: 260, collapsed: 68 }
 const COLLAPSE_KEY = 'tovy-sidebar-collapsed'
 const EASE = Easing.bezier(...motion.easing)
 
-// One entry of the bar or the sidebar. `isFocused` and `onPress` are passed in by the tab trigger.
-function NavItem({
-  label,
-  Icon,
-  wide,
-  collapsed,
-  shortcut,
-  badge = 0,
-  isFocused,
-  onPress,
-}: {
-  label: string
-  Icon: ToolkitIcon
-  wide: boolean
-  collapsed: boolean
-  shortcut?: string
-  badge?: number
-  isFocused?: boolean
-  onPress?: () => void
-}) {
-  const { theme } = useTheme()
-  const c = theme.colors
-  const { hovered, handlers: hover } = useHover()
-  const ring = useFocusRing(c.accent)
-  const on = !!isFocused
-  if (!wide) {
-    return (
-      <Pressable
-        testID={`tab-${label.toLowerCase()}`}
-        accessibilityRole="tab"
-        accessibilityState={{ selected: on }}
-        onPress={onPress}
-        style={[{ flex: 1, alignItems: 'center', gap: 2, paddingVertical: 4 }, ring.style]}
-        {...ring.handlers}
-      >
-        <View>
-          <Icon size={24} color={on ? c.text : c.text2} filled={on} />
-          {badge > 0 ? <Badge count={badge} floating /> : null}
-        </View>
-        <Text style={[type.micro, { color: on ? c.accent : c.ink6 }]}>{label}</Text>
-      </Pressable>
-    )
-  }
-  return (
-    <Pressable
-      testID={`tab-${label.toLowerCase()}`}
-      accessibilityRole="tab"
-      accessibilityState={{ selected: on }}
-      accessibilityLabel={label}
-      // @ts-expect-error `title` is the web tooltip (shown when the sidebar is collapsed)
-      title={collapsed ? label : undefined}
-      onPress={onPress}
-      style={[
-        {
-          height: 40,
-          borderRadius: radius.md,
-          flexDirection: 'row',
-          alignItems: 'center',
-          justifyContent: collapsed ? 'center' : 'flex-start',
-          gap: 12,
-          paddingHorizontal: collapsed ? 0 : 12,
-          backgroundColor: on ? c.ink2 : hovered ? c.ink1 : 'transparent',
-        },
-        transition('background-color'),
-        ring.style,
-      ]}
-      {...hover}
-      {...ring.handlers}
-    >
-      <View>
-        <Icon size={18} color={on ? c.text : c.text2} filled={on} />
-        {badge > 0 && collapsed ? <Badge count={badge} floating /> : null}
-      </View>
-      {collapsed ? null : (
-        <>
-          <Text style={[{ flex: 1, fontFamily: fonts.medium, fontSize: 14.5 }, { color: on ? c.ink : c.ink6 }]}>
-            {label}
-          </Text>
-          {badge > 0 ? <Badge count={badge} /> : null}
-          {shortcut ? <Text style={[type.monoXs, { color: c.ink5 }]}>{shortcut}</Text> : null}
-        </>
-      )}
-    </Pressable>
-  )
+const sectionOf = (pathname: string): Href => {
+  const hit = ROUTES.find((r) => r.href !== '/' && (pathname === r.href || pathname.startsWith(`${r.href}/`)))
+  return hit ? hit.href : '/'
 }
 
-// Design 11.0: an accent pill with the number of proposals waiting. On an icon it sits at the top right.
-function Badge({ count, floating = false }: { count: number; floating?: boolean }) {
-  const { theme } = useTheme()
-  const c = theme.colors
-  return (
-    <View
-      testID="inbox-badge"
-      accessibilityLabel={`${count} waiting`}
-      style={[
-        {
-          minWidth: 16,
-          height: 16,
-          borderRadius: 8,
-          paddingHorizontal: 4,
-          backgroundColor: c.accent,
-          alignItems: 'center',
-          justifyContent: 'center',
-        },
-        floating ? { position: 'absolute', top: -6, right: -9 } : {},
-      ]}
-    >
-      <Text style={{ fontFamily: fonts.medium, fontSize: 10, color: c.onAccent }}>{count > 99 ? '99+' : count}</Text>
-    </View>
-  )
-}
-
-// A page fades in over 180 ms every time the route changes (design section 4).
+// A page fades in over 180 ms every time the route changes.
 function FadeIn({ children }: { children: ReactNode }) {
   const pathname = usePathname()
   const [opacity] = useState(() => new Animated.Value(0))
@@ -161,26 +62,54 @@ function FadeIn({ children }: { children: ReactNode }) {
   return <Animated.View style={{ flex: 1, opacity }}>{children}</Animated.View>
 }
 
-// The frame around every tab: a bottom bar on a phone, a sidebar on a wide screen.
+function useInitials(userId: string) {
+  const [initials, setInitials] = useState('')
+  useEffect(() => {
+    void readCachedProfile(userId).then((p) =>
+      setInitials(p ? `${p.first_name[0] ?? ''}${p.last_name[0] ?? ''}`.toUpperCase() : ''),
+    )
+  }, [userId])
+  return initials
+}
+
+// The frame around every page: a sidebar on a wide screen, a top bar, bottom tabs and the add button on a phone. It also
+// owns quick add, the task panel and the realtime catch up, so they work on every page.
 export function Shell() {
   const wide = useWindowDimensions().width >= WIDE_BREAKPOINT
   const insets = useSafeAreaInsets()
   const router = useRouter()
+  const pathname = usePathname()
+  const toast = useToast()
   const { theme } = useTheme()
   const c = theme.colors
-  // A task opens beside the page (wide) or over it (phone), chosen by `?task=` so it survives a reload and a back step.
-  const { task: openId } = useGlobalSearchParams<{ task?: string }>()
+  const now = useNow()
+  const { store, tasks, projects } = useTaskData()
+  const initials = useInitials(store.userId)
+  const section = sectionOf(pathname)
+  const params = useGlobalSearchParams<{ task?: string; id?: string }>()
+  const openId = params.task
   const openTask = (id: string) => router.setParams({ task: id })
   const closeTask = () => router.setParams({ task: undefined })
   const panel = openId ? <TaskDetail id={openId} onClose={closeTask} onOpenTask={openTask} /> : null
-  const store = useStore()
-  const proposals = use$(store.proposals$) as Record<string, Proposal> | undefined
-  const waiting = Object.values(proposals ?? {}).filter((p) => p && !p.deleted && p.status === 'pending').length
-  // The router only finds tabs written directly inside <Tabs>. Our frame has wrapper views, so the tabs are given to it
-  // explicitly (the documented way for a custom layout).
+  // The router only finds tabs written directly inside <Tabs>. Our frame has wrapper views, so the routes are given to
+  // it explicitly (the documented way for a custom layout).
   const { NavigationContent } = useTabsWithTriggers({
-    triggers: TABS.map(({ name, href }) => ({ type: 'internal' as const, name, href })),
+    triggers: ROUTES.map(({ name, href }) => ({ type: 'internal' as const, name, href })),
   })
+
+  useEffect(() => store.catchUpAfterRealtime(), [store])
+
+  // Quick add: the sidebar button, the phone add button, and N or Q on the web. Inside a project it files the task there.
+  const [adding, setAdding] = useState(false)
+  useEffect(() => onQuickAdd(() => setAdding(true)), [])
+  const projectHere = section === '/projects' && params.id && params.id !== 'none' ? params.id : null
+
+  const go = (href: Href) => {
+    // Pressing Projects or Profile again goes back to their first page.
+    if (href === section && (href === '/projects' || href === '/profile'))
+      router.setParams({ id: undefined, page: undefined })
+    else router.navigate(href)
+  }
 
   const [collapsed, setCollapsed] = useState(false)
   const [width] = useState(() => new Animated.Value(SIDEBAR.open))
@@ -208,7 +137,7 @@ export function Shell() {
     void Promise.resolve(storage.setItem(COLLAPSE_KEY, next ? '1' : '0')).catch(() => undefined)
   }
 
-  // Keyboard shortcuts of the design (6.1) that exist so far: T and P go to a tab, N adds a task. Ignored while typing.
+  // Web shortcuts: I, T, U go to a place, N or Q opens quick add, Esc closes an open task. Ignored while typing.
   useEffect(() => {
     if (Platform.OS !== 'web' || typeof window === 'undefined') return
     const onKey = (e: KeyboardEvent) => {
@@ -220,76 +149,144 @@ export function Shell() {
         router.setParams({ task: undefined })
         return
       }
-      const tab = TABS.find((t) => t.key?.toLowerCase() === key)
-      if (tab) router.navigate(tab.href)
-      else if (key === 'n') {
-        router.navigate('/')
-        setTimeout(requestQuickAdd, 50)
+      const place = MAIN.find((m) => m.key.toLowerCase() === key)
+      if (place) router.navigate(place.href)
+      else if (key === 'n' || key === 'q') {
+        e.preventDefault()
+        requestQuickAdd()
       }
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
   }, [router, openId])
 
-  const list = (
-    <View style={wide ? { gap: 4 } : { flexDirection: 'row' }}>
-      {TABS.map(({ name, label, Icon, key }) => (
-        <TabTrigger key={name} name={name} asChild>
-          <NavItem
-            label={label}
-            Icon={Icon}
-            wide={wide}
-            collapsed={collapsed}
-            shortcut={key}
-            badge={name === 'inbox' ? waiting : 0}
-          />
-        </TabTrigger>
-      ))}
-    </View>
+  const counts: Partial<Record<Href, number>> = {
+    '/inbox': inboxTasks(tasks).length,
+    '/': todayCount(tasks, now),
+  }
+
+  const quickAdd = (
+    <QuickAddSheet
+      visible={adding}
+      onClose={() => setAdding(false)}
+      projects={projects}
+      defaultProjectId={projectHere}
+      onAdd={(t) => {
+        try {
+          store.addTask({ title: t.title, dueDate: t.dueDate, projectId: t.projectId })
+          toast.show({ message: `Added "${t.title}"` })
+        } catch (e) {
+          toast.show({ message: e instanceof Error ? e.message : String(e) })
+        }
+      }}
+    />
   )
 
-  return (
-    <NavigationContent>
-      {wide ? (
+  if (wide) {
+    return (
+      <NavigationContent>
         <View style={{ flex: 1, flexDirection: 'row', backgroundColor: c.bg }}>
           <Animated.View
             style={{
               width,
-              backgroundColor: c.surface,
+              backgroundColor: c.panel,
               borderRightWidth: 1,
-              borderRightColor: c.ink3,
+              borderRightColor: c.line,
               paddingVertical: 16,
-              paddingHorizontal: collapsed ? 8 : 12,
+              paddingHorizontal: collapsed ? 12 : 16,
               overflow: 'hidden',
             }}
           >
             <View
               style={{
-                flexDirection: 'row',
+                flexDirection: collapsed ? 'column' : 'row',
                 alignItems: 'center',
-                gap: 10,
-                marginBottom: 20,
-                paddingHorizontal: collapsed ? 0 : 6,
-                justifyContent: collapsed ? 'center' : 'flex-start',
+                gap: collapsed ? 12 : 8,
+                marginBottom: 16,
+                minHeight: 36,
               }}
             >
-              <Image
-                source={require('../../assets/brand/tovy-logo.png')}
-                style={{ width: 28, height: 28, resizeMode: 'contain' }}
-                accessibilityLabel="Tovy"
+              <Logo size={22} />
+              {collapsed ? null : (
+                <Text
+                  style={{ fontFamily: fonts.semibold, fontSize: 18, letterSpacing: -0.72, color: c.text, flex: 1 }}
+                >
+                  tovy
+                </Text>
+              )}
+              <SidebarIcon
+                icon={Icons.sidebar}
+                label="Toggle sidebar"
+                onPress={toggleCollapsed}
+                testID="collapse-sidebar"
               />
-              {collapsed ? null : <Text style={[type.pageTitle, { color: c.ink }]}>tovy</Text>}
+              <Pressable
+                testID="tab-profile"
+                accessibilityRole="button"
+                accessibilityLabel="Profile and settings"
+                onPress={() => go('/profile')}
+                style={{ borderRadius: 999 }}
+              >
+                <Avatar initials={initials} size={28} />
+              </Pressable>
             </View>
-            <QuickAddButton
-              collapsed={collapsed}
-              onPress={() => {
-                router.navigate('/')
-                setTimeout(requestQuickAdd, 50) // after Today is showing
-              }}
-            />
-            {list}
-            <View style={{ flex: 1 }} />
-            <CollapseButton collapsed={collapsed} onPress={toggleCollapsed} />
+
+            <AddTaskPill collapsed={collapsed} onPress={requestQuickAdd} />
+
+            <View style={{ gap: 2, marginTop: 12 }}>
+              {MAIN.map((m) => (
+                <NavItem
+                  key={m.href}
+                  testID={`tab-${m.label.toLowerCase()}`}
+                  label={m.label}
+                  Icon={m.Icon}
+                  count={counts[m.href]}
+                  collapsed={collapsed}
+                  on={section === m.href}
+                  onPress={() => go(m.href)}
+                />
+              ))}
+            </View>
+
+            {collapsed ? (
+              <View style={{ marginTop: 12 }}>
+                <NavItem
+                  testID="tab-projects"
+                  label="Projects"
+                  Icon={Icons.projects}
+                  collapsed
+                  on={section === '/projects'}
+                  onPress={() => go('/projects')}
+                />
+              </View>
+            ) : (
+              <>
+                <Pressable
+                  testID="tab-projects"
+                  accessibilityRole="button"
+                  onPress={() => go('/projects')}
+                  style={{ marginTop: 24, marginBottom: 4, paddingHorizontal: 8, height: 28, justifyContent: 'center' }}
+                >
+                  <Text style={[type.label, { color: section === '/projects' && !params.id ? c.text : c.text2 }]}>
+                    Projects
+                  </Text>
+                </Pressable>
+                <View style={{ gap: 2 }}>
+                  {projects.map((p) => (
+                    <NavItem
+                      key={p.id}
+                      testID={`nav-project-${p.id}`}
+                      label={p.name}
+                      hash
+                      count={projectStats(p.id, tasks).count || undefined}
+                      collapsed={false}
+                      on={section === '/projects' && params.id === p.id}
+                      onPress={() => router.navigate({ pathname: '/projects', params: { id: p.id } })}
+                    />
+                  ))}
+                </View>
+              </>
+            )}
           </Animated.View>
           <View style={{ flex: 1 }}>
             <FadeIn>
@@ -299,117 +296,167 @@ export function Shell() {
           {panel ? (
             <View
               testID="task-panel"
-              style={{ width: 420, borderLeftWidth: 1, borderLeftColor: c.ink3, backgroundColor: c.bg }}
+              style={{ width: 440, borderLeftWidth: 1, borderLeftColor: c.line, backgroundColor: c.bg }}
             >
               {panel}
             </View>
           ) : null}
         </View>
-      ) : (
-        <View style={{ flex: 1, backgroundColor: c.bg }}>
-          <View style={{ flex: 1, paddingTop: insets.top }}>
-            <FadeIn>
-              <TabSlot style={{ flex: 1 }} />
-            </FadeIn>
-          </View>
-          <View
+        {quickAdd}
+      </NavigationContent>
+    )
+  }
+
+  const browseOn = section === '/browse' || section === '/projects' || section === '/profile'
+  const tabs: { href: Href; label: string; Icon: ToolkitIcon; on: boolean }[] = [
+    ...MAIN.map((m) => ({ href: m.href, label: m.label, Icon: m.Icon, on: section === m.href })),
+    { href: '/browse', label: 'Browse', Icon: Icons.browse, on: browseOn },
+  ]
+
+  return (
+    <NavigationContent>
+      <View style={{ flex: 1, backgroundColor: c.bg }}>
+        <View
+          style={{
+            paddingTop: insets.top,
+            paddingHorizontal: 20,
+            height: 52 + insets.top,
+            flexDirection: 'row',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+          }}
+        >
+          <Logo size={24} />
+          <Pressable
+            testID="tab-profile"
+            accessibilityRole="button"
+            accessibilityLabel="Profile and settings"
+            onPress={() => go('/profile')}
+            hitSlop={8}
+          >
+            <Avatar initials={initials} size={30} />
+          </Pressable>
+        </View>
+        <View style={{ flex: 1 }}>
+          <FadeIn>
+            <TabSlot style={{ flex: 1 }} />
+          </FadeIn>
+        </View>
+        <View
+          style={{
+            height: 60 + insets.bottom,
+            paddingBottom: insets.bottom,
+            backgroundColor: c.bg,
+            borderTopWidth: 1,
+            borderTopColor: c.line,
+            flexDirection: 'row',
+          }}
+        >
+          {tabs.map((t) => (
+            <Pressable
+              key={t.href}
+              testID={`tab-${t.label.toLowerCase()}`}
+              accessibilityRole="tab"
+              accessibilityState={{ selected: t.on }}
+              accessibilityLabel={t.label}
+              onPress={() => go(t.href)}
+              style={{ flex: 1, alignItems: 'center', justifyContent: 'center', gap: 3 }}
+            >
+              <t.Icon size={24} color={t.on ? c.text : c.text2} filled={t.on} />
+              <Text style={[type.micro, { color: t.on ? c.text : c.text2 }]}>{t.label}</Text>
+            </Pressable>
+          ))}
+        </View>
+        {panel ? null : (
+          <Pressable
+            testID="fab"
+            accessibilityRole="button"
+            accessibilityLabel="Add task"
+            onPress={requestQuickAdd}
             style={[
               {
-                height: 64 + insets.bottom,
-                paddingBottom: insets.bottom,
-                paddingTop: 6,
-                backgroundColor: c.barBg,
-                borderTopWidth: 1,
-                borderTopColor: c.ink3,
+                position: 'absolute',
+                right: 20,
+                bottom: 60 + insets.bottom + 16,
+                width: 56,
+                height: 56,
+                borderRadius: 28,
+                backgroundColor: c.primary,
+                alignItems: 'center',
+                justifyContent: 'center',
               },
-              webStyle({ backdropFilter: 'blur(12px)' }),
+              shadow(SHADOWS.fab),
             ]}
           >
-            {list}
+            <Icons.add size={26} color={c.onPrimary} />
+          </Pressable>
+        )}
+        {panel ? (
+          <View
+            testID="task-panel"
+            style={{
+              position: 'absolute',
+              top: 0,
+              left: 0,
+              right: 0,
+              bottom: 0,
+              paddingTop: insets.top,
+              backgroundColor: c.bg,
+            }}
+          >
+            {panel}
           </View>
-          {panel ? (
-            <View
-              testID="task-panel"
-              style={{
-                position: 'absolute',
-                top: 0,
-                left: 0,
-                right: 0,
-                bottom: 0,
-                paddingTop: insets.top,
-                backgroundColor: c.bg,
-              }}
-            >
-              {panel}
-            </View>
-          ) : null}
-        </View>
-      )}
+        ) : null}
+      </View>
+      {quickAdd}
     </NavigationContent>
   )
 }
 
-function QuickAddButton({ collapsed, onPress }: { collapsed: boolean; onPress: () => void }) {
+// A sidebar entry: icon (or `#` for a project), the label, and a count in mono text-3. Selected: hover fill and the
+// filled icon.
+function NavItem({
+  label,
+  Icon,
+  hash = false,
+  count,
+  collapsed,
+  on,
+  onPress,
+  testID,
+}: {
+  label: string
+  Icon?: ToolkitIcon
+  hash?: boolean
+  count?: number
+  collapsed: boolean
+  on: boolean
+  onPress: () => void
+  testID?: string
+}) {
   const { theme } = useTheme()
   const c = theme.colors
   const { hovered, handlers: hover } = useHover()
-  const ring = useFocusRing(c.accent)
+  const ring = useFocusRing(c.primary)
   return (
     <Pressable
-      testID="quick-add"
-      accessibilityRole="button"
-      accessibilityLabel="Quick add"
-      // @ts-expect-error `title` is the web tooltip
-      title={collapsed ? 'Quick add' : undefined}
+      testID={testID}
+      accessibilityRole="tab"
+      accessibilityState={{ selected: on }}
+      accessibilityLabel={label}
+      // @ts-expect-error `title` is the web tooltip (shown when the sidebar is collapsed)
+      title={collapsed ? label : undefined}
       onPress={onPress}
       style={[
         {
-          height: 40,
-          borderRadius: radius.md,
-          backgroundColor: c.accent,
+          height: 34,
+          borderRadius: radius.sm,
           flexDirection: 'row',
           alignItems: 'center',
           justifyContent: collapsed ? 'center' : 'flex-start',
-          gap: 8,
-          paddingHorizontal: collapsed ? 0 : 12,
-          marginBottom: 12,
-          opacity: hovered ? 0.9 : 1,
-        },
-        transition('opacity'),
-        ring.style,
-      ]}
-      {...hover}
-      {...ring.handlers}
-    >
-      <Icons.add size={18} color={c.onAccent} strokeWidth={1.75} />
-      {collapsed ? null : <Text style={{ fontFamily: fonts.medium, fontSize: 14, color: c.onAccent }}>Quick add</Text>}
-    </Pressable>
-  )
-}
-
-function CollapseButton({ collapsed, onPress }: { collapsed: boolean; onPress: () => void }) {
-  const { theme } = useTheme()
-  const c = theme.colors
-  const { hovered, handlers: hover } = useHover()
-  const ring = useFocusRing(c.accent)
-  return (
-    <Pressable
-      testID="collapse-sidebar"
-      accessibilityRole="button"
-      accessibilityLabel="Toggle sidebar"
-      // @ts-expect-error `title` is the web tooltip
-      title="Toggle sidebar"
-      onPress={onPress}
-      style={[
-        {
-          height: 40,
-          borderRadius: radius.md,
-          flexDirection: 'row',
-          alignItems: 'center',
-          justifyContent: collapsed ? 'center' : 'flex-start',
-          gap: 12,
-          paddingHorizontal: collapsed ? 0 : 12,
-          backgroundColor: hovered ? c.ink1 : 'transparent',
+          gap: 10,
+          paddingHorizontal: collapsed ? 0 : 8,
+          backgroundColor: on || hovered ? c.hover : 'transparent',
         },
         transition('background-color'),
         ring.style,
@@ -417,8 +464,102 @@ function CollapseButton({ collapsed, onPress }: { collapsed: boolean; onPress: (
       {...hover}
       {...ring.handlers}
     >
-      <Icons.sidebar size={18} color={c.ink5} strokeWidth={1.75} />
-      {collapsed ? null : <Text style={[type.label, { color: c.ink5 }]}>Collapse</Text>}
+      {hash ? (
+        <Text style={[type.bodyS, { color: c.text3, width: 18, textAlign: 'center' }]}>#</Text>
+      ) : Icon ? (
+        <Icon size={18} color={on ? c.text : c.text2} filled={on} />
+      ) : null}
+      {collapsed ? null : (
+        <>
+          <Text numberOfLines={1} style={[type.bodyS, { flex: 1, color: c.text }]}>
+            {label}
+          </Text>
+          {count ? <Text style={[type.monoS, { color: c.text3 }]}>{count}</Text> : null}
+        </>
+      )}
+    </Pressable>
+  )
+}
+
+// The black "Add task" pill at the top of the sidebar, with its key hint.
+function AddTaskPill({ collapsed, onPress }: { collapsed: boolean; onPress: () => void }) {
+  const { theme } = useTheme()
+  const c = theme.colors
+  const { hovered, handlers: hover } = useHover()
+  const ring = useFocusRing(c.primary)
+  return (
+    <Pressable
+      testID="quick-add"
+      accessibilityRole="button"
+      accessibilityLabel="Add task"
+      // @ts-expect-error `title` is the web tooltip
+      title={collapsed ? 'Add task' : undefined}
+      onPress={onPress}
+      style={[
+        {
+          height: 40,
+          borderRadius: radius.pill,
+          backgroundColor: c.primary,
+          flexDirection: 'row',
+          alignItems: 'center',
+          justifyContent: collapsed ? 'center' : 'flex-start',
+          gap: 8,
+          paddingHorizontal: collapsed ? 0 : 16,
+          opacity: hovered ? 0.88 : 1,
+        },
+        transition('opacity'),
+        ring.style,
+      ]}
+      {...hover}
+      {...ring.handlers}
+    >
+      <Icons.add size={18} color={c.onPrimary} />
+      {collapsed ? null : (
+        <>
+          <Text style={{ flex: 1, fontFamily: fonts.medium, fontSize: 14, color: c.onPrimary }}>Add task</Text>
+          <Text style={[type.monoXs, { color: c.onPrimary, opacity: 0.6 }]}>Q</Text>
+        </>
+      )}
+    </Pressable>
+  )
+}
+
+function SidebarIcon({
+  icon: Icon,
+  label,
+  onPress,
+  testID,
+}: {
+  icon: ToolkitIcon
+  label: string
+  onPress: () => void
+  testID?: string
+}) {
+  const { theme } = useTheme()
+  const c = theme.colors
+  const { hovered, handlers: hover } = useHover()
+  return (
+    <Pressable
+      testID={testID}
+      accessibilityRole="button"
+      accessibilityLabel={label}
+      // @ts-expect-error `title` is the web tooltip
+      title={label}
+      onPress={onPress}
+      style={[
+        {
+          width: 32,
+          height: 32,
+          borderRadius: radius.pill,
+          alignItems: 'center',
+          justifyContent: 'center',
+          backgroundColor: hovered ? c.hover : 'transparent',
+        },
+        transition('background-color'),
+      ]}
+      {...hover}
+    >
+      <Icon size={18} color={c.text2} />
     </Pressable>
   )
 }

@@ -16,7 +16,7 @@ This spec covers stage 1, the design system. Stages 2 onward get their own specs
 2. **Reviewed visually before code.** The human approves the style guide as a rendered page (colours, type, components and icons shown in light and dark) before any token or component changes.
 3. **Tokens match the guide.** `src/ui/tokens.ts` and `src/ui/theme.tsx` hold exactly the guide's values; the existing raw colour test (`src/ui/noRawColors.test.ts`) still passes.
 4. **Icon toolkit.** One file maps each meaning (today, inbox, add, back and so on) to one icon, with an outline and a filled version where a selected state needs it. Screens import icons only from that file, checked by a unit test.
-5. **Component gallery.** A screen reachable only in development shows every shared component in every state (default, hover, pressed, focused, disabled, error, loading) in light and dark, at phone and wide width. Screenshots of it are reviewed by the human.
+5. **Component gallery.** A screen not linked from the app (`/gallery`, so the human can open it on the preview) shows every shared component in every state (default, hover, pressed, focused, disabled, error, loading) in light and dark, at phone and wide width. Screenshots of it are reviewed by the human.
 6. **No points on screen.** The Today hero card, the 150 point ring, the "points to close" text and the Ring closed overlay are gone. Partial progress on a task (for example 40%) stays. The progress log keeps its data; nothing is deleted from the database.
 7. **First screen fixed.** The loading state before the app is ready uses the theme background and the logo, never default black text.
 8. Lint, format, typecheck, unit tests and the e2e suite pass (tests that checked points are removed with the feature, not weakened).
@@ -68,13 +68,18 @@ Risks:
 - [x] Design system approved in Paper (human, 2026-10-03: "Perfect")
 - [x] `style-guide.md` rewritten from the approved Paper file
 - [x] Tokens and icon toolkit (black and white palette in `theme.tsx`, older colour names kept as aliases; `src/ui/icons.ts` on Phosphor, lucide removed; `icons.test.ts` checks nobody else imports an icon library)
-- [ ] Component gallery
+- [x] Component gallery (`app/gallery.tsx`, `src/ui/Gallery.tsx`: light and dark side by side on a wide screen, stacked on a phone; not linked, open `/gallery`)
+- [x] Every component restyled to Paper 02 (task row, section header, quick add with a panel footer, chips, fields, menu, toast, settings rows, segmented, sheets, empty state, banner, skeleton, avatar, check circle, progress ring)
+- [x] Stage 2 information architecture pulled into this branch (human, 2026-10-03: "go all in with the redesign ... do everything"): tabs Inbox, Today, Upcoming, Browse; Paper sidebar on the web; phone top bar, bottom tabs and add button; Inbox is captured tasks; the approval Inbox screen and its e2e test `i1` are gone; Upcoming by day; Reschedule on Overdue
 - [x] Points removed, loading screen (Today title and date, no hero card or Ring closed overlay; the logo on the page ground while loading; the accent choice removed from Appearance; e2e `h1` rewritten, `t2` and the dark background check updated)
-- [ ] Checks pass
+- [x] Checks pass in the cloud copy: lint, format, typecheck, 53 unit tests, web export. The e2e suite is not run (needs the Supabase secrets)
 
 ## Notes
 
 - Projects keep their colour name in the database, but every project colour shows as the secondary grey for now (`PROJECT_COLORS` in `theme.tsx`) until projects get their own design.
 - Checks run in a cloud copy of the repo (the local shell cannot finish `npm ci` within its time limit): lint, format, typecheck and 49 unit tests pass. The e2e suite needs the Supabase secrets and was not run.
 
+- Backend wiring is unchanged: every screen calls the same store functions as before (`addTask`, `editTask`, `setDone`, `deleteTask`, `setProgress`, projects). The proposals table, its sync and the store's approve and reject functions stay until stage 7 replaces them with direct MCP writes; only the screen is gone. The realtime catch up moved from Today to the Shell so it runs on every page.
+- The progress log shows the change in percent (`+10%`), not points. e2e `d1` updated to match.
+- Projects have no colour picker any more (every project colour showed the same grey). The stored colour is kept; new projects get the default.
 - Supersedes the visual parts of `design-complete.md` and `ui-shell.md`. Their data and sync work stays.

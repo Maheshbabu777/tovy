@@ -2,21 +2,21 @@ import type { ReactNode } from 'react'
 import { Pressable, Text, View } from 'react-native'
 import { Icons, type ToolkitIcon } from '../icons'
 import { useTheme } from '../theme'
-import { fonts, radius, type } from '../tokens'
+import { radius, type } from '../tokens'
 import { transition, useFocusRing, useHover } from './web'
 
-// Design 7.16. A group: an optional title (13/500 ink-6, sentence case) over a container with a 1 px ink-3 outline,
-// radius 22 and 1 px dividers between rows.
+// Style guide, Settings: an optional title (13/500 text-2, sentence case) over grouped rows in a hairline box, radius
+// 12, with hairlines between rows.
 export function Group({ title, children }: { title?: string; children: ReactNode }) {
   const { theme } = useTheme()
   const c = theme.colors
   const rows = (Array.isArray(children) ? children : [children]).filter(Boolean) as ReactNode[]
   return (
     <View style={{ marginTop: 24 }}>
-      {title ? <Text style={[type.label, { color: c.ink6, marginLeft: 4, marginBottom: 8 }]}>{title}</Text> : null}
-      <View style={{ borderWidth: 1, borderColor: c.ink3, borderRadius: radius.xl, overflow: 'hidden' }}>
+      {title ? <Text style={[type.label, { color: c.text2, marginLeft: 4, marginBottom: 8 }]}>{title}</Text> : null}
+      <View style={{ borderWidth: 1, borderColor: c.line, borderRadius: radius.lg, overflow: 'hidden' }}>
         {rows.map((row, i) => (
-          <View key={i} style={i > 0 ? { borderTopWidth: 1, borderTopColor: c.ink3 } : undefined}>
+          <View key={i} style={i > 0 ? { borderTopWidth: 1, borderTopColor: c.line } : undefined}>
             {row}
           </View>
         ))}
@@ -25,7 +25,7 @@ export function Group({ title, children }: { title?: string; children: ReactNode
   )
 }
 
-// A row at least 56 tall: an optional 19 px icon, the label, an optional value, then a chevron (it opens something) or a
+// A row at least 52 tall: an optional 18 px icon, the label, an optional value, then a chevron (it opens something) or a
 // control on the right.
 export function Row({
   label,
@@ -51,8 +51,8 @@ export function Row({
   const { theme } = useTheme()
   const c = theme.colors
   const { hovered, handlers: hover } = useHover()
-  const ring = useFocusRing(c.accent)
-  const tint = danger ? c.bad : c.ink
+  const ring = useFocusRing(c.primary)
+  const tint = danger ? c.red : c.text
   return (
     <Pressable
       testID={testID}
@@ -62,12 +62,12 @@ export function Row({
       disabled={!onPress}
       style={[
         {
-          minHeight: 56,
+          minHeight: 52,
           paddingHorizontal: 16,
           flexDirection: 'row',
           alignItems: 'center',
           gap: 12,
-          backgroundColor: hovered && onPress ? c.ink1 : 'transparent',
+          backgroundColor: hovered && onPress ? c.hover : 'transparent',
         },
         transition('background-color'),
         ring.style,
@@ -75,15 +75,15 @@ export function Row({
       {...hover}
       {...ring.handlers}
     >
-      {Icon ? <Icon size={19} color={danger ? c.bad : c.ink6} strokeWidth={1.75} /> : null}
-      <Text style={{ flex: 1, fontFamily: fonts.sans, fontSize: 15, color: tint }}>{label}</Text>
+      {Icon ? <Icon size={18} color={danger ? c.red : c.text2} /> : null}
+      <Text style={[type.body, { flex: 1, color: tint }]}>{label}</Text>
       {value ? (
-        <Text testID={valueTestID} style={{ fontFamily: fonts.sans, fontSize: 14, color: c.ink6 }}>
+        <Text testID={valueTestID} style={[type.bodyS, { color: c.text2 }]}>
           {value}
         </Text>
       ) : null}
       {control}
-      {onPress && chevron && !control ? <Icons.forward size={16} color={c.ink5} strokeWidth={1.75} /> : null}
+      {onPress && chevron && !control ? <Icons.forward size={16} color={c.text3} /> : null}
     </Pressable>
   )
 }

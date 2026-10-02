@@ -36,8 +36,8 @@ export function Button({
   const ring = useFocusRing(c.accent)
   const s = useThemedStyles((col) => ({
     base: {
-      minHeight: 44,
-      paddingHorizontal: 20,
+      minHeight: 40,
+      paddingHorizontal: 18,
       borderRadius: radius.pill,
       flexDirection: 'row' as const,
       alignItems: 'center' as const,
@@ -45,7 +45,7 @@ export function Button({
       gap: 8,
     },
     small: { minHeight: 32, paddingHorizontal: 12 },
-    label: { fontFamily: fonts.medium, fontSize: 15 },
+    label: { fontFamily: fonts.medium, fontSize: 14 },
     labelSmall: { fontSize: 13 },
     primary: { backgroundColor: col.accent },
     soft: { backgroundColor: col.accentSoft },

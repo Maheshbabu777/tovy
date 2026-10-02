@@ -7,8 +7,9 @@ import { motion } from '../tokens'
 
 const AnimatedCircle = Animated.createAnimatedComponent(Circle)
 
-// Design 7.8: a track circle and an arc from 12 o'clock, clockwise, with round caps. Done turns it green with a check.
-// The arc animates over 500 ms.
+// Style guide, Task row: a thin text-3 ring when nothing is done, a primary arc on a line-strong track for progress
+// (from 12 o'clock, clockwise, round caps), and a solid primary circle with an on-primary check when done. The arc
+// animates over 500 ms.
 export function ProgressRing({
   size,
   stroke,
@@ -34,17 +35,39 @@ export function ProgressRing({
       useNativeDriver: false,
     }).start()
   }, [target, circumference, offset])
-  const arc = done ? c.ok : c.accent
+  if (done) {
+    return (
+      <View
+        style={{
+          width: size,
+          height: size,
+          borderRadius: size / 2,
+          backgroundColor: c.primary,
+          alignItems: 'center',
+          justifyContent: 'center',
+        }}
+      >
+        <Icons.check size={Math.round(size * 0.6)} color={c.onPrimary} filled />
+      </View>
+    )
+  }
   return (
-    <View style={{ width: size, height: size, alignItems: 'center', justifyContent: 'center' }}>
-      <Svg width={size} height={size} style={{ position: 'absolute' }}>
-        <Circle cx={size / 2} cy={size / 2} r={radius} stroke={done ? c.ok : c.ink2} strokeWidth={stroke} fill="none" />
+    <View style={{ width: size, height: size }}>
+      <Svg width={size} height={size}>
+        <Circle
+          cx={size / 2}
+          cy={size / 2}
+          r={radius}
+          stroke={target > 0 ? c.lineStrong : c.text3}
+          strokeWidth={stroke}
+          fill="none"
+        />
         {target > 0 ? (
           <AnimatedCircle
             cx={size / 2}
             cy={size / 2}
             r={radius}
-            stroke={arc}
+            stroke={c.primary}
             strokeWidth={stroke}
             fill="none"
             strokeLinecap="round"
@@ -56,7 +79,6 @@ export function ProgressRing({
           />
         ) : null}
       </Svg>
-      {done ? <Icons.check size={Math.round(size * 0.5)} color={c.ok} strokeWidth={2.6} /> : null}
     </View>
   )
 }

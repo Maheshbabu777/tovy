@@ -86,6 +86,7 @@ function buildColors(mode: ThemeMode) {
     toastBg: p.text,
     toastText: p.bg,
     toastUndo: p.bg,
+    toastPill: alpha(p.bg, 0.16),
     selection: alpha(p.text, 0.14),
   }
 }
@@ -178,6 +179,13 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
     () => ({ theme: makeTheme(mode), preference, setPreference }),
     [mode, preference, setPreference],
   )
+  return <ThemeContext.Provider value={value}>{children}</ThemeContext.Provider>
+}
+
+// Draws its children in one fixed theme, whatever the person chose (the component gallery shows both side by side).
+export function ThemeOverride({ mode, children }: { mode: ThemeMode; children: ReactNode }) {
+  const parent = useTheme()
+  const value = useMemo<ThemeContextValue>(() => ({ ...parent, theme: makeTheme(mode) }), [parent, mode])
   return <ThemeContext.Provider value={value}>{children}</ThemeContext.Provider>
 }
 

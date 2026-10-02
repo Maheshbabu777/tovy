@@ -7,11 +7,11 @@ import { Button } from './components/Button'
 import { Chip } from './components/Chip'
 import { Sheet } from './components/Sheet'
 import { webStyle } from './components/web'
-import { PROJECT_COLORS, useTheme } from './theme'
-import { fonts, type } from './tokens'
+import { useTheme } from './theme'
+import { type } from './tokens'
 
-// Design 11.7 without the date reading (that is its own spec). The title, a date chosen from chips and a project chip.
-// Enter or "Add task" adds it. A task needs a title.
+// Style guide, Quick add: the task name, date chips and project chips (a set chip is filled, an empty one outlined), and a
+// footer on panel with Cancel and Add task pills. Enter or "Add task" adds it. A task needs a title.
 export function QuickAddSheet({
   visible,
   onClose,
@@ -25,12 +25,10 @@ export function QuickAddSheet({
   defaultProjectId?: string | null
   onAdd: (task: { title: string; dueDate: string | null; projectId: string | null }) => void
 }) {
-  // The form lives inside the sheet, which draws nothing while closed, so it starts empty every time it opens.
-  return (
-    <Sheet visible={visible} onClose={onClose} title="New task" testID="quick-add-sheet">
-      <QuickAddForm onClose={onClose} projects={projects} onAdd={onAdd} defaultProjectId={defaultProjectId} />
-    </Sheet>
-  )
+  // The form is mounted only while open, so it starts empty every time it opens.
+  return visible ? (
+    <QuickAddForm onClose={onClose} projects={projects} onAdd={onAdd} defaultProjectId={defaultProjectId} />
+  ) : null
 }
 
 function QuickAddForm({
@@ -59,23 +57,27 @@ function QuickAddForm({
     onClose()
   }
 
+  const footer = (
+    <View style={{ flexDirection: 'row', justifyContent: 'flex-end', gap: 8 }}>
+      <Button label="Cancel" variant="ghost" bordered small onPress={onClose} testID="quick-add-cancel" />
+      <Button testID="quick-add-submit" label="Add task" small disabled={!title.trim()} onPress={submit} />
+    </View>
+  )
+
   return (
-    <>
+    <Sheet visible onClose={onClose} title="New task" testID="quick-add-sheet" footer={footer}>
       <TextInput
         testID="quick-add-title"
         autoFocus
         value={title}
         onChangeText={setTitle}
         onSubmitEditing={submit}
-        placeholder="What needs doing?"
-        placeholderTextColor={c.ink5}
-        style={[
-          { fontFamily: fonts.medium, fontSize: 20, color: c.ink, paddingVertical: 8 },
-          webStyle({ outlineStyle: 'none' }),
-        ]}
+        placeholder="Task name"
+        placeholderTextColor={c.text3}
+        style={[type.h1, { color: c.text, paddingVertical: 8 }, webStyle({ outlineStyle: 'none' })]}
       />
-      <Text style={[type.label, { color: c.ink6, marginTop: 12, marginBottom: 8 }]}>Date</Text>
-      <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
+      <Text style={[type.label, { color: c.text2, marginTop: 12, marginBottom: 8 }]}>Date</Text>
+      <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}>
         {days.map(({ day, label }) => (
           <Chip
             key={day}
@@ -86,22 +88,19 @@ function QuickAddForm({
           />
         ))}
       </View>
-      <Text style={[type.label, { color: c.ink6, marginTop: 16, marginBottom: 8 }]}>Project</Text>
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8 }}>
-        <Chip label="No project" active={projectId === null} onPress={() => setProjectId(null)} />
+      <Text style={[type.label, { color: c.text2, marginTop: 16, marginBottom: 8 }]}>Project</Text>
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 6 }}>
+        <Chip label="Inbox" icon={Icons.inbox} active={projectId === null} onPress={() => setProjectId(null)} />
         {projects.map((p) => (
           <Chip
             key={p.id}
             label={p.name}
-            dot={PROJECT_COLORS[p.color] ?? PROJECT_COLORS.slate}
+            icon={Icons.project}
             active={projectId === p.id}
             onPress={() => setProjectId(p.id)}
           />
         ))}
       </ScrollView>
-      <View style={{ marginTop: 20, alignItems: 'flex-end' }}>
-        <Button testID="quick-add-submit" label="Add task" disabled={!title.trim()} onPress={submit} />
-      </View>
-    </>
+    </Sheet>
   )
 }

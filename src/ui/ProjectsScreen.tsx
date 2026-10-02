@@ -1,39 +1,25 @@
-import { useEffect, useState } from 'react'
-import { Text, useWindowDimensions, View } from 'react-native'
-import { useGlobalSearchParams, useLocalSearchParams, useRouter } from 'expo-router'
-import { use$ } from '@legendapp/state/react'
-import { syncState } from '@legendapp/state'
+import { useState } from 'react'
+import { Pressable, Text, View } from 'react-native'
+import { useLocalSearchParams, useRouter } from 'expo-router'
 import { Icons } from './icons'
-import { projectStats, sortProjects, taskCountLabel } from '../core/projects'
-import { percentOf } from '../core/progress'
-import type { Project, Task } from '../core/sync/tasks'
+import { projectStats, taskCountLabel } from '../core/projects'
 import { byCreated, byDue } from '../core/today'
 import { Button } from './components/Button'
-import { Card } from './components/Card'
 import { EmptyState, Skeleton } from './components/Feedback'
 import { IconButton } from './components/IconButton'
 import { Page } from './components/Page'
-import { ProgressBar } from './components/ProgressBar'
 import { ScreenHeader } from './components/ScreenHeader'
 import { useToast } from './components/Toast'
+import { transition, useFocusRing, useHover } from './components/web'
 import { ProjectSheet } from './ProjectSheet'
 import { QuickAddSheet } from './QuickAddSheet'
-import { useStore } from './StoreContext'
-import { TaskRow } from './TaskRow'
-import { PROJECT_COLORS, useTheme } from './theme'
+import { AddTaskRow, TaskRows, TaskSection } from './TaskList'
+import { useTheme } from './theme'
 import { type } from './tokens'
 import { useTaskActions } from './useTaskActions'
+import { useNow, useTaskData } from './useTaskData'
 
 const NONE = 'none' // the route id of the "No project" page
-
-function useNow(): Date {
-  const [now, setNow] = useState(() => new Date())
-  useEffect(() => {
-    const timer = setInterval(() => setNow(new Date()), 60_000)
-    return () => clearInterval(timer)
-  }, [])
-  return now
-}
 
 // The Projects tab. With `?id=` it shows one project (the page stays inside the tab, so the tab bar or sidebar stays).
 export function ProjectsScreen() {
@@ -41,67 +27,50 @@ export function ProjectsScreen() {
   return id ? <ProjectPage id={id} /> : <ProjectList />
 }
 
-function useProjectData() {
-  const store = useStore()
-  const tasksMap = use$(store.tasks$) as Record<string, Task> | undefined
-  const projectMap = use$(store.projects$) as Record<string, Project> | undefined
-  const loaded = use$(syncState(store.tasks$).isPersistLoaded)
-  // Not memoised: Legend-State changes these objects in place, so their identity does not change when a task does.
-  const tasks = Object.values(tasksMap ?? {}).filter(Boolean) as Task[]
-  const projects = sortProjects((Object.values(projectMap ?? {}).filter((p) => p && !p.deleted) as Project[]) ?? [])
-  return { store, tasks, projects, projectMap, loaded }
-}
-
 function ProjectList() {
-  const { store, tasks, projects, loaded } = useProjectData()
+  const { store, tasks, projects, loaded } = useTaskData()
   const router = useRouter()
   const toast = useToast()
-  const columns = useWindowDimensions().width >= 640 ? 2 : 1
   const [creating, setCreating] = useState(false)
 
-  const cards: { id: string; name: string; color: string }[] = projects.map((p) => ({
-    id: p.id,
-    name: p.name,
-    color: p.color,
-  }))
-  const hasLoose = projectStats(null, tasks).count > 0
-  if (hasLoose) cards.push({ id: NONE, name: 'No project', color: 'slate' })
-  const rows: (typeof cards)[] = []
-  for (let i = 0; i < cards.length; i += columns) rows.push(cards.slice(i, i + columns))
+  const rows: { id: string; name: string }[] = projects.map((p) => ({ id: p.id, name: p.name }))
+  if (projectStats(null, tasks).count > 0) rows.push({ id: NONE, name: 'No project' })
 
   return (
     <Page>
       <ScreenHeader
         title="Projects"
         right={
-          <IconButton icon={Icons.add} label="New project" onPress={() => setCreating(true)} testID="new-project" />
+          <IconButton
+            icon={Icons.newProject}
+            label="New project"
+            onPress={() => setCreating(true)}
+            testID="new-project"
+          />
         }
       />
-      <View style={{ marginTop: 8, gap: 8 }}>
+      <View style={{ marginTop: 16 }}>
         {!loaded ? (
           <Skeleton rows={3} />
-        ) : cards.length === 0 ? (
+        ) : rows.length === 0 ? (
           <EmptyState
-            icon={Icons.newProject}
+            icon={Icons.projects}
             title="No projects yet"
             body="Group related tasks under a project, like Work or Home."
           >
             <Button label="New project" onPress={() => setCreating(true)} testID="empty-new-project" />
           </EmptyState>
         ) : (
-          rows.map((row, i) => (
-            <View key={i} style={{ flexDirection: 'row', gap: 8 }}>
-              {row.map((card) => (
-                <ProjectCard
-                  key={card.id}
-                  {...card}
-                  stats={projectStats(card.id === NONE ? null : card.id, tasks)}
-                  onPress={() => router.push({ pathname: '/projects', params: { id: card.id } })}
-                />
-              ))}
-              {row.length < columns ? <View style={{ flex: 1 }} /> : null}
-            </View>
-          ))
+          <View>
+            {rows.map((row) => (
+              <ProjectRow
+                key={row.id}
+                {...row}
+                stats={projectStats(row.id === NONE ? null : row.id, tasks)}
+                onPress={() => router.push({ pathname: '/projects', params: { id: row.id } })}
+              />
+            ))}
+          </View>
         )}
       </View>
       <ProjectSheet
@@ -116,53 +85,68 @@ function ProjectList() {
   )
 }
 
-function ProjectCard({
+// A project in the list: `#`, the name, and "3 tasks · 40% done" under it. Rows are split by hairlines.
+function ProjectRow({
   id,
   name,
-  color,
   stats,
   onPress,
 }: {
   id: string
   name: string
-  color: string
   stats: { count: number; percent: number }
   onPress: () => void
 }) {
   const { theme } = useTheme()
   const c = theme.colors
-  const tint = PROJECT_COLORS[color] ?? PROJECT_COLORS.slate
+  const { hovered, handlers: hover } = useHover()
+  const ring = useFocusRing(c.primary)
   return (
-    <View style={{ flex: 1 }}>
-      <Card onPress={onPress} testID={`project-${id}`}>
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-          <View style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: tint }} />
-          <Text numberOfLines={1} style={[type.title, { color: c.ink, flex: 1 }]}>
-            {name}
-          </Text>
-        </View>
-        <Text style={[type.label, { color: c.ink6, marginTop: 4 }]}>
+    <Pressable
+      testID={`project-${id}`}
+      accessibilityRole="button"
+      onPress={onPress}
+      style={[
+        {
+          flexDirection: 'row',
+          alignItems: 'center',
+          gap: 12,
+          minHeight: 60,
+          paddingVertical: 10,
+          marginHorizontal: -8,
+          paddingHorizontal: 8,
+          borderBottomWidth: 1,
+          borderBottomColor: c.line,
+          backgroundColor: hovered ? c.hover : 'transparent',
+        },
+        transition('background-color'),
+        ring.style,
+      ]}
+      {...hover}
+      {...ring.handlers}
+    >
+      <Text style={[type.body, { color: c.text3, width: 20, textAlign: 'center' }]}>#</Text>
+      <View style={{ flex: 1, gap: 2 }}>
+        <Text numberOfLines={1} style={[type.body, { color: c.text }]}>
+          {name}
+        </Text>
+        <Text style={[type.meta, { color: c.text2 }]}>
           {stats.count === 0 ? 'No tasks yet' : `${taskCountLabel(stats.count)} · ${stats.percent}% done`}
         </Text>
-        <View style={{ marginTop: 12 }}>
-          <ProgressBar percent={stats.percent} color={tint} />
-        </View>
-      </Card>
-    </View>
+      </View>
+      <Icons.forward size={16} color={c.text3} />
+    </Pressable>
   )
 }
 
 function ProjectPage({ id }: { id: string }) {
-  const { store, tasks, projects, projectMap, loaded } = useProjectData()
+  const { store, tasks, projects, projectMap, loaded } = useTaskData()
   const router = useRouter()
   const toast = useToast()
   const now = useNow()
-  const { run, toggleDone, open, openMenu, menuElement } = useTaskActions(now)
-  const { task: openId } = useGlobalSearchParams<{ task?: string }>()
+  const actions = useTaskActions(now)
   const [editing, setEditing] = useState(false)
   const [adding, setAdding] = useState(false)
-  const { theme } = useTheme()
-  const c = theme.colors
 
   const loose = id === NONE
   const project = loose ? undefined : projectMap?.[id]
@@ -171,7 +155,7 @@ function ProjectPage({ id }: { id: string }) {
   const own = tasks
     .filter((t) => !t.deleted && !t.parent_id && (t.project_id ?? null) === (loose ? null : id))
     .sort((a, b) => byDue(a, b) || byCreated(a, b))
-  const open_ = own.filter((t) => !t.done_at)
+  const openRows = own.filter((t) => !t.done_at)
   const done = own.filter((t) => t.done_at)
 
   if (missing) {
@@ -179,7 +163,7 @@ function ProjectPage({ id }: { id: string }) {
       <Page>
         <ScreenHeader title="Project" onBack={back} />
         <EmptyState
-          icon={Icons.subtasks}
+          icon={Icons.projects}
           title="This project is gone"
           body="It may have been deleted on another device."
         />
@@ -188,20 +172,12 @@ function ProjectPage({ id }: { id: string }) {
   }
 
   const title = loose ? 'No project' : (project?.name ?? '')
-  const rowsOf = (list: Task[]) =>
-    list.map((task) => (
-      <TaskRow
-        key={task.id}
-        task={task}
-        project={undefined}
-        progress={percentOf(task, tasks)}
-        now={now}
-        selected={openId === task.id}
-        onToggleDone={() => toggleDone(task)}
-        onOpen={() => open(task)}
-        onMenu={(at) => openMenu(task, at)}
-      />
-    ))
+  const shared = { all: tasks, projectMap, now, actions, showProject: false }
+  const addHere = (text: string) =>
+    actions.run(() => {
+      store.addTask({ title: text, dueDate: null, projectId: loose ? null : id })
+      toast.show({ message: `Added "${text}"` })
+    })
 
   return (
     <Page>
@@ -223,7 +199,7 @@ function ProjectPage({ id }: { id: string }) {
           </>
         }
       />
-      <View style={{ marginTop: 8 }}>
+      <View style={{ marginTop: 16 }}>
         {!loaded ? (
           <Skeleton rows={4} />
         ) : own.length === 0 ? (
@@ -232,16 +208,9 @@ function ProjectPage({ id }: { id: string }) {
           </EmptyState>
         ) : (
           <>
-            {rowsOf(open_)}
-            {done.length > 0 ? (
-              <>
-                <View style={{ flexDirection: 'row', gap: 8, paddingHorizontal: 12, paddingTop: 24, paddingBottom: 4 }}>
-                  <Text style={[type.label, { color: c.ink6 }]}>Done</Text>
-                  <Text style={[type.label, { color: c.ink5 }]}>{done.length}</Text>
-                </View>
-                {rowsOf(done)}
-              </>
-            ) : null}
+            <TaskRows rows={openRows} {...shared} />
+            <AddTaskRow onAdd={addHere} testID="project-new-title" collapsible />
+            <TaskSection id="done" title="Done" rows={done} {...shared} />
           </>
         )}
       </View>
@@ -265,13 +234,13 @@ function ProjectPage({ id }: { id: string }) {
         projects={projects}
         defaultProjectId={loose ? null : id}
         onAdd={(t) =>
-          run(() => {
+          actions.run(() => {
             store.addTask({ title: t.title, dueDate: t.dueDate, projectId: t.projectId })
             toast.show({ message: `Added "${t.title}"` })
           })
         }
       />
-      {menuElement}
+      {actions.menuElement}
     </Page>
   )
 }

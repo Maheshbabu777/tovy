@@ -4,7 +4,7 @@ import { useTheme } from '../theme'
 import { radius } from '../tokens'
 import { transition, useFocusRing, useHover } from './web'
 
-// Design 7.17: radius 14, 1 px ink-3 outline, padding 16. The hero card is surface coloured, radius 22, padding 20.
+// Style guide: radius 12, a hairline, padding 16. The hero card is on panel, padding 20.
 export function Card({
   children,
   hero = false,
@@ -21,13 +21,13 @@ export function Card({
   const { theme } = useTheme()
   const c = theme.colors
   const { hovered, handlers: hover } = useHover()
-  const ring = useFocusRing(c.accent)
+  const ring = useFocusRing(c.primary)
   const base: ViewStyle = {
-    borderRadius: hero ? radius.xl : radius.lg,
+    borderRadius: radius.lg,
     borderWidth: 1,
-    borderColor: c.ink3,
+    borderColor: c.line,
     padding: hero ? 20 : 16,
-    backgroundColor: hero ? c.surface : hovered && onPress ? c.ink1 : c.bg,
+    backgroundColor: hero ? c.panel : hovered && onPress ? c.hover : c.bg,
   }
   if (!onPress) {
     return (

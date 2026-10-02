@@ -6,8 +6,8 @@ import { useTheme } from '../theme'
 import { fonts, motion, radius, type, WIDE_BREAKPOINT } from '../tokens'
 import { shadow, SHADOWS } from './web'
 
-// Design 7.21: bottom centre (84 up on a phone, above the tab bar, 24 on the web), ink background, an optional Undo and
-// a close button, and a 2 px bar along the bottom edge that drains over 5 s. Messages are polite status updates.
+// Style guide, Toast: inverted (text colour ground), 48 tall, radius 12, Undo as a translucent pill. Bottom centre (84 up
+// on a phone, above the tab bar, 24 on the web), a close button, and a 2 px bar that drains over 5 s.
 const TOAST_MS = 5000
 
 type ToastAction = { label: string; onPress: () => void }
@@ -82,7 +82,7 @@ function ToastView({ toast, onDone }: { toast: ToastInput; onDone: () => void })
             overflow: 'hidden',
             maxWidth: 480,
           },
-          shadow(SHADOWS.menu),
+          shadow(SHADOWS.toast),
         ]}
       >
         <Text style={[type.bodyS, { color: c.toastText, flexShrink: 1, paddingVertical: 12 }]}>{toast.message}</Text>
@@ -94,9 +94,16 @@ function ToastView({ toast, onDone }: { toast: ToastInput; onDone: () => void })
               toast.action?.onPress()
               onDone()
             }}
-            style={{ height: 36, paddingHorizontal: 10, justifyContent: 'center' }}
+            style={{
+              height: 30,
+              paddingHorizontal: 14,
+              marginLeft: 8,
+              borderRadius: radius.pill,
+              backgroundColor: c.toastPill,
+              justifyContent: 'center',
+            }}
           >
-            <Text style={{ fontFamily: fonts.semibold, fontSize: 14, color: c.toastUndo }}>{toast.action.label}</Text>
+            <Text style={{ fontFamily: fonts.medium, fontSize: 13, color: c.toastUndo }}>{toast.action.label}</Text>
           </Pressable>
         ) : null}
         <Pressable
@@ -106,7 +113,7 @@ function ToastView({ toast, onDone }: { toast: ToastInput; onDone: () => void })
           onPress={onDone}
           style={{ width: 36, height: 36, alignItems: 'center', justifyContent: 'center' }}
         >
-          <Icons.close size={16} color={c.toastText} strokeWidth={1.75} />
+          <Icons.close size={16} color={c.toastText} />
         </Pressable>
         <Animated.View
           style={{
@@ -114,7 +121,7 @@ function ToastView({ toast, onDone }: { toast: ToastInput; onDone: () => void })
             left: 0,
             bottom: 0,
             height: 2,
-            backgroundColor: c.toastUndo,
+            backgroundColor: c.toastPill,
             width: drain.interpolate({ inputRange: [0, 1], outputRange: ['0%', '100%'] }),
           }}
         />

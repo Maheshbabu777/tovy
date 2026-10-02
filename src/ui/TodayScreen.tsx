@@ -1,249 +1,103 @@
-import { useEffect, useState } from 'react'
-import { Pressable, ScrollView, Text, TextInput, useWindowDimensions, View } from 'react-native'
-import { syncState } from '@legendapp/state'
-import { use$ } from '@legendapp/state/react'
-import { useSafeAreaInsets } from 'react-native-safe-area-context'
-import { useGlobalSearchParams } from 'expo-router'
+import { useWindowDimensions, View } from 'react-native'
+import { batch } from '@legendapp/state'
 import { Icons } from './icons'
-import { percentOf } from '../core/progress'
-import type { Project, Task } from '../core/sync/tasks'
-import { addDays, dateLine, groupTasks, localDay } from '../core/today'
+import { dateLine, groupTasks, localDay } from '../core/today'
 import { Banner, EmptyState, Skeleton } from './components/Feedback'
+import { Page } from './components/Page'
+import { ScreenHeader } from './components/ScreenHeader'
 import { useToast } from './components/Toast'
-import { webStyle } from './components/web'
-import { onQuickAdd } from './quickAdd'
-import { QuickAddSheet } from './QuickAddSheet'
-import { useStore } from './StoreContext'
-import { TaskRow } from './TaskRow'
-import { useTheme } from './theme'
-import { fonts, radius, type, WIDE_BREAKPOINT } from './tokens'
+import { AddTaskRow, TaskSection } from './TaskList'
+import { WIDE_BREAKPOINT } from './tokens'
 import { useOnline } from './useOnline'
 import { useTaskActions } from './useTaskActions'
+import { useNow, useTaskData } from './useTaskData'
 
-// The date stays right across midnight and a long session.
-function useNow(): Date {
-  const [now, setNow] = useState(() => new Date())
-  useEffect(() => {
-    const timer = setInterval(() => setNow(new Date()), 60_000)
-    return () => clearInterval(timer)
-  }, [])
-  return now
-}
-
-// Today (`.context/design/style-guide.md`): the title, the date, then the list. No points or ring. Groups: Overdue, Due today, Coming
-// up, Anytime, and what was finished today.
+// Today (style guide, Navigation and Task row): the title and the date, then the list split by section headers.
+// Overdue has a Reschedule action that moves every late task to today. No points or ring. A task added here has no date,
+// so it lands in Anytime.
 export function TodayScreen() {
-  const store = useStore()
   const toast = useToast()
-  const { theme } = useTheme()
-  const c = theme.colors
-  const insets = useSafeAreaInsets()
   const wide = useWindowDimensions().width >= WIDE_BREAKPOINT
   const now = useNow()
   const online = useOnline()
-  const { run, toggleDone, open, openMenu, menuElement } = useTaskActions(now)
-  const { task: openId } = useGlobalSearchParams<{ task?: string }>()
+  const actions = useTaskActions(now)
+  const { store, tasks, projectMap, loaded, syncError } = useTaskData()
 
-  const tasksMap = use$(store.tasks$) as Record<string, Task> | undefined
-  const projectMap = use$(store.projects$) as Record<string, Project> | undefined
-  const taskState = syncState(store.tasks$)
-  const loaded = use$(taskState.isPersistLoaded)
-  const syncError = use$(taskState.error)
-
-  const [sheetOpen, setSheetOpen] = useState(false)
-  const [draft, setDraft] = useState('')
-
-  useEffect(() => store.catchUpAfterRealtime(), [store])
-  useEffect(() => onQuickAdd(() => setSheetOpen(true)), [])
-
-  // Not memoised on `tasksMap`: Legend-State changes that object in place, so its identity does not change when a task does.
-  const tasks = Object.values(tasksMap ?? {}).filter(Boolean) as Task[]
-  const projects = (Object.values(projectMap ?? {}).filter((p) => p && !p.deleted) as Project[]).sort(
-    (a, b) => (a.created_at ?? '~').localeCompare(b.created_at ?? '~') || a.id.localeCompare(b.id),
-  )
   const groups = groupTasks(tasks, now)
-  const sections: { key: string; title: string; rows: Task[] }[] = [
-    { key: 'overdue', title: 'Overdue', rows: groups.overdue },
-    { key: 'due-today', title: 'Due today', rows: groups.dueToday },
-    { key: 'in-progress', title: 'In progress', rows: groups.inProgress },
-    { key: 'coming-up', title: 'Coming up', rows: groups.comingUp },
-    { key: 'anytime', title: 'Anytime', rows: groups.anytime },
-    { key: 'done-today', title: 'Done today', rows: groups.doneToday },
-  ].filter((s) => s.rows.length > 0)
+  const open = [
+    { id: 'overdue', title: 'Overdue', rows: groups.overdue },
+    { id: 'due-today', title: 'Due today', rows: groups.dueToday },
+    { id: 'in-progress', title: 'In progress', rows: groups.inProgress },
+    { id: 'coming-up', title: 'Coming up', rows: groups.comingUp },
+    { id: 'anytime', title: 'Anytime', rows: groups.anytime },
+  ]
+  const empty = open.every((s) => s.rows.length === 0) && groups.doneToday.length === 0
 
-  function addTask(input: { title: string; dueDate?: string | null; projectId?: string | null }) {
-    run(() => {
-      store.addTask({ title: input.title, dueDate: input.dueDate ?? null, projectId: input.projectId ?? null })
-      const when = input.dueDate
-        ? ` · ${input.dueDate === localDay(now) ? 'Today' : input.dueDate === addDays(localDay(now), 1) ? 'Tomorrow' : input.dueDate}`
-        : ''
-      toast.show({ message: `Added "${input.title}"${when}` })
+  // Every late task to today, keeping its time. Undo puts each back on its own date.
+  function rescheduleOverdue() {
+    const late = groups.overdue.map((t) => ({ id: t.id, dueDate: t.due_date }))
+    const today = localDay(now)
+    actions.run(() => {
+      batch(() => late.forEach((t) => store.editTask(t.id, { dueDate: today })))
+      toast.show({
+        message: late.length === 1 ? 'Moved 1 task to today' : `Moved ${late.length} tasks to today`,
+        action: {
+          label: 'Undo',
+          onPress: () =>
+            actions.run(() => batch(() => late.forEach((t) => store.editTask(t.id, { dueDate: t.dueDate })))),
+        },
+      })
     })
   }
 
-  const quickBar = wide ? (
-    <View
-      style={{
-        height: 48,
-        borderRadius: radius.lg,
-        borderWidth: 1,
-        borderColor: c.ink3,
-        backgroundColor: c.bg,
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: 12,
-        paddingHorizontal: 16,
-      }}
-    >
-      <Icons.add size={18} color={c.accent} strokeWidth={1.75} />
-      <TextInput
-        testID="new-title"
-        value={draft}
-        onChangeText={setDraft}
-        onSubmitEditing={() => {
-          const text = draft.trim()
-          if (!text) return
-          addTask({ title: text })
-          setDraft('')
-        }}
-        placeholder="Add a task..."
-        placeholderTextColor={c.ink5}
-        accessibilityLabel="Add a task"
-        style={[{ flex: 1, fontFamily: fonts.sans, fontSize: 15, color: c.ink }, webStyle({ outlineStyle: 'none' })]}
-      />
-      <View
-        style={{
-          borderWidth: 1,
-          borderColor: c.ink3,
-          borderRadius: radius.sm,
-          paddingHorizontal: 6,
-          paddingVertical: 1,
-        }}
-      >
-        <Text style={[type.monoXs, { color: c.ink6 }]}>N</Text>
-      </View>
-    </View>
-  ) : null
+  function addTask(title: string) {
+    actions.run(() => {
+      store.addTask({ title, dueDate: null, projectId: null })
+      toast.show({ message: `Added "${title}"` })
+    })
+  }
+
+  const shared = { all: tasks, projectMap, now, actions }
 
   return (
-    <View style={{ flex: 1, backgroundColor: c.bg }}>
-      <ScrollView
-        contentContainerStyle={{
-          paddingHorizontal: wide ? 32 : 16,
-          paddingTop: wide ? 24 : 16,
-          paddingBottom: wide ? 48 : 96 + insets.bottom,
-        }}
-      >
-        <View style={{ width: '100%', maxWidth: 672, alignSelf: 'center' }}>
-          {quickBar}
-          <View
-            style={{
-              marginTop: wide ? 28 : 8,
-              flexDirection: 'row',
-              alignItems: 'flex-start',
-              justifyContent: 'space-between',
-            }}
-          >
-            <View style={{ flexShrink: 1 }}>
-              <Text testID="today-title" accessibilityRole="header" style={[type.display, { color: c.text }]}>
-                Today
-              </Text>
-              <Text style={[type.bodyS, { color: c.text2, marginTop: 4 }]}>{dateLine(now)}</Text>
-            </View>
-          </View>
+    <Page>
+      <ScreenHeader title="Today" subtitle={dateLine(now)} titleTestID="today-title" />
 
-          <View style={{ gap: 8, marginTop: 16 }}>
-            {!online ? <Banner kind="offline">Offline. Changes are saved on this device and sync later.</Banner> : null}
-            {online && syncError ? <Banner kind="error">Sync failed. Your data is safe locally.</Banner> : null}
-          </View>
+      <View style={{ gap: 8, marginTop: 8 }}>
+        {!online ? <Banner kind="offline">Offline. Changes are saved on this device and sync later.</Banner> : null}
+        {online && syncError ? <Banner kind="error">Sync failed. Your data is safe locally.</Banner> : null}
+      </View>
 
-          {!loaded ? (
-            <View style={{ marginTop: 16 }}>
-              <Skeleton />
+      {!loaded ? (
+        <View style={{ marginTop: 16 }}>
+          <Skeleton />
+        </View>
+      ) : (
+        <>
+          {open.map((s) => (
+            <TaskSection
+              key={s.id}
+              {...s}
+              {...shared}
+              action={
+                s.id === 'overdue'
+                  ? { label: 'Reschedule', onPress: rescheduleOverdue, testID: 'reschedule-overdue' }
+                  : undefined
+              }
+            />
+          ))}
+          {wide ? (
+            <View style={{ marginTop: empty ? 8 : 0 }}>
+              <AddTaskRow onAdd={addTask} />
             </View>
-          ) : sections.length === 0 ? (
+          ) : null}
+          {empty ? (
             <EmptyState icon={Icons.today} title="A clear day" body="Nothing scheduled. Add a task to get started." />
-          ) : (
-            sections.map((section) => (
-              <View key={section.key} testID={`section-${section.key}`}>
-                <View
-                  style={{
-                    flexDirection: 'row',
-                    alignItems: 'baseline',
-                    gap: 8,
-                    paddingHorizontal: 12,
-                    paddingTop: 24,
-                    paddingBottom: 4,
-                  }}
-                >
-                  <Text style={[type.label, { color: c.ink6 }]}>{section.title}</Text>
-                  <Text style={[type.label, { color: c.ink5 }]}>{section.rows.length}</Text>
-                </View>
-                {section.rows.map((task) => (
-                  <TaskRow
-                    key={task.id}
-                    task={task}
-                    project={task.project_id ? projectMap?.[task.project_id] : undefined}
-                    progress={percentOf(task, tasks)}
-                    now={now}
-                    selected={openId === task.id}
-                    onToggleDone={() => toggleDone(task)}
-                    onOpen={() => open(task)}
-                    onMenu={(at) => openMenu(task, at)}
-                  />
-                ))}
-              </View>
-            ))
-          )}
-        </View>
-      </ScrollView>
-
-      {wide ? null : (
-        <View
-          pointerEvents="box-none"
-          style={[
-            {
-              position: 'absolute',
-              left: 0,
-              right: 0,
-              bottom: 0,
-              paddingHorizontal: 12,
-              paddingTop: 24,
-              paddingBottom: 12,
-            },
-            webStyle({ backgroundImage: `linear-gradient(to top, ${c.bg}, ${c.bgClear})` }),
-          ]}
-        >
-          <Pressable
-            testID="quick-bar"
-            accessibilityRole="button"
-            accessibilityLabel="Add a task"
-            onPress={() => setSheetOpen(true)}
-            style={{
-              height: 48,
-              borderRadius: radius.lg,
-              borderWidth: 1,
-              borderColor: c.ink3,
-              backgroundColor: c.bg,
-              flexDirection: 'row',
-              alignItems: 'center',
-              gap: 12,
-              paddingHorizontal: 16,
-            }}
-          >
-            <Icons.add size={18} color={c.accent} strokeWidth={1.75} />
-            <Text style={[type.body, { color: c.ink5 }]}>Add a task...</Text>
-          </Pressable>
-        </View>
+          ) : null}
+          <TaskSection id="done-today" title="Done today" rows={groups.doneToday} {...shared} />
+        </>
       )}
-
-      <QuickAddSheet
-        visible={sheetOpen}
-        onClose={() => setSheetOpen(false)}
-        projects={projects}
-        onAdd={(t) => addTask(t)}
-      />
-      {menuElement}
-    </View>
+      {actions.menuElement}
+    </Page>
   )
 }

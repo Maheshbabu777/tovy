@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { ScrollView, Text, TextInput, useWindowDimensions, View } from 'react-native'
 import { use$ } from '@legendapp/state/react'
 import { Icons } from './icons'
-import { logStamp, percentOf, pointsLabel, hasSubtasks, type LogEntry } from '../core/progress'
+import { logStamp, percentOf, hasSubtasks, type LogEntry } from '../core/progress'
 import type { Project, Task } from '../core/sync/tasks'
 import { byCreated, dueLabel, isOverdue } from '../core/today'
 import { AIBadge } from './components/AppMark'
@@ -77,15 +77,17 @@ function Frame({
           minHeight: 56,
           flexDirection: 'row',
           alignItems: 'center',
-          paddingHorizontal: wide ? 16 : 8,
+          paddingHorizontal: wide ? 12 : 8,
           gap: 4,
+          borderBottomWidth: 1,
+          borderBottomColor: c.line,
         }}
       >
         {onBack || !wide ? (
           <IconButton icon={Icons.back} label="Back" onPress={onBack ?? onClose} testID="detail-back" />
         ) : null}
         <View style={{ flex: 1, paddingLeft: wide && !onBack ? 4 : 0 }}>
-          {wide ? <Text style={[type.label, { color: c.ink6 }]}>{label}</Text> : null}
+          {wide ? <Text style={[type.label, { color: c.text2 }]}>{label}</Text> : null}
         </View>
         {onDelete ? (
           <IconButton icon={Icons.delete} label="Delete task" onPress={onDelete} testID="detail-delete" />
@@ -93,7 +95,7 @@ function Frame({
         {wide ? <IconButton icon={Icons.close} label="Close" onPress={onClose} testID="detail-close" /> : null}
       </View>
       <ScrollView
-        contentContainerStyle={{ paddingHorizontal: wide ? 20 : 16, paddingBottom: 48 }}
+        contentContainerStyle={{ paddingHorizontal: wide ? 24 : 20, paddingTop: 16, paddingBottom: 48 }}
         keyboardShouldPersistTaps="handled"
       >
         {children}
@@ -188,11 +190,8 @@ function Body({
         scrollEnabled={false}
         blurOnSubmit
         placeholder="Task title"
-        placeholderTextColor={c.ink5}
-        style={[
-          { fontFamily: fonts.semibold, fontSize: 24, letterSpacing: -0.6, color: c.ink, paddingVertical: 4 },
-          webStyle({ outlineStyle: 'none' }),
-        ]}
+        placeholderTextColor={c.text3}
+        style={[type.h1, { color: c.text, paddingVertical: 4 }, webStyle({ outlineStyle: 'none' })]}
       />
 
       <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 12 }}>
@@ -211,22 +210,22 @@ function Body({
         />
       </View>
       {isOverdue(task, now) ? (
-        <Text style={[type.meta, { color: c.bad, marginTop: 8 }]}>This task is overdue.</Text>
+        <Text style={[type.meta, { color: c.red, marginTop: 8 }]}>This task is overdue.</Text>
       ) : null}
 
       {!deep ? (
         <View
           style={{
             marginTop: 24,
-            backgroundColor: c.surface,
-            borderRadius: radius.xl,
+            backgroundColor: c.panel,
+            borderRadius: radius.lg,
             borderWidth: 1,
-            borderColor: c.ink3,
+            borderColor: c.line,
             padding: 20,
             gap: 16,
           }}
         >
-          <Text style={[type.bodyS, { color: c.ink6 }]}>
+          <Text style={[type.bodyS, { color: c.text2 }]}>
             A quick task is done or not done. Switch to a deep task to log partial progress, add subtasks and keep a
             history.
           </Text>
@@ -249,29 +248,29 @@ function Body({
           <View
             style={{
               marginTop: 24,
-              backgroundColor: c.surface,
-              borderRadius: radius.xl,
+              backgroundColor: c.panel,
+              borderRadius: radius.lg,
               borderWidth: 1,
-              borderColor: c.ink3,
+              borderColor: c.line,
               padding: 20,
               gap: 12,
             }}
           >
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 16 }}>
               <View>
-                <ProgressRing size={72} stroke={7} progress={percent / 100} done={done} />
+                <ProgressRing size={72} stroke={5} progress={percent / 100} done={done} />
                 {done ? null : (
                   <View style={{ position: 'absolute', inset: 0, alignItems: 'center', justifyContent: 'center' }}>
-                    <Text testID="detail-percent" style={[type.title, { color: c.ink }]}>
+                    <Text testID="detail-percent" style={[type.title, { color: c.text }]}>
                       {percent}
-                      <Text style={[type.monoXs, { color: c.ink6 }]}>%</Text>
+                      <Text style={[type.monoXs, { color: c.text2 }]}>%</Text>
                     </Text>
                   </View>
                 )}
               </View>
               <View style={{ flex: 1 }}>
                 {followsSubtasks ? (
-                  <Text testID="follows-subtasks" style={[type.meta, { color: c.ink6 }]}>
+                  <Text testID="follows-subtasks" style={[type.meta, { color: c.text2 }]}>
                     Progress follows subtasks. Each of the {subs.length} counts {Math.round(100 / subs.length)}%.
                   </Text>
                 ) : (
@@ -317,18 +316,18 @@ function Body({
                 value={logNote}
                 onChangeText={setLogNote}
                 placeholder="Add a note to the next log entry"
-                placeholderTextColor={c.ink5}
+                placeholderTextColor={c.text3}
                 style={[
                   {
                     height: 40,
                     borderRadius: radius.md,
                     borderWidth: 1,
-                    borderColor: c.ink3,
+                    borderColor: c.line,
                     backgroundColor: c.bg,
                     paddingHorizontal: 12,
                     fontFamily: fonts.sans,
-                    fontSize: 14.5,
-                    color: c.ink,
+                    fontSize: 15,
+                    color: c.text,
                   },
                   webStyle({ outlineStyle: 'none' }),
                 ]}
@@ -357,7 +356,7 @@ function Body({
                   type.body,
                   {
                     flex: 1,
-                    color: sub.done_at ? c.ink5 : c.ink,
+                    color: sub.done_at ? c.text3 : c.text,
                     textDecorationLine: sub.done_at ? 'line-through' : 'none',
                   },
                 ]}
@@ -374,19 +373,19 @@ function Body({
               onChangeText={setSubTitle}
               onSubmitEditing={addSubtask}
               placeholder="Add a subtask"
-              placeholderTextColor={c.ink5}
+              placeholderTextColor={c.text3}
               style={[
                 {
                   flex: 1,
                   height: 40,
                   borderRadius: radius.md,
                   borderWidth: 1,
-                  borderColor: c.ink3,
+                  borderColor: c.line,
                   backgroundColor: c.bg,
                   paddingHorizontal: 12,
                   fontFamily: fonts.sans,
-                  fontSize: 14.5,
-                  color: c.ink,
+                  fontSize: 15,
+                  color: c.text,
                 },
                 webStyle({ outlineStyle: 'none' }),
               ]}
@@ -401,13 +400,13 @@ function Body({
             />
           </View>
 
-          <BlockHeader title="Progress log" value="append-only" />
+          <BlockHeader title="Progress log" />
           {entries.length === 0 ? (
-            <Text testID="log-empty" style={[type.bodyS, { color: c.ink6 }]}>
+            <Text testID="log-empty" style={[type.bodyS, { color: c.text2 }]}>
               No entries yet. Move the slider to log your first.
             </Text>
           ) : (
-            <View style={{ borderLeftWidth: 1, borderLeftColor: c.ink3, marginLeft: 3, paddingLeft: 16, gap: 16 }}>
+            <View style={{ borderLeftWidth: 1, borderLeftColor: c.line, marginLeft: 3, paddingLeft: 16, gap: 16 }}>
               {entries.map((e) => (
                 <LogRow key={e.id} entry={e} />
               ))}
@@ -422,18 +421,18 @@ function Body({
             onChangeText={(v) => run(() => store.editTask(task.id, { note: v }))}
             multiline
             placeholder="Add a note"
-            placeholderTextColor={c.ink5}
+            placeholderTextColor={c.text3}
             style={[
               {
                 minHeight: 80,
                 borderRadius: radius.md,
                 borderWidth: 1,
-                borderColor: c.ink3,
+                borderColor: c.line,
                 backgroundColor: c.bg,
                 padding: 12,
                 fontFamily: fonts.sans,
-                fontSize: 14.5,
-                color: c.ink,
+                fontSize: 15,
+                color: c.text,
                 textAlignVertical: 'top',
               },
               webStyle({ outlineStyle: 'none' }),
@@ -463,14 +462,25 @@ function BlockHeader({ title, value }: { title: string; value?: string }) {
   const { theme } = useTheme()
   const c = theme.colors
   return (
-    <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginTop: 32, marginBottom: 8 }}>
-      <Text style={[type.label, { color: c.ink6 }]}>{title}</Text>
-      {value ? <Text style={[type.label, { color: c.ink5 }]}>{value}</Text> : null}
+    <View
+      style={{
+        flexDirection: 'row',
+        alignItems: 'baseline',
+        gap: 8,
+        marginTop: 32,
+        marginBottom: 8,
+        paddingBottom: 8,
+        borderBottomWidth: 1,
+        borderBottomColor: c.line,
+      }}
+    >
+      <Text style={[type.label, { color: c.text }]}>{title}</Text>
+      {value ? <Text style={[type.monoS, { color: c.text3 }]}>{value}</Text> : null}
     </View>
   )
 }
 
-// Design 11.9: a dot on the line (ink-5 for you, accent for an AI app), the time, who, the points, and the text.
+// A dot on the line (text-3 for you, text for an AI app), the time, who, the change in percent, and the text.
 function LogRow({ entry }: { entry: LogEntry }) {
   const { theme } = useTheme()
   const c = theme.colors
@@ -486,16 +496,18 @@ function LogRow({ entry }: { entry: LogEntry }) {
           width: 8,
           height: 8,
           borderRadius: 4,
-          backgroundColor: ai ? c.accent : c.ink5,
+          backgroundColor: ai ? c.text : c.lineStrong,
         }}
       />
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-        <Text style={[type.monoXs, { color: c.ink6 }]}>{logStamp(entry)}</Text>
-        {ai ? <AIBadge label={entry.source} /> : <Text style={[type.meta, { color: c.ink6 }]}>You</Text>}
+        <Text style={[type.monoXs, { color: c.text2 }]}>{logStamp(entry)}</Text>
+        {ai ? <AIBadge label={entry.source} /> : <Text style={[type.meta, { color: c.text2 }]}>You</Text>}
         <View style={{ flex: 1 }} />
-        <Text style={[type.monoXs, { color: entry.delta >= 0 ? c.ok : c.bad }]}>{pointsLabel(entry.delta)}</Text>
+        <Text style={[type.monoXs, { color: entry.delta >= 0 ? c.text2 : c.red }]}>
+          {`${entry.delta >= 0 ? '+' : '-'}${Math.abs(entry.delta)}%`}
+        </Text>
       </View>
-      <Text style={[type.bodyS, { color: c.ink }]}>{entry.note || `${from}% to ${entry.progress_after}%`}</Text>
+      <Text style={[type.bodyS, { color: c.text }]}>{entry.note || `${from}% to ${entry.progress_after}%`}</Text>
     </View>
   )
 }

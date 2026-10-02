@@ -3,11 +3,11 @@ import { Text, View } from 'react-native'
 import { Button } from './components/Button'
 import { Input } from './components/Input'
 import { Sheet } from './components/Sheet'
-import { Swatches } from './components/Swatches'
 import { useTheme } from './theme'
 import { type } from './tokens'
 
-// Design 11.15: a name (auto-focused), five colours and one button. Used to create a project and, with `onDelete`, to
+// A name (auto-focused) and one button. The black and white design does not colour projects, so the colour stays as it
+// was (new projects get the default) and no picker shows. Used to create a project and, with `onDelete`, to
 // edit one. The form lives inside the sheet, which draws nothing while closed, so it starts fresh every time.
 export function ProjectSheet({
   visible,
@@ -43,7 +43,7 @@ function ProjectForm({
   const { theme } = useTheme()
   const c = theme.colors
   const [name, setName] = useState(initial?.name ?? '')
-  const [color, setColor] = useState(initial?.color ?? 'indigo')
+  const [color] = useState(initial?.color ?? 'indigo')
   const ready = name.trim().length > 0
 
   function save() {
@@ -64,7 +64,6 @@ function ProjectForm({
         onSubmitEditing={save}
         maxLength={60}
       />
-      <Swatches value={color} onChange={setColor} />
       <Button
         testID="project-save"
         label={initial ? 'Save' : 'Create project'}
@@ -84,7 +83,7 @@ function ProjectForm({
             }}
             fullWidth
           />
-          <Text style={[type.meta, { color: c.ink6, textAlign: 'center' }]}>Its tasks move to No project.</Text>
+          <Text style={[type.meta, { color: c.text2, textAlign: 'center' }]}>Its tasks move to No project.</Text>
         </View>
       ) : null}
     </View>

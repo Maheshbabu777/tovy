@@ -4,16 +4,14 @@ Things agreed to do later. Each becomes a spec in `specs/` when its turn comes. 
 
 ## Left over from stage 1 (`specs/foundation-reset.md`)
 
-- The human checks the Vercel preview (https://tovy-git-feat-foundation-reset-maheshbabu777s-projects.vercel.app) himself: every signed-in screen (Today, Inbox, Projects, a project, task detail, Profile, Appearance) at phone and wide width in light and dark next to the Paper file, and reports what differs.
-- Run the e2e suite with the Supabase secrets (`h1`, `t2` and the dark background check were edited without a run).
-- Component gallery screen, reachable only in development, showing every shared component in every state (criterion 5).
-- Restyle the components still drawn from the old design (task row meta line, section header, quick add sheet, chips, settings rows, menu, toast) to match Paper 02 Components one by one; today they only picked up the new colours.
+- The human checks the Vercel preview (https://tovy-git-feat-foundation-reset-maheshbabu777s-projects.vercel.app) himself: every signed-in screen (Inbox, Today, Upcoming, Browse, Projects, a project, task detail, Profile, Appearance, and `/gallery`) at phone and wide width in light and dark next to the Paper file, and reports what differs.
+- Run the e2e suite with the Supabase secrets (`h1`, `t2`, `d1`, `t4` and the dark background check were edited without a run; `i1` was removed with the approval screen).
 - Project colours: every project shows grey for now (`PROJECT_COLORS` in `src/ui/theme.tsx`). Decide in the information architecture stage whether projects keep any colour.
 - Local shell on the human's Windows machine cannot finish `npm ci` in one run; checks run in a cloud copy. Worth a note in `project.md` Gotchas if it keeps happening.
 
 ## Later stages (order from the spec)
 
-- Stage 2, information architecture: tabs Inbox, Today, Upcoming, Browse; retire the approval Inbox screen and the proposals table; empty screens that teach.
+- Stage 2 leftovers: drop the proposals table, its sync and `src/core/inbox.ts` together with stage 7 (the screen is already gone). Search and Filters and labels in the sidebar once they exist.
 - Stage 3, tasks: quick add that reads words, priorities, labels, sections, deadline, overdue Reschedule, completed log.
 - Stage 4, Upcoming week strip with drag.
 - Stage 5, motion and gestures (Reanimated, Gesture Handler, sheets, swipe, haptics), checked in Expo Go.

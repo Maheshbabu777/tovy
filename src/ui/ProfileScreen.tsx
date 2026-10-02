@@ -104,21 +104,21 @@ function ProfileHome({ profile, open }: { profile: Profile | null; open: (page: 
 
   return (
     <Page maxWidth={576}>
-      <ScreenHeader title="Profile" />
+      <ScreenHeader title="Profile" titleTestID="profile-title" />
 
-      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 16, marginTop: 8 }}>
-        <Avatar initials={initials} size={64} />
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 16, marginTop: 24 }}>
+        <Avatar initials={initials} size={56} />
         <View style={{ flexShrink: 1, gap: 2 }}>
-          <Text testID="profile-name" numberOfLines={1} style={[type.h3, { color: c.ink }]}>
+          <Text testID="profile-name" numberOfLines={1} style={[type.h3, { color: c.text }]}>
             {name}
           </Text>
-          <Text testID="profile-email" numberOfLines={1} style={[type.bodyS, { color: c.ink6 }]}>
+          <Text testID="profile-email" numberOfLines={1} style={[type.bodyS, { color: c.text2 }]}>
             {account?.email ?? ''}
           </Text>
           {account ? (
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
-              {account.provider === 'google' ? <Icons.check size={13} color={c.ok} strokeWidth={2} /> : null}
-              <Text style={[type.meta, { color: c.ink6 }]}>
+              {account.provider === 'google' ? <Icons.check size={13} color={c.text} /> : null}
+              <Text style={[type.meta, { color: c.text2 }]}>
                 {account.provider === 'google' ? 'Google linked' : 'Signed in with an email code'}
               </Text>
             </View>
@@ -166,20 +166,20 @@ function ProfileHome({ profile, open }: { profile: Profile | null; open: (page: 
               width: '100%',
               maxWidth: 384,
               backgroundColor: c.bg,
-              borderRadius: radius.xl,
+              borderRadius: radius.lg,
               borderWidth: 1,
-              borderColor: c.ink3,
+              borderColor: c.line,
               padding: 24,
               gap: 12,
             }}
           >
-            <Text style={[type.title, { color: c.ink }]}>Sign out?</Text>
-            <Text style={[type.bodyS, { color: c.ink6 }]}>
+            <Text style={[type.title, { color: c.text }]}>Sign out?</Text>
+            <Text style={[type.bodyS, { color: c.text2 }]}>
               Your data stays on this device. Sign back in with Google or an email code to sync again.
             </Text>
             {unsynced > 0 ? (
               <View testID="unsynced-note" style={{ backgroundColor: c.badSoft, borderRadius: radius.md, padding: 12 }}>
-                <Text style={[type.bodyS, { color: c.bad }]}>
+                <Text style={[type.bodyS, { color: c.red }]}>
                   {unsynced === 1 ? '1 change is' : `${unsynced} changes are`} not saved to the server yet. Signing out
                   will discard {unsynced === 1 ? 'it' : 'them'}.
                 </Text>
