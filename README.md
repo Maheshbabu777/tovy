@@ -23,6 +23,7 @@ Status: foundation phase. The app today is the proven sync layer (a notes list t
 - Run the sync tests against the dev project: `EXPO_PUBLIC_SUPABASE_URL=... EXPO_PUBLIC_SUPABASE_ANON_KEY=... npx expo export --platform web`, export the variables from `.env`, then `npm run test:e2e`. One test: `npm run test:e2e -- -g "2:"`.
 - Sign in with Google needs these set in Supabase: Authentication, Providers, Google (client ID and secret from a Google Cloud OAuth client of type Web application, with `https://<project ref>.supabase.co/auth/v1/callback` as its redirect URI), and Authentication, URL Configuration with Site URL and Redirect URLs set to `http://localhost:8081`.
 - Add a feature: create a spec with `.powers/scripts/new-spec.sh <slug>`, get it approved, then build in slices.
+- Deploy the web app (Vercel): import the GitHub repo in Vercel and keep the settings from `vercel.json` (build `npx expo export --platform web`, output `dist`, every path served by `index.html`). Add the environment variables `EXPO_PUBLIC_SUPABASE_URL` and `EXPO_PUBLIC_SUPABASE_ANON_KEY` (the public anon key only, never the secret key). Then add the Vercel address to Supabase, Authentication, URL Configuration (Site URL and Redirect URLs). A custom domain goes under the Vercel project's Settings, Domains, and into the same Supabase list.
 - Add a migration: add the next numbered file to `supabase/migrations/`. CI applies it to the dev project when the PR merges to `main`.
 
 ## Reference

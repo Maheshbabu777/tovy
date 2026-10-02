@@ -66,7 +66,7 @@ Done means: cold start under 1.5 s on a mid-range Android, tap response under 10
 - Tradeoff: Skia and Reanimated add app size. Expo Go bundles them, so verify each library against Expo Go at spec time. Shared-element transitions need a support check at spec time, with a fast zoom-fade as fallback.
 
 **Decision: hosting and tooling**
-- Recommendation: Cloudflare Pages for web and landing page, EAS Build and Update for Android, GitHub Actions for CI and migrations (Supabase CLI), Sentry (Student Pack) and PostHog for monitoring. No domain yet: use `tovy.pages.dev` until one is chosen.
+- Decision (2026-10-02, human's choice over the first recommendation, Cloudflare Pages): Vercel for web and landing page, EAS Build and Update for Android, GitHub Actions for CI and migrations (Supabase CLI), Sentry (Student Pack) and PostHog for monitoring. No domain yet: use the free `*.vercel.app` address until one is chosen, then add the domain under the Vercel project's Domains. Vercel's free Hobby plan is for non-commercial use, so revisit it (Pro, or Cloudflare Pages which has no such rule) before real users or money are involved.
 - Tradeoff: the Student Pack covers the domain and Sentry only. Costs that matter later are Supabase Pro ($25 a month), Play Console ($25 once) and iOS ($99 a year).
 
 ## 3. Folder structure
@@ -189,9 +189,9 @@ Design work (moodboard, tokens, Today and Task detail screens) runs beside phase
 
 ## Hosting, domain and costs
 
-- Domain: none yet. We build and test on free Cloudflare addresses (`tovy.pages.dev` for the landing page and web app) and decide on a domain later. Keep the domain in config, never hard-coded, so swapping it is one change.
+- Domain: none yet. We build and test on a free Vercel address (`*.vercel.app` for the web app and landing page) and add a domain later (a `.me` domain is the likely choice). Keep the domain in config, never hard-coded, so swapping it is one change.
 - What needs a real domain eventually: the privacy policy URL (required before the Play Store), the landing page and APK download, a support email, and a clean MCP URL for AI apps (a Supabase custom domain, paid add-on).
-- Student Pack perk worth claiming now: Sentry. A free domain from the pack is optional if we choose one. Other perks are skipped because Supabase and Cloudflare already cover hosting and monitoring.
+- Student Pack perk worth claiming now: Sentry. A free domain from the pack is optional if we choose one. Other perks are skipped because Supabase and Vercel already cover hosting and monitoring.
 - Fixed costs later: Supabase Pro $25 a month before real users depend on it, Play Console $25 once, iOS $99 a year when iOS starts.
 
 ## 5. README scaffold
