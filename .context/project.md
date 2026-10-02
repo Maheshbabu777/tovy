@@ -12,7 +12,7 @@ XP and levels, achievements, weekly recap, widgets, calendar sync, document libr
 
 ## Stack
 
-Built: Expo (React Native, TypeScript) with Expo Router, Legend-State v3 beta local store, Supabase dev project, GitHub Actions CI. Planned, not built: Cloudflare Pages, EAS, a prod Supabase project.
+Built: Expo (React Native, TypeScript) with Expo Router, Legend-State v3 beta local store, Supabase dev project, GitHub Actions CI. Web hosting on Vercel is configured (`vercel.json`) but the Vercel project is not created yet. Planned, not built: EAS, a prod Supabase project.
 
 ## Commands
 
