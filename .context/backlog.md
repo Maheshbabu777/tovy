@@ -4,7 +4,7 @@ Things agreed to do later. Each becomes a spec in `specs/` when its turn comes. 
 
 ## Left over from stage 1 (`specs/foundation-reset.md`)
 
-- Push `feat/foundation-reset`, open the Vercel preview signed in, and screenshot every signed-in screen (Today, Inbox, Projects, a project, task detail, Profile, Appearance) at phone and wide width in light and dark next to the Paper file. Fix what differs.
+- The human checks the Vercel preview (https://tovy-git-feat-foundation-reset-maheshbabu777s-projects.vercel.app) himself: every signed-in screen (Today, Inbox, Projects, a project, task detail, Profile, Appearance) at phone and wide width in light and dark next to the Paper file, and reports what differs.
 - Run the e2e suite with the Supabase secrets (`h1`, `t2` and the dark background check were edited without a run).
 - Component gallery screen, reachable only in development, showing every shared component in every state (criterion 5).
 - Restyle the components still drawn from the old design (task row meta line, section header, quick add sheet, chips, settings rows, menu, toast) to match Paper 02 Components one by one; today they only picked up the new colours.
