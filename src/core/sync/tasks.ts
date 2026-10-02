@@ -4,6 +4,8 @@ import { syncedSupabase } from '@legendapp/state/sync-plugins/supabase'
 import { supabase } from '../db/supabase'
 import './syncConfig'
 import { createPersistPlugin } from './persistPlugin'
+import { hasSubtasks, percentOf, rootOf, type LogEntry } from '../progress'
+import { localDay } from '../today'
 
 export type TaskKind = 'quick' | 'deep'
 
@@ -81,7 +83,7 @@ const LINK_RETRIES = 8
 // "pending" and the Undo bar never went away). Sending the very same update for a row again within this time, after it
 // was saved successfully, changes nothing on the server, so it is not sent.
 const REPEAT_UPDATE_MS = 2000
-type Table = 'tasks' | 'projects' | 'proposals'
+type Table = 'tasks' | 'projects' | 'proposals' | 'progress_log'
 
 function createServerWrites() {
   let tail: Promise<unknown> = Promise.resolve()
@@ -177,6 +179,19 @@ export function createTasksStore(userId: string) {
     }),
   )
 
+  // The progress log: entries are only ever added. The server refuses edits, and the plugin must never try one.
+  const logsName = `progress-log-${userId}`
+  const logs$ = observable(
+    syncedSupabase({
+      supabase,
+      collection: 'progress_log',
+      create: writes.create('progress_log') as never,
+      update: (async (input: unknown) => ({ data: input, error: null })) as never,
+      realtime: true,
+      persist: { name: logsName, plugin: createPersistPlugin(logsName), retrySync: true },
+    }),
+  )
+
   const liveTasks = (): Task[] =>
     Object.values((tasks$.peek() ?? {}) as Record<string, Task>).filter((t) => t && !t.deleted)
   const liveProjects = (): Project[] =>
@@ -224,11 +239,40 @@ export function createTasksStore(userId: string) {
     if (projectId && !liveProjects().some((p) => p.id === projectId)) throw new Error('That project does not exist')
   }
 
+  // Counts deletes, so an Undo's late re-check can tell that the person deleted again since and stand down.
+  let deleteEpoch = 0
+
+  // Runs a change to a task and, if it moved the top level task it belongs to, logs how far (design 11.9: "Each logged
+  // change adds a log entry"). Points are earned on the top level task, however deep the change was.
+  function applyChange(id: string, mutate: () => void, opts: { note?: string; source?: string } = {}) {
+    const rootId = rootOf(getTask(id)!, liveTasks()).id
+    const before = percentOf(getTask(rootId)!, liveTasks())
+    batch(() => {
+      mutate()
+      const root = getTask(rootId)
+      if (!root) return
+      const after = percentOf(root, liveTasks())
+      if (after === before) return
+      const entryId = uuidv4()
+      const entry: LogEntry = {
+        id: entryId,
+        task_id: rootId,
+        delta: after - before,
+        progress_after: after,
+        note: opts.note?.trim() ?? '',
+        source: opts.source ?? 'you',
+        day: localDay(new Date()),
+      }
+      logs$[entryId].set(entry)
+    })
+  }
+
   return {
     userId,
     tasks$,
     projects$,
     proposals$,
+    logs$,
 
     // ----- reading -----
     subtasksOf: (id: string): Task[] => children(id),
@@ -269,9 +313,13 @@ export function createTasksStore(userId: string) {
       })
     },
 
+    // Finishing a task is worth the rest of its progress, reopening it takes that back (design 7.14).
     setDone(id: string, done: boolean) {
       if (!getTask(id)) throw new Error('That task does not exist')
-      tasks$[id].done_at.set(done ? new Date().toISOString() : null)
+      applyChange(id, () => {
+        tasks$[id].done_at.set(done ? new Date().toISOString() : null)
+        tasks$[id].progress.set(done ? 100 : 0)
+      })
     },
 
     setKind(id: string, kind: TaskKind) {
@@ -297,6 +345,7 @@ export function createTasksStore(userId: string) {
     deleteTask(id: string): { ids: string[]; undo: () => void } {
       if (!getTask(id)) throw new Error('That task does not exist')
       const ids = [id, ...descendantIds(id)]
+      deleteEpoch++
       // Once the server confirms a delete the plugin drops the row from the store, so an Undo has to bring the whole
       // row back, not just switch `deleted` off.
       const snapshot = ids.map((i) => ({ ...(tasks$[i].peek() as Task) }))
@@ -313,29 +362,35 @@ export function createTasksStore(userId: string) {
         ids,
         undo: () => {
           restore()
+          const epochAtUndo = deleteEpoch
           // An Undo made while the delete is still being saved can be taken for "no change" by the plugin, and the
           // saved delete then comes back from the server. Once the saves are done, put the task back again if so.
           void (async () => {
             await writes.idle()
             await new Promise((resolve) => setTimeout(resolve, 600))
-            if (gone().length) restore()
+            if (deleteEpoch === epochAtUndo && gone().length) restore()
           })()
         },
       }
     },
 
-    // Sets how far a task is, 0 to 100. A quick task becomes deep (only a deep task can be partly done), 100 finishes it
-    // and going back below 100 reopens it.
-    setProgress(id: string, value: number) {
+    // Sets how far a task is, 0 to 100, and logs the change. A quick task becomes deep (only a deep task can be partly
+    // done), 100 finishes it and going back below 100 reopens it. A task with subtasks follows them, so it is refused.
+    setProgress(id: string, value: number, opts: { note?: string; source?: string } = {}) {
       const task = getTask(id)
       if (!task) throw new Error('That task does not exist')
+      if (hasSubtasks(task, liveTasks())) throw new Error('Progress follows the subtasks of this task')
       const progress = Math.max(0, Math.min(100, Math.round(value)))
-      batch(() => {
-        if (task.kind === 'quick' && progress > 0 && progress < 100) tasks$[id].kind.set('deep')
-        tasks$[id].progress.set(progress)
-        if (progress === 100 && !task.done_at) tasks$[id].done_at.set(new Date().toISOString())
-        if (progress < 100 && task.done_at) tasks$[id].done_at.set(null)
-      })
+      applyChange(
+        id,
+        () => {
+          if (task.kind === 'quick' && progress > 0 && progress < 100) tasks$[id].kind.set('deep')
+          tasks$[id].progress.set(progress)
+          if (progress === 100 && !task.done_at) tasks$[id].done_at.set(new Date().toISOString())
+          if (progress < 100 && task.done_at) tasks$[id].done_at.set(null)
+        },
+        opts,
+      )
     },
 
     // ----- proposals (the approval inbox) -----
@@ -368,7 +423,7 @@ export function createTasksStore(userId: string) {
           })
         } else {
           if (!p.task_id || !getTask(p.task_id)) throw new Error('That task no longer exists')
-          this.setProgress(p.task_id, Number(after.progress))
+          this.setProgress(p.task_id, Number(after.progress), { source: p.app_name })
         }
         proposals$[id].status.set('approved')
         proposals$[id].decided_at.set(new Date().toISOString())
@@ -437,7 +492,8 @@ export function createTasksStore(userId: string) {
       const unsent = () =>
         (syncState(tasks$).numPendingSets.peek() ?? 0) +
         (syncState(projects$).numPendingSets.peek() ?? 0) +
-        (syncState(proposals$).numPendingSets.peek() ?? 0)
+        (syncState(proposals$).numPendingSets.peek() ?? 0) +
+        (syncState(logs$).numPendingSets.peek() ?? 0)
       const syncBoth = (tries = 0) => {
         if (unsent() > 0 && tries < 20) {
           later = setTimeout(() => syncBoth(tries + 1), 500)
@@ -446,12 +502,14 @@ export function createTasksStore(userId: string) {
         void syncState(tasks$).sync()
         void syncState(projects$).sync()
         void syncState(proposals$).sync()
+        void syncState(logs$).sync()
       }
       const channel = supabase
         .channel(`tasks-catch-up-${userId}`)
         .on('postgres_changes', { event: '*', schema: 'public', table: 'tasks' }, () => {})
         .on('postgres_changes', { event: '*', schema: 'public', table: 'projects' }, () => {})
         .on('postgres_changes', { event: '*', schema: 'public', table: 'proposals' }, () => {})
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'progress_log' }, () => {})
         .subscribe((status) => {
           if (status !== 'SUBSCRIBED') return
           syncBoth()
@@ -465,7 +523,12 @@ export function createTasksStore(userId: string) {
 
     // Forgets this user's tasks and projects on this device (used at sign out). Nothing is deleted on the server.
     async dispose(): Promise<void> {
-      await Promise.all([syncState(tasks$).reset(), syncState(projects$).reset(), syncState(proposals$).reset()])
+      await Promise.all([
+        syncState(tasks$).reset(),
+        syncState(projects$).reset(),
+        syncState(proposals$).reset(),
+        syncState(logs$).reset(),
+      ])
     },
   }
 }

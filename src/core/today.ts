@@ -87,9 +87,13 @@ export function groupTasks(tasks: Task[], now: Date): TodayGroups {
   }
 }
 
-// Done subtasks over all direct subtasks, 0 to 100, or null for a task without subtasks.
-export function subtaskProgress(taskId: string, tasks: Task[]): number | null {
-  const children = tasks.filter((t) => t && !t.deleted && t.parent_id === taskId)
-  if (children.length === 0) return null
-  return Math.round((children.filter((t) => t.done_at).length / children.length) * 100)
+// The next days as chip choices: Today, Tomorrow, then the weekday and date ("Fri 3").
+export function nextDays(now: Date, count = 7): { day: string; label: string }[] {
+  const today = localDay(now)
+  return Array.from({ length: count }, (_, i) => {
+    const day = addDays(today, i)
+    const [y, m, d] = day.split('-').map(Number)
+    const label = i === 0 ? 'Today' : i === 1 ? 'Tomorrow' : `${WEEKDAYS[new Date(y, m - 1, d).getDay()]} ${d}`
+    return { day, label }
+  })
 }

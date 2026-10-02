@@ -5,8 +5,9 @@ import { use$ } from '@legendapp/state/react'
 import { syncState } from '@legendapp/state'
 import { FolderPlus, ListChecks, Pencil, Plus } from 'lucide-react-native'
 import { projectStats, sortProjects, taskCountLabel } from '../core/projects'
+import { percentOf } from '../core/progress'
 import type { Project, Task } from '../core/sync/tasks'
-import { byCreated, byDue, subtaskProgress } from '../core/today'
+import { byCreated, byDue } from '../core/today'
 import { Button } from './components/Button'
 import { Card } from './components/Card'
 import { EmptyState, Skeleton } from './components/Feedback'
@@ -186,7 +187,7 @@ function ProjectPage({ id }: { id: string }) {
         key={task.id}
         task={task}
         project={undefined}
-        progress={subtaskProgress(task.id, tasks)}
+        progress={percentOf(task, tasks)}
         now={now}
         onToggleDone={() => toggleDone(task)}
         onOpen={() => open(task)}

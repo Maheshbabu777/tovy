@@ -259,11 +259,21 @@ const deleteTask = async (p: Page, title: string) => {
     .click({ button: 'right' })
   await p.getByTestId('menu-delete').click()
 }
-// Opens the task with this title and changes its title in the editor.
+// Opens the task with this title (its detail opens beside the list) and changes its title.
+async function openTask(p: Page, title: string) {
+  await p.locator('[data-testid="task"]:visible').filter({ hasText: title }).locator('[data-testid^="open-"]').click()
+  await expect(p.getByTestId('detail-title')).toHaveValue(title)
+}
 async function renameTask(p: Page, from: string, to: string) {
-  const row = p.locator('[data-testid="task"]:visible').filter({ hasText: from })
-  await row.locator('[data-testid^="open-"]').click()
-  await row.locator('[data-testid^="edit-title-"]').fill(to)
+  await openTask(p, from)
+  await p.getByTestId('detail-title').fill(to)
+}
+// In the open task: make it a deep task, then add a subtask.
+async function addSubtask(p: Page, title: string) {
+  if ((await p.getByTestId('sub-title').count()) === 0) await p.getByTestId('detail-track').click()
+  await p.getByTestId('sub-title').fill(title)
+  await p.getByTestId('sub-add').click()
+  await expect(p.getByTestId('subtask').filter({ hasText: title })).toBeVisible()
 }
 // A tap that lands while the screen re-renders after an edit can be lost, so tap again until the Profile screen is up.
 async function openProfile(p: Page) {
@@ -406,56 +416,43 @@ test.describe('sync spike', () => {
     expect(await serverTitles(user)).not.toContain('let-go')
   })
 
-  test('t2: subtasks nest, a deep task with subtasks stays deep, delete and Undo cover every level', async ({
-    browser,
-  }) => {
+  test('t2: subtasks nest and roll up, delete and Undo cover every level', async ({ browser }) => {
     const a = await newDevice(browser, user)
-    const row = (t: string) => a.page.locator('[data-testid="task"]:visible').filter({ hasText: t })
-    const addSub = async (parent: string, title: string) => {
-      const r = row(parent)
-      if ((await r.locator('[data-testid^="sub-title-"]').count()) === 0) {
-        await r.locator('[data-testid^="open-"]').click()
-        await r.locator('[data-testid^="kind-"]').click() // quick -> deep
-      }
-      await r.locator('[data-testid^="sub-title-"]').fill(title)
-      await r.locator('[data-testid^="sub-add-"]').click()
-    }
+    const underT2 = async () => (await serverTitles(user)).filter((t) => t.endsWith('-t2')).sort()
     await addNote(a.page, 'parent-t2')
-    await addSub('parent-t2', 'child-t2')
-    await addSub('child-t2', 'grand-t2')
-    await waitSynced(a)
-    expect((await titles(a.page)).filter((t) => t.endsWith('-t2'))).toEqual(['child-t2', 'grand-t2', 'parent-t2'])
-    await expect(row('parent-t2').locator('[data-testid^="count-"]')).toHaveText('1 subtask') // direct subtasks only
+    await openTask(a.page, 'parent-t2')
+    await addSubtask(a.page, 'child-t2')
+    await a.page.getByTestId(/^sub-open-/).click() // the subtask opens in the same panel
+    await expect(a.page.getByTestId('detail-title')).toHaveValue('child-t2')
+    await addSubtask(a.page, 'grand-t2')
+    await expect.poll(underT2, { timeout: 15_000 }).toEqual(['child-t2', 'grand-t2', 'parent-t2'])
 
-    // a deep task with a subtask cannot go back to quick
-    await row('parent-t2').locator('[data-testid^="open-"]').click() // only one editor is open at a time
-    await row('parent-t2').locator('[data-testid^="kind-"]').click()
-    await expect(a.page.getByTestId('error')).toContainText('must stay deep')
+    // finishing the deepest task finishes the ones above it, because their progress follows their subtasks
+    await a.page.getByTestId(/^sub-done-/).click()
+    await a.page.getByTestId('detail-back').click() // back to the parent
+    await expect(a.page.getByTestId('detail-title')).toHaveValue('parent-t2')
+    await expect(a.page.getByTestId('detail-percent')).toHaveText('100%')
+    await expect(a.page.getByTestId('follows-subtasks')).toContainText('Progress follows subtasks')
 
     // delete the top task: all three levels go, and one Undo brings all three back
-    await row('parent-t2').locator('[data-testid^="delete-"]').click()
-    expect((await titles(a.page)).filter((t) => t.endsWith('-t2'))).toEqual([])
-    await expect(a.page.getByTestId('undo-bar')).toContainText('3 tasks deleted')
-    await a.page.getByTestId('undo').click()
-    expect((await titles(a.page)).filter((t) => t.endsWith('-t2'))).toEqual(['child-t2', 'grand-t2', 'parent-t2'])
+    await a.page.getByTestId('detail-delete').click()
+    await expect(a.page.getByTestId('toast')).toContainText('3 tasks deleted')
+    await a.page.getByTestId('toast-undo').click()
+    await expect.poll(() => titles(a.page)).toContain('parent-t2')
+    await expect.poll(underT2, { timeout: 15_000 }).toEqual(['child-t2', 'grand-t2', 'parent-t2'])
 
     // delete again and let the Undo expire: all three stay deleted on the server
-    await row('parent-t2').locator('[data-testid^="delete-"]').click()
-    // t1 checks the 5 seconds on one task; here the slack is for the three saves going out one after another
-    await expect(a.page.getByTestId('undo-bar')).toHaveCount(0, { timeout: 12_000 })
-    await waitSynced(a)
-    expect((await serverTitles(user)).filter((t) => t.endsWith('-t2'))).toEqual([])
+    await deleteTask(a.page, 'parent-t2')
+    await expect(a.page.getByTestId('toast')).toHaveCount(0, { timeout: 12_000 })
+    await expect.poll(underT2, { timeout: 15_000 }).toEqual([])
   })
 
   test('t3: a task and its subtask added offline both reach the server after reconnect', async ({ browser }) => {
     const a = await newDevice(browser, user)
     await a.setOffline(true)
     await addNote(a.page, 'parent-t3')
-    const r = a.page.locator('[data-testid="task"]:visible').filter({ hasText: 'parent-t3' })
-    await r.locator('[data-testid^="open-"]').click()
-    await r.locator('[data-testid^="kind-"]').click()
-    await r.locator('[data-testid^="sub-title-"]').fill('child-t3')
-    await r.locator('[data-testid^="sub-add-"]').click()
+    await openTask(a.page, 'parent-t3')
+    await addSubtask(a.page, 'child-t3')
     await a.setOffline(false)
     await a.page.reload()
     await expect
@@ -463,10 +460,55 @@ test.describe('sync spike', () => {
       .toEqual(['child-t3', 'parent-t3'])
   })
 
+  test('d1: progress is logged, points follow, and the task detail keeps a log', async ({ browser }) => {
+    const u = await createUser()
+    const api = await asUser(u)
+    const a = await newDevice(browser, u)
+    await addNote(a.page, 'progress-d1')
+    await openTask(a.page, 'progress-d1')
+    await expect(a.page.getByText('A quick task is done or not done')).toBeVisible()
+    await a.page.getByTestId('detail-track').click() // quick -> deep
+    await expect(a.page.getByTestId('log-empty')).toBeVisible()
+    await a.page.getByTestId('log-note').fill('Outline written')
+    await a.page.getByTestId('step-25').click()
+    await expect(a.page.getByTestId('detail-percent')).toHaveText('25%')
+    await a.page.getByTestId('step-10').click()
+    await expect(a.page.getByTestId('detail-percent')).toHaveText('35%')
+    const entries = a.page.getByTestId('log-entry')
+    await expect(entries).toHaveCount(2)
+    await expect(entries.first()).toContainText('+15 pts') // 10% is 15 points, newest first
+    await expect(entries.last()).toContainText('Outline written')
+    await expect(entries.last()).toContainText('+38 pts') // 25% is 37.5, shown rounded
+    // the list row shows the percentage too
+    await a.page.getByTestId('detail-close').click()
+    await expect(a.page.locator('[data-testid="task"]:visible').filter({ hasText: 'progress-d1' })).toContainText('35%')
+    // server side: progress and two log entries
+    await expect
+      .poll(async () => (await api.get('tasks?select=progress,kind'))[0], { timeout: 15_000 })
+      .toEqual({
+        progress: 35,
+        kind: 'deep',
+      })
+    await expect
+      .poll(async () => (await api.get('progress_log?select=delta,progress_after&order=created_at')).length, {
+        timeout: 15_000,
+      })
+      .toBe(2)
+    expect((await api.get('progress_log?select=delta&order=created_at')).map((e) => e.delta)).toEqual([25, 10])
+    // finishing finishes the rest: 65 more percent
+    await openTask(a.page, 'progress-d1')
+    await a.page.getByTestId('detail-done').click()
+    await expect(a.page.getByTestId('log-entry').first()).toContainText('+98 pts') // 65% is 97.5
+    await expect
+      .poll(async () => (await api.get('tasks?select=progress'))[0], { timeout: 15_000 })
+      .toEqual({ progress: 100 })
+  })
+
   test('t4: a project holds its tasks, and deleting it keeps them under No project (Undo brings it back)', async ({
     browser,
   }) => {
-    const a = await newDevice(browser, user)
+    const me = await createUser() // a fresh person, so the list starts empty
+    const a = await newDevice(browser, me)
     await a.page.getByTestId('tab-projects').click()
     await expect(a.page.getByText('No projects yet')).toBeVisible() // nothing yet
     await a.page.getByTestId('new-project').click()
@@ -484,7 +526,7 @@ test.describe('sync spike', () => {
     await a.page.getByTestId('quick-add-submit').click()
     await expect(a.page.locator('[data-testid="task"]:visible').filter({ hasText: 'moved-t4' })).toBeVisible()
     await expect
-      .poll(async () => (await serverRows(user)).tasks.find((t) => t.title === 'moved-t4')?.project_id, {
+      .poll(async () => (await serverRows(me)).tasks.find((t) => t.title === 'moved-t4')?.project_id, {
         timeout: 15_000,
       })
       .toBe(projectId)
@@ -501,7 +543,7 @@ test.describe('sync spike', () => {
     await expect(a.page.getByTestId(`project-${projectId}`)).toHaveCount(0)
     await expect(a.page.getByTestId('project-none')).toContainText('1 task')
     await expect
-      .poll(async () => (await serverRows(user)).tasks.find((t) => t.title === 'moved-t4')?.project_id, {
+      .poll(async () => (await serverRows(me)).tasks.find((t) => t.title === 'moved-t4')?.project_id, {
         timeout: 15_000,
       })
       .toBeNull()
@@ -510,7 +552,7 @@ test.describe('sync spike', () => {
     await a.page.getByTestId('toast-undo').click()
     await expect(a.page.getByTestId(`project-${projectId}`)).toContainText('1 task')
     await expect
-      .poll(async () => (await serverRows(user)).tasks.find((t) => t.title === 'moved-t4')?.project_id, {
+      .poll(async () => (await serverRows(me)).tasks.find((t) => t.title === 'moved-t4')?.project_id, {
         timeout: 15_000,
       })
       .toBe(projectId)

@@ -2,15 +2,13 @@ import { useState } from 'react'
 import { ScrollView, Text, TextInput, View } from 'react-native'
 import { Calendar } from 'lucide-react-native'
 import type { Project } from '../core/sync/tasks'
-import { addDays, localDay } from '../core/today'
+import { nextDays } from '../core/today'
 import { Button } from './components/Button'
 import { Chip } from './components/Chip'
 import { Sheet } from './components/Sheet'
 import { webStyle } from './components/web'
 import { PROJECT_COLORS, useTheme } from './theme'
 import { fonts, type } from './tokens'
-
-const WEEKDAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
 
 // Design 11.7 without the date reading (that is its own spec). The title, a date chosen from chips and a project chip.
 // Enter or "Add task" adds it. A task needs a title.
@@ -52,13 +50,7 @@ function QuickAddForm({
   const [dueDate, setDueDate] = useState<string | null>(null)
   const [projectId, setProjectId] = useState<string | null>(defaultProjectId)
 
-  const today = localDay(new Date())
-  const days = Array.from({ length: 7 }, (_, i) => {
-    const day = addDays(today, i)
-    const [y, m, d] = day.split('-').map(Number)
-    const label = i === 0 ? 'Today' : i === 1 ? 'Tomorrow' : `${WEEKDAYS[new Date(y, m - 1, d).getDay()]} ${d}`
-    return { day, label }
-  })
+  const days = nextDays(new Date())
 
   function submit() {
     const text = title.trim()

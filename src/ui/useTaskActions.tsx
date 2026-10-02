@@ -47,7 +47,7 @@ export function useTaskActions(now: Date) {
       })
     })
 
-  const open = (task: Task) => router.push({ pathname: '/task/[id]', params: { id: task.id } })
+  const open = (task: Task) => router.setParams({ task: task.id })
 
   const menuElement = (
     <ContextMenu

@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { Image, Text, View } from 'react-native'
 import Constants from 'expo-constants'
 import { cacheProfile, updateProfile, type Profile } from '../core/profile/profile'
@@ -60,6 +60,7 @@ export function EditProfilePage({ profile, onSaved }: { profile: Profile; onSave
   const [errors, setErrors] = useState<ProfileErrors>({})
   const [formError, setFormError] = useState('')
   const [busy, setBusy] = useState(false)
+  const typed = useRef(profile.username) // what is in the field now, to tell if it changed while a save was in flight
   const unchanged = username === profile.username
   const free = useUsernameFree(unchanged ? '' : username)
   const taken = free === false && !unchanged && USERNAME_PATTERN.test(username)
@@ -84,8 +85,10 @@ export function EditProfilePage({ profile, onSaved }: { profile: Profile; onSave
       await cacheProfile(result.profile)
       toast.show({ message: 'Profile saved' })
       onSaved(result.profile)
-    } else if (result.field === 'username') setErrors({ username: result.message })
-    else setFormError(result.message)
+    } else if (result.field === 'username') {
+      // If the person already changed the username while this was saving, the message is about the old one.
+      if (typed.current === username) setErrors({ username: result.message })
+    } else setFormError(result.message)
   }
 
   return (
@@ -118,7 +121,9 @@ export function EditProfilePage({ profile, onSaved }: { profile: Profile; onSave
           label="Username"
           value={username}
           onChangeText={(v) => {
-            setUsername(v.toLowerCase().replace(/\s/g, ''))
+            const next = v.toLowerCase().replace(/\s/g, '')
+            typed.current = next
+            setUsername(next)
             setErrors((e) => ({ ...e, username: undefined }))
           }}
           autoCapitalize="none"
