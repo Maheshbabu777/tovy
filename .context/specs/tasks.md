@@ -1,6 +1,6 @@
 # Tasks
 
-Status: draft
+Status: approved
 
 Size: risky (new tables with row security, a migration, and removing the spike's `notes` table).
 
@@ -67,7 +67,7 @@ Risks:
 ## Progress
 
 - [x] Questions answered (2026-10-02)
-- [ ] Plan approved (human)
+- [x] Plan approved (human, 2026-10-02: "go ahead")
 - [ ] 1 Tables and row security
 - [ ] 2 Store
 - [ ] 3 Task list screen
@@ -77,6 +77,8 @@ Risks:
 - [ ] 7 Remove the spike
 
 ## Notes
+
+- The Figma prototype (`.context/design-notes.md`) is reference only. Where it disagrees with this spec, this spec wins. The four details taken from it (kind, "No project", due time, project colour) are in because the human chose them.
 
 - Keep each slice small and run the e2e suite once per slice, not in loops, to keep the cost down.
 - The current store lives in `src/core/sync/notes.ts` (per user, with `dispose()` and `catchUpAfterRealtime()`). The tasks store should keep those two behaviors.
