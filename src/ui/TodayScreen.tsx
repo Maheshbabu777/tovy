@@ -3,6 +3,7 @@ import { Pressable, ScrollView, Text, TextInput, useWindowDimensions, View } fro
 import { syncState } from '@legendapp/state'
 import { use$ } from '@legendapp/state/react'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
+import { useGlobalSearchParams } from 'expo-router'
 import { CircleCheck, Plus } from 'lucide-react-native'
 import { readCachedProfile } from '../core/profile/profile'
 import { DAILY_GOAL, percentOf, pointsOnDay, type LogEntry } from '../core/progress'
@@ -44,6 +45,7 @@ export function TodayScreen() {
   const now = useNow()
   const online = useOnline()
   const { run, toggleDone, open, openMenu, menuElement } = useTaskActions(now)
+  const { task: openId } = useGlobalSearchParams<{ task?: string }>()
 
   const tasksMap = use$(store.tasks$) as Record<string, Task> | undefined
   const projectMap = use$(store.projects$) as Record<string, Project> | undefined
@@ -207,6 +209,7 @@ export function TodayScreen() {
                     project={task.project_id ? projectMap?.[task.project_id] : undefined}
                     progress={percentOf(task, tasks)}
                     now={now}
+                    selected={openId === task.id}
                     onToggleDone={() => toggleDone(task)}
                     onOpen={() => open(task)}
                     onMenu={(at) => openMenu(task, at)}
