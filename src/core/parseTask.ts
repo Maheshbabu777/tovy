@@ -1,4 +1,5 @@
 import { addDays, localDay } from './today'
+import { cleanLabel, firstOccurrence, repeatLabel, type Priority, type Repeat } from './taskFields'
 
 // Quick add that reads the words people type (spec quick-add-words). "Call mum tomorrow 5pm #Home" becomes the title
 // "Call mum", due tomorrow at 17:00, in the project Home. Pure, so it can be tested; the clock and the project names
@@ -14,6 +15,10 @@ import { addDays, localDay } from './today'
 //           afternoon, 7 to 11 morning), noon, midnight
 //   project: "#Name" matched to an existing project by name (spaces optional, "#bigideas" finds "Big ideas"), the
 //           shortest name that starts with it wins; an unknown "#word" stays in the title
+//   priority: p1, p2, p3 (spec task-fields)
+//   labels: "@word", as many as typed
+//   repeats: every day, daily, every weekday, weekdays, every week, weekly, every month, monthly, every N days or weeks,
+//           every monday (and "every mon and thu"); with no day given the task starts on the first day that fits
 // Only whole words are read, never part of one ("today's" stays). One of each kind, the first typed. A task never
 // ends up without a title. Words that were read are reported, so the UI can show them.
 
@@ -22,8 +27,13 @@ export type ParsedTask = {
   dueDate: string | null
   dueTime: string | null
   projectId: string | null
-  tokens: { kind: 'date' | 'time' | 'project'; text: string; label: string }[]
+  priority: Priority
+  labels: string[]
+  repeat: Repeat | null
+  tokens: { kind: Kind; text: string; label: string }[]
 }
+
+type Kind = 'date' | 'time' | 'project' | 'priority' | 'label' | 'repeat'
 
 const WEEKDAYS = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday']
 const MONTHS = [
@@ -91,7 +101,7 @@ function calendarDate(now: Date, day: number, month: number, year?: number): str
   return iso
 }
 
-type Hit = { start: number; end: number; kind: 'date' | 'time' | 'project'; value: string; text: string }
+type Hit = { start: number; end: number; kind: Kind; value: string; text: string }
 
 const norm = (s: string) => s.toLowerCase().replace(/\s+/g, '')
 
@@ -113,7 +123,23 @@ export function parseTask(input: string, now: Date, projects: { id: string; name
   const B = '(?<![\\w#])' // start of a word
   const E = "(?![\\w'’])" // end of a word (and not "today's")
 
-  // Projects first, so "#Mon" is a project and not Monday.
+  // Repeats first, so "every monday" is a repeat and not a date.
+  const DAY = '(sunday|monday|tuesday|wednesday|thursday|friday|saturday|sun|mon|tue|wed|thu|fri|sat)'
+  add(new RegExp(`${B}every\\s+(\\d{1,3})\\s+(days?|weeks?)${E}`, 'gi'), 'repeat', (m) =>
+    JSON.stringify({ every: m[2].toLowerCase().startsWith('week') ? 'week' : 'day', interval: Number(m[1]) }),
+  )
+  add(new RegExp(`${B}every\\s+${DAY}(?:\\s*(?:,|and|&)\\s*${DAY})*${E}`, 'gi'), 'repeat', (m) => {
+    const days = [...m[0].matchAll(new RegExp(DAY, 'gi'))].map((d) => weekdayIndex(d[1]))
+    return JSON.stringify({ every: 'week', days: [...new Set(days)].sort() })
+  })
+  add(new RegExp(`${B}(?:every\\s+day|daily)${E}`, 'gi'), 'repeat', () => JSON.stringify({ every: 'day' }))
+  add(new RegExp(`${B}(?:every\\s+weekday|weekdays)${E}`, 'gi'), 'repeat', () => JSON.stringify({ every: 'weekday' }))
+  add(new RegExp(`${B}(?:every\\s+week|weekly)${E}`, 'gi'), 'repeat', () => JSON.stringify({ every: 'week' }))
+  add(new RegExp(`${B}(?:every\\s+month|monthly)${E}`, 'gi'), 'repeat', () => JSON.stringify({ every: 'month' }))
+  add(new RegExp(`${B}p([1-3])${E}`, 'gi'), 'priority', (m) => m[1])
+  add(new RegExp(`${B}@([\\p{L}\\p{N}_-]+)`, 'giu'), 'label', (m) => cleanLabel(m[1]) || null)
+
+  // Projects next, so "#Mon" is a project and not Monday.
   add(new RegExp(`${B}#([\\w-]+)`, 'gi'), 'project', (m) => {
     const want = norm(m[1])
     const exact = projects.find((p) => norm(p.name) === want)
@@ -199,7 +225,7 @@ export function parseTask(input: string, now: Date, projects: { id: string; name
   // One of each kind: the first one typed wins, the rest stay in the title.
   const kept: Hit[] = []
   for (const h of [...hits].sort((a, b) => a.start - b.start)) {
-    if (!kept.some((k) => k.kind === h.kind)) kept.push(h)
+    if (h.kind === 'label' || !kept.some((k) => k.kind === h.kind)) kept.push(h)
   }
 
   // Take the words out of the title; tidy the spaces and any dangling "at" or "on" or "by".
@@ -211,15 +237,30 @@ export function parseTask(input: string, now: Date, projects: { id: string; name
     .trim()
 
   // Never leave a task without a title: if everything was read as a date or time, keep the text as typed.
-  if (!title) return { title: text.trim(), dueDate: null, dueTime: null, projectId: null, tokens: [] }
+  if (!title)
+    return {
+      title: text.trim(),
+      dueDate: null,
+      dueTime: null,
+      projectId: null,
+      priority: 4,
+      labels: [],
+      repeat: null,
+      tokens: [],
+    }
 
   const date = kept.find((h) => h.kind === 'date')
   const time = kept.find((h) => h.kind === 'time')
   const project = kept.find((h) => h.kind === 'project')
+  const priorityHit = kept.find((h) => h.kind === 'priority')
+  const repeatHit = kept.find((h) => h.kind === 'repeat')
+  const labelHits = kept.filter((h) => h.kind === 'label')
+  const repeat = repeatHit ? (JSON.parse(repeatHit.value) as Repeat) : null
+  const labels = [...new Set(labelHits.map((h) => h.value))]
   const tonight = date && /tonight/i.test(date.text)
   // A time with no day means today if it is still ahead, otherwise tomorrow.
   const dueTime = time?.value ?? (tonight ? '20:00' : null)
-  let dueDate = date?.value ?? null
+  let dueDate = date?.value ?? (repeat ? firstOccurrence(repeat, today) : null)
   if (!dueDate && dueTime) {
     const [h, m] = dueTime.split(':').map(Number)
     dueDate = h * 60 + m > now.getHours() * 60 + now.getMinutes() ? today : addDays(today, 1)
@@ -231,7 +272,19 @@ export function parseTask(input: string, now: Date, projects: { id: string; name
     const p = projects.find((x) => x.id === project.value)
     tokens.push({ kind: 'project', text: project.text, label: p ? p.name : project.text })
   }
-  return { title, dueDate, dueTime, projectId: project?.value ?? null, tokens }
+  if (priorityHit) tokens.push({ kind: 'priority', text: priorityHit.text, label: `P${priorityHit.value}` })
+  for (const h of labelHits) tokens.push({ kind: 'label', text: h.text, label: `@${h.value}` })
+  if (repeat && repeatHit) tokens.push({ kind: 'repeat', text: repeatHit.text, label: repeatLabel(repeat) })
+  return {
+    title,
+    dueDate,
+    dueTime,
+    projectId: project?.value ?? null,
+    priority: (priorityHit ? Number(priorityHit.value) : 4) as Priority,
+    labels,
+    repeat,
+    tokens,
+  }
 }
 
 // The toast after adding: what was added and where it went, so a read word is never a surprise.

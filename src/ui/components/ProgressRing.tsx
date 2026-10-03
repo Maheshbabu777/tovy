@@ -17,7 +17,9 @@ export function ProgressRing({
   progress,
   done = false,
   doneAt = null,
+  strong = false,
 }: {
+  strong?: boolean // priority 1: a solid black ring (style guide, Task row)
   size: number
   stroke: number
   progress: number // 0 to 1
@@ -48,8 +50,8 @@ export function ProgressRing({
           cx={size / 2}
           cy={size / 2}
           r={radius}
-          stroke={target > 0 ? c.lineStrong : c.text3}
-          strokeWidth={stroke}
+          stroke={target > 0 ? c.lineStrong : strong ? c.text : c.text3}
+          strokeWidth={strong && target === 0 ? 2 : stroke}
           fill="none"
         />
         {target > 0 ? (

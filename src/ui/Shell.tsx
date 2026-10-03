@@ -51,7 +51,17 @@ import { useNow, useTaskData } from './useTaskData'
 // Every route of the tab frame. Inbox, Today, Upcoming and Browse are the tabs (style guide, Navigation). Projects and
 // Profile are reached from the sidebar, Browse and the avatar. Add a route here and a file under `app/(tabs)/`.
 type Href =
-  '/' | '/inbox' | '/upcoming' | '/browse' | '/projects' | '/profile' | '/completed' | '/apps' | '/activity' | '/trash'
+  | '/'
+  | '/inbox'
+  | '/upcoming'
+  | '/browse'
+  | '/projects'
+  | '/profile'
+  | '/completed'
+  | '/labels'
+  | '/apps'
+  | '/activity'
+  | '/trash'
 const ROUTES: { name: string; href: Href }[] = [
   { name: 'inbox', href: '/inbox' },
   { name: 'index', href: '/' },
@@ -60,6 +70,7 @@ const ROUTES: { name: string; href: Href }[] = [
   { name: 'projects', href: '/projects' },
   { name: 'profile', href: '/profile' },
   { name: 'completed', href: '/completed' },
+  { name: 'labels', href: '/labels' },
   { name: 'apps', href: '/apps' },
   { name: 'activity', href: '/activity' },
   { name: 'trash', href: '/trash' },
@@ -249,6 +260,9 @@ export function Shell() {
             dueDate: t.dueDate,
             dueTime: t.dueTime,
             projectId: t.projectId,
+            priority: t.priority,
+            labels: t.labels,
+            repeat: t.repeat,
           })
           toast.show({ message: addedMessage(t, new Date(), projects.find((p) => p.id === t.projectId)?.name) })
         } catch (e) {
@@ -341,6 +355,15 @@ export function Shell() {
                   collapsed={collapsed}
                   on={section === '/completed'}
                   onPress={() => go('/completed')}
+                />
+                <NavItem
+                  navKey="/labels"
+                  testID="tab-labels"
+                  label="Labels"
+                  Icon={Icons.label}
+                  collapsed={collapsed}
+                  on={section === '/labels'}
+                  onPress={() => go('/labels')}
                 />
                 <NavItem
                   navKey="/activity"

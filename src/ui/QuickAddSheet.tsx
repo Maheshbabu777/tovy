@@ -3,6 +3,7 @@ import { Pressable, ScrollView, Text, TextInput, useWindowDimensions, View } fro
 import { Icons } from './icons'
 import type { Project } from '../core/sync/tasks'
 import { dateLabel, markPieces, parseTask, timeLabelOf } from '../core/parseTask'
+import { repeatLabel, type Priority, type Repeat } from '../core/taskFields'
 import { nextDays } from '../core/today'
 import { Button } from './components/Button'
 import { Chip } from './components/Chip'
@@ -18,6 +19,9 @@ export type NewQuickTask = {
   dueTime: string | null
   projectId: string | null
   note?: string
+  priority?: Priority
+  labels?: string[]
+  repeat?: Repeat | null
 }
 
 // Quick add (Paper, Components "Quick add and fields"): the task name with the understood words underlined, a
@@ -63,6 +67,8 @@ function QuickAddForm({
   const [pickedDate, setPickedDate] = useState<string | null | undefined>(undefined)
   const [pickedProject, setPickedProject] = useState<string | null | undefined>(undefined)
   const [choosingDate, setChoosingDate] = useState(false)
+  const [pickedPriority, setPickedPriority] = useState<Priority | undefined>(undefined)
+  const [priorityMenu, setPriorityMenu] = useState<{ x: number; y: number } | null>(null)
   const [projectMenu, setProjectMenu] = useState<{ x: number; y: number } | null>(null)
 
   const now = new Date()
@@ -73,10 +79,20 @@ function QuickAddForm({
   const dueTime = dueDate ? read.dueTime : null
   const projectId = pickedProject !== undefined ? pickedProject : (read.projectId ?? defaultProjectId)
   const projectName = projects.find((p) => p.id === projectId)?.name
+  const priority = pickedPriority ?? read.priority
 
   function submit() {
     if (!title.trim()) return
-    onAdd({ title: read.title, dueDate, dueTime, projectId, note: note.trim() })
+    onAdd({
+      title: read.title,
+      dueDate,
+      dueTime,
+      projectId,
+      note: note.trim(),
+      priority,
+      labels: read.labels,
+      repeat: read.repeat,
+    })
     onClose()
   }
 
@@ -134,6 +150,22 @@ function QuickAddForm({
           testID="quick-add-date"
         />
         {dueDate ? <Chip label="No date" onPress={() => setPickedDate(null)} testID="quick-add-no-date" /> : null}
+        <Pressable
+          testID="quick-add-priority"
+          onPress={(e) => setPriorityMenu({ x: e.nativeEvent.pageX, y: e.nativeEvent.pageY })}
+        >
+          <View pointerEvents="none">
+            <Chip
+              label={priority < 4 ? `Priority ${priority}` : 'Priority'}
+              icon={Icons.priority}
+              active={priority < 4}
+            />
+          </View>
+        </Pressable>
+        {read.repeat ? <Chip label={repeatLabel(read.repeat)} icon={Icons.repeat} active /> : null}
+        {read.labels.map((l) => (
+          <Chip key={l} label={`@${l}`} icon={Icons.label} active />
+        ))}
       </View>
       {choosingDate ? (
         // One scrolling row on a phone, so the sheet stays short above the keyboard; wrapped rows on the web.
@@ -158,6 +190,19 @@ function QuickAddForm({
         </ScrollView>
       ) : null}
       <View style={{ height: 4 }} />
+      <ContextMenu
+        at={priorityMenu}
+        onClose={() => setPriorityMenu(null)}
+        title="Priority"
+        items={([1, 2, 3, 4] as Priority[]).map((p) => ({
+          label: p === 4 ? 'No priority' : `Priority ${p}`,
+          icon: Icons.priority,
+          hint: p === 4 ? undefined : `p${p}`,
+          checked: priority === p,
+          onPress: () => setPickedPriority(p),
+          testID: `quick-add-priority-${p}`,
+        }))}
+      />
       <ContextMenu
         at={projectMenu}
         onClose={() => setProjectMenu(null)}

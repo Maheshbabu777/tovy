@@ -12,7 +12,16 @@ const parse = (text: string, at = now) => parseTask(text, at, projects)
 
 describe('quick add reads the words', () => {
   it('leaves plain text alone', () => {
-    expect(parse('Call mum')).toEqual({ title: 'Call mum', dueDate: null, dueTime: null, projectId: null, tokens: [] })
+    expect(parse('Call mum')).toEqual({
+      title: 'Call mum',
+      dueDate: null,
+      dueTime: null,
+      projectId: null,
+      priority: 4,
+      labels: [],
+      repeat: null,
+      tokens: [],
+    })
   })
 
   it('reads today, tomorrow and their short forms', () => {
@@ -142,5 +151,36 @@ describe('quick add marks', () => {
       { text: '#Personal', marked: true },
     ])
     expect(markPieces('plain', [])).toEqual([{ text: 'plain', marked: false }])
+  })
+})
+
+describe('task fields in words', () => {
+  const at = new Date(2026, 9, 3, 10) // Saturday
+  it('reads a priority, labels and a repeat', () => {
+    const r = parseTask('Call mum p1 @home @calls every monday', at)
+    expect(r.title).toBe('Call mum')
+    expect(r.priority).toBe(1)
+    expect(r.labels).toEqual(['home', 'calls'])
+    expect(r.repeat).toEqual({ every: 'week', days: [1] })
+    expect(r.dueDate).toBe('2026-10-05')
+    expect(r.tokens.map((t) => t.label)).toEqual(['Mon 5 Oct', 'P1', '@home', '@calls', 'Every Mon'])
+  })
+
+  it('reads the other repeats', () => {
+    expect(parseTask('Stretch daily', at).repeat).toEqual({ every: 'day' })
+    expect(parseTask('Stretch every 3 days', at).repeat).toEqual({ every: 'day', interval: 3 })
+    expect(parseTask('Standup weekdays at 9:30', at)).toMatchObject({
+      repeat: { every: 'weekday' },
+      dueDate: '2026-10-05',
+      dueTime: '09:30',
+    })
+    expect(parseTask('Rent every month', at)).toMatchObject({ repeat: { every: 'month' }, dueDate: '2026-10-03' })
+    expect(parseTask('Gym every mon and thu', at).repeat).toEqual({ every: 'week', days: [1, 4] })
+  })
+
+  it('leaves look-alikes in the title', () => {
+    expect(parseTask('Email ana@example.com', at)).toMatchObject({ title: 'Email ana@example.com', labels: [] })
+    expect(parseTask('Read chapter p12', at)).toMatchObject({ title: 'Read chapter p12', priority: 4 })
+    expect(parseTask('Every little thing', at)).toMatchObject({ title: 'Every little thing', repeat: null })
   })
 })

@@ -64,7 +64,15 @@ export function TodayScreen() {
 
   function addTask(text: string) {
     const read = parseTask(text, now, projects)
-    const task = { title: read.title, dueDate: read.dueDate, dueTime: read.dueTime, projectId: read.projectId }
+    const task = {
+      title: read.title,
+      dueDate: read.dueDate,
+      dueTime: read.dueTime,
+      projectId: read.projectId,
+      priority: read.priority,
+      labels: read.labels,
+      repeat: read.repeat,
+    }
     actions.run(() => {
       store.addTask(task)
       toast.show({ message: addedMessage(task, now, task.projectId ? projectMap?.[task.projectId]?.name : undefined) })
