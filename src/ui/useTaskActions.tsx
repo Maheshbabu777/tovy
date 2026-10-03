@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useRouter } from 'expo-router'
 import { Icons } from './icons'
 import { dateLabel } from '../core/parseTask'
+import { haptic } from './haptics'
 import type { Task } from '../core/sync/tasks'
 import { addDays, localDay } from '../core/today'
 import { ContextMenu } from './components/ContextMenu'
@@ -59,6 +60,7 @@ export function useTaskActions(now: Date) {
   const remove = (task: Task) =>
     run(() => {
       const { ids, undo } = store.deleteTask(task.id)
+      haptic.warning()
       toast.show({
         message: ids.length === 1 ? 'Task deleted' : `${ids.length} tasks deleted`,
         action: { label: 'Undo', onPress: undo },

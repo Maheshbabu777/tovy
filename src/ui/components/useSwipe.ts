@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { Animated, PanResponder, Platform } from 'react-native'
 import { follow, isHorizontal, swipeDecision, type SwipeAction } from '../../core/swipe'
 import { EASE, prefersReducedMotion } from '../motion'
+import { haptic } from '../haptics'
 
 // A sideways swipe on a row (spec mobile-screens, criterion 3), with React Native's PanResponder so it needs no native
 // library. The row follows the finger; let go past the commit point and it slides off, the action runs, and the row
@@ -14,6 +15,7 @@ export function useSwipe(onSwipe: ((action: SwipeAction) => void) | undefined, {
   const allowLeft = useRef(left)
   const committing = useRef(false) // a swipe is sliding off: a new touch does not start another one
   const lastSwipe = useRef(0) // when the last swipe moved the row, so the tap that ends it is not taken as a press
+  const armed = useRef(false) // past the commit point: a tap is felt once each way across it
   useEffect(() => {
     latest.current = onSwipe
     allowLeft.current = left
@@ -33,9 +35,16 @@ export function useSwipe(onSwipe: ((action: SwipeAction) => void) | undefined, {
       },
       onPanResponderMove: (_e, g) => {
         lastSwipe.current = Date.now()
-        x.setValue(follow(allowLeft.current ? g.dx : Math.max(0, g.dx), width.current))
+        const dx = allowLeft.current ? g.dx : Math.max(0, g.dx)
+        x.setValue(follow(dx, width.current))
+        const past = swipeDecision(dx, 0, width.current) !== null
+        if (past !== armed.current) {
+          armed.current = past
+          haptic.select()
+        }
       },
       onPanResponderRelease: (_e, g) => {
+        armed.current = false
         const action = swipeDecision(allowLeft.current ? g.dx : Math.max(0, g.dx), g.vx, width.current)
         const native = Platform.OS !== 'web'
         if (!action) {
