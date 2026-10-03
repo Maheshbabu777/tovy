@@ -9,8 +9,8 @@
 //   2. opens the Tovy consent screen in your browser; you choose "Read and change" and press Allow
 //   3. trades the code for an app token, then:
 //      - calls the MCP server's get_today (proves the whole chain works)
-//      - tries a harmless account change (a test label in your user metadata) with the app token
-//      - if that went through, removes the label again
+//      - tries to set a password and to add a two-factor method with the app token (migration 0010 must refuse
+//        both); anything that goes through is undone at once
 //   4. prints the verdict. Afterwards: Tovy > Connected apps > Disconnect "Tovy S5 check".
 import { createHash, randomBytes } from 'node:crypto'
 import { createServer } from 'node:http'
@@ -158,19 +158,38 @@ say(
     : `MCP server answered ${mcp.status}: ${mcpText.slice(0, 200)}`,
 )
 
-// S5: a harmless account change with the app's token.
-const probe = (value) =>
-  fetch(`${url}/auth/v1/user`, {
-    method: 'PUT',
+// S5: what an app's token can do to the account. Supabase Auth accepts these tokens for account changes, so migration
+// 0010 refuses the dangerous ones in the database. Each probe below undoes itself if it ever goes through.
+const auth = (method, path, body) =>
+  fetch(`${url}/auth/v1${path}`, {
+    method,
     headers: { apikey: anonKey, authorization: `Bearer ${token}`, 'content-type': 'application/json' },
-    body: JSON.stringify({ data: { s5_probe: value } }),
+    body: body === undefined ? undefined : JSON.stringify(body),
   })
-const r = await probe('1')
-if (r.ok) {
-  await probe(null)
-  say('\nS5 RESULT: NOT SAFE. Supabase Auth accepted an account change made with an AI app token.')
-  say('The test label was removed again. Do not connect real AI apps yet; tell Claude this result.')
+
+// 1. Setting a password (with it, an app could sign in as you). A random one nobody knows, cleared again if it sticks.
+const pw = await auth('PUT', '/user', { password: `${randomBytes(24).toString('base64url')}Aa1!` })
+if (pw.ok) await auth('PUT', '/user', { password: '' })
+say(pw.ok ? 'Password: ACCEPTED (then cleared again)' : `Password: refused (${pw.status})`)
+
+// 2. Adding a two-factor method (it could lock you out). Removed again if it sticks.
+const mfa = await auth('POST', '/factors', { factor_type: 'totp', friendly_name: 'Tovy S5 check' })
+if (mfa.ok) {
+  const factor = await mfa.json()
+  if (factor.id) await auth('DELETE', `/factors/${factor.id}`)
+}
+say(mfa.ok ? 'Two-factor method: ACCEPTED (then removed again)' : `Two-factor method: refused (${mfa.status})`)
+
+// 3. User metadata: allowed on purpose (Tovy never trusts it), shown for the record.
+const label = await auth('PUT', '/user', { data: { s5_probe: '1' } })
+if (label.ok) await auth('PUT', '/user', { data: { s5_probe: null } })
+say(`Profile metadata label: ${label.ok ? 'accepted (harmless, Tovy does not trust it)' : `refused (${label.status})`}`)
+
+// The account email is refused by the same migration; it is not probed here, because if it were not, a real change
+// email would go out.
+if (pw.ok || mfa.ok) {
+  say('\nS5 RESULT: NOT SAFE. An AI app token can still change the account. Is migration 0010 applied? Tell Claude.')
 } else {
-  say(`\nS5 RESULT: SAFE. Supabase Auth refused the account change (${r.status}).`)
+  say('\nS5 RESULT: SAFE. An AI app token cannot set a password or add a two-factor method.')
 }
 say('\nNow: Tovy > Connected apps > Disconnect "Tovy S5 check".')
