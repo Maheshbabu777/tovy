@@ -76,14 +76,13 @@ function Unavailable({ onRetry }: { onRetry: () => void }) {
   const { theme } = useTheme()
   const c = theme.colors
   return (
-    <AuthLayout>
-      <Text testID="profile-unavailable" style={[type.h1Large, { color: c.ink }]}>
+    <AuthLayout actions={<Button testID="profile-retry" label="Try again" fullWidth onPress={onRetry} />}>
+      <Text testID="profile-unavailable" style={[type.h1Large, { color: c.text }]}>
         Connect to the internet to finish setting up
       </Text>
-      <Text style={[type.body, { color: c.ink6, marginTop: 12, marginBottom: 24 }]}>
+      <Text style={[type.body, { color: c.text2, marginTop: 12 }]}>
         Tovy needs to check your profile once. After that it works offline.
       </Text>
-      <Button testID="profile-retry" label="Try again" onPress={onRetry} />
     </AuthLayout>
   )
 }
@@ -153,7 +152,28 @@ function ProfileSetup({
   const hintColor = errors.username || taken ? c.bad : available === true ? c.ok : c.ink6
 
   return (
-    <AuthLayout>
+    <AuthLayout
+      actions={
+        <>
+          <Button
+            testID="save-profile"
+            label={busy ? 'Saving' : 'Continue'}
+            fullWidth
+            disabled={busy}
+            onPress={submit}
+          />
+          {formError ? (
+            <Text
+              testID="profile-error"
+              accessibilityRole="alert"
+              style={[type.label, { color: c.bad, marginTop: 12 }]}
+            >
+              {formError}
+            </Text>
+          ) : null}
+        </>
+      }
+    >
       <Text style={[type.h1Large, { color: c.ink }]}>Tell us who you are</Text>
       <Text style={[type.body, { color: c.ink6, marginTop: 12, marginBottom: 24 }]}>Three details, once.</Text>
       <View style={{ gap: 16 }}>
@@ -200,14 +220,6 @@ function ProfileSetup({
           </Text>
         </View>
       </View>
-      <View style={{ marginTop: 24 }}>
-        <Button testID="save-profile" label={busy ? 'Saving' : 'Continue'} fullWidth disabled={busy} onPress={submit} />
-      </View>
-      {formError ? (
-        <Text testID="profile-error" accessibilityRole="alert" style={[type.label, { color: c.bad, marginTop: 12 }]}>
-          {formError}
-        </Text>
-      ) : null}
     </AuthLayout>
   )
 }
