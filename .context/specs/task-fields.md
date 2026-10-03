@@ -1,8 +1,6 @@
 # Priorities, deadlines, labels and repeats
 
-Status: draft
-
-Waiting on: the human (it adds database columns).
+Status: in progress
 
 Size: risky (a migration on `tasks`, row security unchanged but checked).
 
@@ -33,4 +31,7 @@ Stage 3 of `foundation-reset.md` lists priorities, labels, deadlines and repeats
 
 ## Progress
 
-- [ ] Human approves the spec and the shipping order
+- [x] Approved by the human (2026-10-03, "go do every one"), with the proposed answers: no colour for priorities; repeats count from the due date
+- [x] PR A: migration 0011 and its row security checks (defaults, priority range, repeat must be an object)
+- [ ] PR B: store and sync
+- [ ] PR C: UI
