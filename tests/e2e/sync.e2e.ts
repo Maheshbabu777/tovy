@@ -104,6 +104,11 @@ async function newDevice(
 // Every test user made by this run, deleted again in afterAll so the Supabase project is left clean.
 const createdUserIds: string[] = []
 
+// Headers for the admin API: a new secret key (sb_secret_) goes in `apikey` only; a legacy service role key (a JWT)
+// must also be sent as a bearer token.
+const adminHeaders = (key: string): Record<string, string> =>
+  key.startsWith('eyJ') ? { apikey: key, authorization: `Bearer ${key}` } : { apikey: key }
+
 // `username` and `id` belong to the profile that is created with the user, so the app skips the setup step for them.
 type TestUser = { email: string; password: string; id: string; username: string }
 
@@ -115,7 +120,7 @@ async function createUser(): Promise<TestUser> {
   const res = adminKey
     ? await fetch(`${SUPABASE_URL}/auth/v1/admin/users`, {
         method: 'POST',
-        headers: { apikey: adminKey, 'content-type': 'application/json' },
+        headers: { ...adminHeaders(adminKey), 'content-type': 'application/json' },
         body: JSON.stringify({ email, password, email_confirm: true }),
       })
     : await fetch(`${SUPABASE_URL}/auth/v1/signup`, {
@@ -215,7 +220,7 @@ async function serverRows(u: { email: string; password: string }) {
 async function emailCodeFor(email: string): Promise<string> {
   const res = await fetch(`${SUPABASE_URL}/auth/v1/admin/generate_link`, {
     method: 'POST',
-    headers: { apikey: process.env.SUPABASE_API_KEY!, 'content-type': 'application/json' },
+    headers: { ...adminHeaders(process.env.SUPABASE_API_KEY!), 'content-type': 'application/json' },
     body: JSON.stringify({ type: 'magiclink', email }),
   })
   const body: any = await res.json()
@@ -300,7 +305,7 @@ test.describe('sync spike', () => {
       createdUserIds
         .splice(0)
         .map((id) =>
-          fetch(`${SUPABASE_URL}/auth/v1/admin/users/${id}`, { method: 'DELETE', headers: { apikey: adminKey } }),
+          fetch(`${SUPABASE_URL}/auth/v1/admin/users/${id}`, { method: 'DELETE', headers: adminHeaders(adminKey) }),
         ),
     )
   })
@@ -530,8 +535,8 @@ test.describe('sync spike', () => {
       })
       .toBe(projectId)
 
-    // the card now counts it
-    await a.page.getByTestId('back').click()
+    // the card now counts it (on the web a project page has no back button: the sidebar lists the projects)
+    await a.page.goto('/projects')
     await expect(a.page.getByTestId(`project-${projectId}`)).toContainText('1 task · 0% done')
 
     // deleting the project keeps the task, now under "No project"
@@ -584,7 +589,7 @@ test.describe('sync spike', () => {
     expect(await api.get('profiles?select=first_name,username')).toEqual([{ first_name: 'Renamed', username: fresh }])
 
     // appearance: dark stays after a reload
-    await a.page.getByTestId('appearance').click()
+    // the theme switch sits in its row on the Profile page
     await a.page.getByTestId('segment-dark').click()
     const background = () => a.page.evaluate(() => getComputedStyle(document.body).backgroundColor)
     await expect.poll(background).toBe('rgb(10, 10, 10)')
@@ -665,7 +670,7 @@ test.describe('sync spike', () => {
     // the server holds the trimmed profile, and a reload goes straight to the tasks
     const login = await fetch(`${SUPABASE_URL}/auth/v1/admin/generate_link`, {
       method: 'POST',
-      headers: { apikey: process.env.SUPABASE_API_KEY!, 'content-type': 'application/json' },
+      headers: { ...adminHeaders(process.env.SUPABASE_API_KEY!), 'content-type': 'application/json' },
       body: JSON.stringify({ type: 'magiclink', email: fresh.email }),
     })
     const { id } = (await login.json()) as { id: string }
