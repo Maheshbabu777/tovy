@@ -535,8 +535,8 @@ test.describe('sync spike', () => {
       })
       .toBe(projectId)
 
-    // the card now counts it
-    await a.page.getByTestId('back').click()
+    // the card now counts it (on the web a project page has no back button: the sidebar lists the projects)
+    await a.page.goto('/projects')
     await expect(a.page.getByTestId(`project-${projectId}`)).toContainText('1 task · 0% done')
 
     // deleting the project keeps the task, now under "No project"
@@ -589,7 +589,7 @@ test.describe('sync spike', () => {
     expect(await api.get('profiles?select=first_name,username')).toEqual([{ first_name: 'Renamed', username: fresh }])
 
     // appearance: dark stays after a reload
-    await a.page.getByTestId('appearance').click()
+    // the theme switch sits in its row on the Profile page
     await a.page.getByTestId('segment-dark').click()
     const background = () => a.page.evaluate(() => getComputedStyle(document.body).backgroundColor)
     await expect.poll(background).toBe('rgb(10, 10, 10)')
