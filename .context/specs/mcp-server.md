@@ -23,7 +23,7 @@ Phase 6 of the project plan, stage 7 of `foundation-reset.md`: any AI app that s
 6. Activity: every change an app makes to tasks and projects is written by database triggers (an app cannot skip, forge or name itself), with the fields before and after. The screen lists them by day with the app's name and time, opens the task on tap, and Undo puts the fields back through the tasks store (deletes are restored on the server). A task deleted with its subtasks is one line, and Undo brings all of them back.
 7. Trash: tasks deleted in the last 30 days (by anyone), with Restore; a restored task brings its deleted subtasks back, and a subtask whose parent is gone for good comes back at the top level.
 8. Connected apps: the address with Copy (Share on a phone), each approved app with when it was connected, a read and write or read only switch, and Disconnect (asks first; cuts access in the database and revokes the grant).
-9. Rows an AI app added show a small AI mark. Browse has Trash, Connected apps and Activity; the web sidebar has Activity and Profile has Connected apps and Trash.
+9. Rows an AI app added show a small AI mark, and the task itself says "Added by an AI app" with a link to Activity. Browse has Trash, Connected apps and Activity; the web sidebar has Activity and Profile has Connected apps and Trash.
 10. Until the migration and the dashboard steps are done, the three screens say "Not switched on yet" instead of failing, and nothing else in the app changes (the app never writes the new column).
 
 ## Out of scope

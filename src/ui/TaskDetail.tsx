@@ -1,5 +1,6 @@
 import { useState } from 'react'
-import { ScrollView, Text, TextInput, useWindowDimensions, View } from 'react-native'
+import { Pressable, ScrollView, Text, TextInput, useWindowDimensions, View } from 'react-native'
+import { useRouter } from 'expo-router'
 import { use$ } from '@legendapp/state/react'
 import { Icons } from './icons'
 import { logStamp, percentOf, hasSubtasks, type LogEntry } from '../core/progress'
@@ -125,6 +126,7 @@ function Body({
   const [sheet, setSheet] = useState<'date' | 'project' | null>(null)
   const [subTitle, setSubTitle] = useState('')
   const now = new Date()
+  const router = useRouter()
 
   const deep = task.kind === 'deep'
   const done = !!task.done_at
@@ -209,6 +211,19 @@ function Body({
       </View>
       {isOverdue(task, now) ? (
         <Text style={[type.meta, { color: c.red, marginTop: 8 }]}>This task is overdue.</Text>
+      ) : null}
+      {task.created_by ? (
+        // Added by an AI app (spec mcp-server): what it did is in Activity, where it can be undone.
+        <Pressable
+          testID="detail-added-by-ai"
+          accessibilityRole="link"
+          onPress={() => router.navigate('/activity')}
+          style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 10, alignSelf: 'flex-start' }}
+        >
+          <Icons.ai size={14} color={c.text2} />
+          <Text style={[type.meta, { color: c.text2 }]}>Added by an AI app · </Text>
+          <Text style={[type.meta, { color: c.text, textDecorationLine: 'underline' }]}>See activity</Text>
+        </Pressable>
       ) : null}
 
       {!deep ? (
