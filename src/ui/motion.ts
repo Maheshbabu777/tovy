@@ -6,6 +6,7 @@ import { motion } from './tokens'
 // which runs the same on the web and on a phone. With Reduce Motion on, every animation shows its end state at once.
 
 export const EASE = Easing.bezier(...motion.easing)
+export const DRAWER = Easing.bezier(...motion.drawer)
 const native = Platform.OS !== 'web'
 
 let reduced = false
@@ -37,12 +38,22 @@ export function useReducedMotion(): boolean {
 }
 
 // Runs one timing to `to`, or jumps there when motion is reduced.
-export function animate(value: Animated.Value, to: number, duration: number, delay = 0) {
+export function animate(
+  value: Animated.Value,
+  to: number,
+  duration: number,
+  delay = 0,
+  easing: (t: number) => number = EASE,
+  done?: () => void,
+) {
   if (reduced) {
     value.setValue(to)
+    done?.()
     return
   }
-  Animated.timing(value, { toValue: to, duration, delay, easing: EASE, useNativeDriver: native }).start()
+  Animated.timing(value, { toValue: to, duration, delay, easing, useNativeDriver: native }).start(({ finished }) => {
+    if (finished) done?.()
+  })
 }
 
 // Fade and rise in once, when the component mounts. `distance` is how far it rises, in px.

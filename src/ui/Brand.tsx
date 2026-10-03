@@ -10,11 +10,12 @@ const MARK = {
 }
 const RATIO = 743 / 809 // width over height of the mark files
 
-export function Logo({ size = 44 }: { size?: number }) {
+// `mode` draws the mark for the other theme, for a surface of the opposite colour (the profile ID card).
+export function Logo({ size = 44, mode }: { size?: number; mode?: 'light' | 'dark' }) {
   const { theme } = useTheme()
   return (
     <Image
-      source={MARK[theme.mode]}
+      source={MARK[mode ?? theme.mode]}
       style={{ width: Math.round(size * RATIO), height: size, resizeMode: 'contain' }}
       accessibilityLabel="Tovy"
     />

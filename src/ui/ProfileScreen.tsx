@@ -6,11 +6,13 @@ import { use$ } from '@legendapp/state/react'
 import { Icons } from './icons'
 import { supabase } from '../core/db/supabase'
 import { readCachedProfile, type Profile } from '../core/profile/profile'
-import { Avatar } from './components/Avatar'
 import { Button } from './components/Button'
 import { Enter } from './components/Enter'
 import { Page } from './components/Page'
 import { Group, Row } from './components/SettingsList'
+import { IdCardStage, type CardInfo } from './IdCard'
+import { loadConnectedApps } from '../core/aiApi'
+import { useTaskData } from './useTaskData'
 import { AboutPage, AppearancePage, EditProfilePage, THEME_LABEL } from './ProfilePages'
 import { useStore } from './StoreContext'
 import { useTheme } from './theme'
@@ -78,15 +80,24 @@ function ProfileHome({ profile, open }: { profile: Profile | null; open: (page: 
   const taskError = use$(taskState.error)
   const projectError = use$(projectState.error)
   const failed = Boolean(taskError || projectError)
-  const [account, setAccount] = useState<{ email: string; provider: string } | null>(null)
+  const [account, setAccount] = useState<{ email: string; provider: string; since: Date | null } | null>(null)
+  const [apps, setApps] = useState<number | null>(null)
+  const { tasks } = useTaskData()
+  const done = tasks.filter((t) => t && !t.deleted && t.done_at).length
   const [confirming, setConfirming] = useState(false)
   const [unsynced, setUnsynced] = useState(0)
 
   useEffect(() => {
     void supabase.auth.getSession().then(({ data }) => {
       const user = data.session?.user
-      if (user) setAccount({ email: user.email ?? '', provider: String(user.app_metadata?.provider ?? 'email') })
+      if (user)
+        setAccount({
+          email: user.email ?? '',
+          provider: String(user.app_metadata?.provider ?? 'email'),
+          since: user.created_at ? new Date(user.created_at) : null,
+        })
     })
+    void loadConnectedApps().then((r) => setApps(r.ok ? r.data.length : null))
   }, [])
 
   // Read the live count when the button is pressed, not the one from the last render, which can lag a fresh edit.
@@ -109,34 +120,34 @@ function ProfileHome({ profile, open }: { profile: Profile | null; open: (page: 
         ? `${pending} ${pending === 1 ? 'change' : 'changes'} waiting`
         : 'Up to date'
 
-  return (
+  const card: CardInfo = {
+    name,
+    username: profile?.username ?? '',
+    initials,
+    userId: store.userId,
+    since: account?.since ?? null,
+    done,
+    apps,
+  }
+
+  const page = (
     <Page
       maxWidth={576}
       title="Profile"
+      subtitle={wide ? 'Your card, your account and the apps that work with Tovy.' : undefined}
       titleTestID="profile-title"
       onBack={wide ? undefined : () => router.navigate('/browse')}
     >
-      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 16, marginTop: 24 }}>
-        <Avatar initials={initials} size={56} />
-        <View style={{ flexShrink: 1, gap: 2 }}>
-          <Text testID="profile-name" numberOfLines={1} style={[type.h1, { color: c.text }]}>
-            {name}
-          </Text>
-          <Text testID="profile-email" numberOfLines={1} style={[type.bodyS, { color: c.text2 }]}>
-            {account?.email ?? ''}
-          </Text>
-          {account ? (
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
-              {account.provider === 'google' ? <Icons.check size={13} color={c.text} /> : null}
-              <Text style={[type.meta, { color: c.text2 }]}>
-                {account.provider === 'google' ? 'Google linked' : 'Signed in with an email code'}
-              </Text>
-            </View>
-          ) : null}
+      {/* Phone: the card hangs under the title, on a ground that reaches the screen edges. */}
+      {wide ? null : (
+        <View style={{ height: 470, marginHorizontal: -20, marginTop: 16 }}>
+          <IdCardStage info={card} scale={0.76} />
         </View>
-      </View>
+      )}
 
       <Group title="Account">
+        <Row label="Name" icon={Icons.account} value={name} valueTestID="profile-name" chevron={false} />
+        <Row label="Email" icon={Icons.note} value={account?.email ?? ''} valueTestID="profile-email" chevron={false} />
         <Row
           label="Edit profile"
           icon={Icons.account}
@@ -221,5 +232,16 @@ function ProfileHome({ profile, open }: { profile: Profile | null; open: (page: 
         </View>
       </Modal>
     </Page>
+  )
+
+  if (!wide) return page
+  // Web: the card's own stage on the left, the settings on the right (Paper, 07 Web · Profile · ID card).
+  return (
+    <View style={{ flex: 1, flexDirection: 'row', backgroundColor: c.bg }}>
+      <View style={{ width: 520, borderRightWidth: 1, borderRightColor: c.line }}>
+        <IdCardStage info={card} />
+      </View>
+      <View style={{ flex: 1 }}>{page}</View>
+    </View>
   )
 }

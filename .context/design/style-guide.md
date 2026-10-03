@@ -72,7 +72,7 @@ The three stacked stones. Files: `assets/brand/tovy-mark-black.png` (light theme
 
 ## Motion
 
-One curve, cubic-bezier(0.2, 0.8, 0.2, 1). Hover 150ms, menus 120ms, sheets and dialogs 200 to 250ms. No bounce. Reduce motion shows final states at once.
+One strong ease out, cubic-bezier(0.23, 1, 0.32, 1), and the drawer curve cubic-bezier(0.32, 0.72, 0, 1) for sheets on a phone. Press 120ms (scale 0.97, icon buttons 0.92), hover 150ms, menus 120 to 160ms from the point clicked, sheets 300ms in on a phone and 200ms on the web, toasts leave in 160ms. Springs (stiffness 420, damping 34) for things that glide or are thrown. Never from scale 0. Reduce motion shows final states at once. References and the finish moment: Paper page "Motion & ID card", spec motion-and-id-card.
 
 - Route change, and moving between pages inside a tab: instant, no fade (spec design-v2). Only rows that arrive later rise in.
 - Task panel: slides in from the right, 24 px on the web (220ms), 48 px on a phone (260ms).

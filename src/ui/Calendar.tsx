@@ -1,10 +1,11 @@
-import { Pressable, Text, View } from 'react-native'
+import { Animated, Pressable, Text, View } from 'react-native'
+import { usePop } from './motion'
 import { monthGrid, monthTitle, type CalendarDay } from '../core/views'
 import type { Task } from '../core/sync/tasks'
 import { Icons, type ToolkitIcon } from './icons'
 import { useTheme } from './theme'
 import { radius, type } from './tokens'
-import { SHADOWS, shadow, transition, useFocusRing, useHover, webStyle } from './components/web'
+import { pressScale, SHADOWS, shadow, transition, useFocusRing, useHover, webStyle } from './components/web'
 
 // The Upcoming calendar controls (spec design-v2, slice 3): the month it shows (press it for a month grid), the week
 // before and after, and a way back to today. The list below is not limited to a week: any day can be reached.
@@ -95,7 +96,7 @@ function NavButton({
       title={label}
       disabled={disabled}
       onPress={onPress}
-      style={[
+      style={({ pressed }) => [
         {
           width: 32,
           height: 32,
@@ -107,6 +108,7 @@ function NavButton({
         },
         transition('background-color'),
         ring.style,
+        pressScale(pressed, 0.94),
       ]}
       {...handlers}
       {...ring.handlers}
@@ -127,7 +129,7 @@ function TodayButton({ onPress }: { onPress: () => void }) {
       accessibilityRole="button"
       accessibilityLabel="Go to today"
       onPress={onPress}
-      style={[
+      style={({ pressed }) => [
         {
           height: 32,
           paddingHorizontal: 12,
@@ -139,6 +141,7 @@ function TodayButton({ onPress }: { onPress: () => void }) {
         },
         transition('background-color'),
         ring.style,
+        pressScale(pressed, 0.94),
       ]}
       {...handlers}
       {...ring.handlers}
@@ -176,8 +179,9 @@ export function MonthPicker({
   const { theme } = useTheme()
   const c = theme.colors
   const weeks = monthGrid(tasks, now, month)
+  const pop = usePop(160)
   return (
-    <View
+    <Animated.View
       testID="month-picker"
       style={[
         {
@@ -191,6 +195,8 @@ export function MonthPicker({
         },
         floating ? { position: 'absolute', top: 48, left: -12, width: 320, zIndex: 10 } : {},
         floating ? shadow(SHADOWS.menu) : {},
+        // It grows out of the month button above it.
+        floating ? [{ transformOrigin: '40px -40px' }, pop] : {},
       ]}
     >
       <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8 }}>
@@ -224,7 +230,7 @@ export function MonthPicker({
           ))}
         </View>
       ))}
-    </View>
+    </Animated.View>
   )
 }
 

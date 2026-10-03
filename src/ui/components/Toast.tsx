@@ -45,9 +45,10 @@ function ToastView({ toast, onDone }: { toast: ToastInput; onDone: () => void })
   const [drain] = useState(() => new Animated.Value(1))
   useEffect(() => {
     animate(enter, 1, 250)
+    // When its time is up it sinks and fades, quicker than it came.
     Animated.timing(drain, { toValue: 0, duration: TOAST_MS, easing: Easing.linear, useNativeDriver: false }).start(
       ({ finished }) => {
-        if (finished) onDone()
+        if (finished) animate(enter, 0, 160, 0, undefined, onDone)
       },
     )
   }, [enter, drain, onDone])
@@ -62,7 +63,10 @@ function ToastView({ toast, onDone }: { toast: ToastInput; onDone: () => void })
         alignItems: 'center',
         paddingHorizontal: 16,
         opacity: enter,
-        transform: [{ translateY: enter.interpolate({ inputRange: [0, 1], outputRange: [24, 0] }) }],
+        transform: [
+          { translateY: enter.interpolate({ inputRange: [0, 1], outputRange: [16, 0] }) },
+          { scale: enter.interpolate({ inputRange: [0, 1], outputRange: [0.95, 1] }) },
+        ],
       }}
     >
       <View

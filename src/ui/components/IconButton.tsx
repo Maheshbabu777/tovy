@@ -2,7 +2,7 @@ import { Pressable } from 'react-native'
 import { type ToolkitIcon } from '../icons'
 import { useTheme } from '../theme'
 import { radius } from '../tokens'
-import { transition, useFocusRing, useHover } from './web'
+import { pressScale, transition, useFocusRing, useHover } from './web'
 
 // Style guide, Buttons: icon button 40 round, icon 20 in text-2, hover fill. It always has an accessible label (a tooltip on the web).
 export function IconButton({
@@ -30,7 +30,7 @@ export function IconButton({
       // @ts-expect-error `title` is the web tooltip, not in the native types
       title={label}
       onPress={onPress}
-      style={[
+      style={({ pressed }) => [
         {
           width: 40,
           height: 40,
@@ -41,6 +41,7 @@ export function IconButton({
         },
         transition('background-color'),
         ring.style,
+        pressScale(pressed, 0.92),
       ]}
       {...hover}
       {...ring.handlers}

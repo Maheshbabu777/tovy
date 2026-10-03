@@ -28,8 +28,4 @@ Things agreed to do later. Each becomes a spec in `specs/` when its turn comes. 
 
 ## Ideas from the human
 
-- **Profile as a tagged ID card** (2026-10-03). The human wants the profile to feel different, like the lanyard ID badges many modern sites use. Reference: Vercel's interactive 3D event badge (a card on a lanyard you can drag and swing; built with React Three Fiber, react-three-rapier physics, Drei and MeshLine, the name rendered onto the card with a texture). Open points for its spec:
-  - What the card shows: the mark, name, @username, member since, maybe connected AI apps or a small task count, in the black and white style.
-  - Platform: the 3D lanyard works on web with React Three Fiber; on Android it needs expo-gl and the native React Three Fiber renderer, which is heavy, so a 2D card that tilts and swings with Reanimated and gestures may be the phone version.
-  - Performance: physics and 3D cost battery and frames on low-end phones; Reduce Motion must show a still card.
-  - Fits after stage 5 (motion and gestures), since it needs the same libraries.
+None open. The ID card became `specs/motion-and-id-card.md`.

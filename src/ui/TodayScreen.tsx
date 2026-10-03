@@ -122,9 +122,7 @@ export function TodayScreen() {
               }
             />
           ))}
-          {empty ? (
-            <EmptyState icon={Icons.today} title="A clear day" body="Nothing scheduled. Add a task to get started." />
-          ) : null}
+          {empty ? <EmptyState title="A clear day" body="Nothing scheduled. Add a task to get started." /> : null}
           {wide ? <AddTaskRow onAdd={addTask} composer underline={false} testID="new-title" /> : null}
           {showDone ? (
             <TaskSection id="done-today" title="Done today" rows={groups.doneToday} foldOnPhone {...shared} />

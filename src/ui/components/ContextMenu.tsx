@@ -77,6 +77,8 @@ function MenuBody({
               backgroundColor: c.raised,
             },
             shadow(SHADOWS.menu),
+            // It grows out of the point that was clicked, not out of its own middle.
+            { transformOrigin: `${Math.round(at.x - left)}px ${Math.round(at.y - top)}px` },
             pop,
           ]}
         >

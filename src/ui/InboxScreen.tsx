@@ -1,5 +1,4 @@
 import { useWindowDimensions, View } from 'react-native'
-import { Icons } from './icons'
 import { taskCountLabel } from '../core/projects'
 import { inboxTasks } from '../core/views'
 import { EmptyState, Skeleton } from './components/Feedback'
@@ -44,7 +43,6 @@ export function InboxScreen() {
             <TaskRows rows={rows} all={tasks} projectMap={projectMap} now={now} actions={actions} showProject={false} />
             {rows.length === 0 ? (
               <EmptyState
-                icon={Icons.inbox}
                 title="Your inbox is clear"
                 body="Capture anything here. File it in a project or give it a date when you are ready."
               />

@@ -59,9 +59,12 @@ export const type = {
   monoXs: text(fonts.mono, 11, 1.27),
 }
 
-// One easing curve, short durations (section 4).
+// Motion (Paper "06 Motion · References"): a strong ease out for things arriving and answering a touch, the drawer
+// curve for sheets, short durations. Pages swap instantly.
 export const motion = {
-  easing: [0.2, 0.8, 0.2, 1] as const,
+  easing: [0.23, 1, 0.32, 1] as const,
+  drawer: [0.32, 0.72, 0, 1] as const,
+  press: 120,
   hover: 150,
   route: 180,
   dialog: 200,
