@@ -1,0 +1,39 @@
+name: deploy-functions-dev
+
+# Deploys the Edge Functions (the MCP server for AI apps, spec mcp-server) to the dev project when they change on main.
+# Uses the same repository secrets as migrate-dev: SUPABASE_ACCESS_TOKEN and DEV_PROJECT_REF.
+# Run it by hand from the Actions tab with "Run workflow".
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - supabase/functions/**
+      - supabase/config.toml
+      - .github/workflows/deploy-functions-dev.yml
+  workflow_dispatch:
+
+concurrency: deploy-functions-dev
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    env:
+      SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+      PROJECT_REF: ${{ secrets.DEV_PROJECT_REF }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: supabase/setup-cli@v1
+        with:
+          version: latest
+      # The MCP server checks tokens itself, so an app with no token gets the 401 that tells it where to sign in.
+      - name: Deploy the MCP server
+        run: supabase functions deploy mcp --no-verify-jwt --project-ref "$PROJECT_REF"
+      - name: Check it answers
+        run: |
+          code=$(curl -s -o /dev/null -w '%{http_code}' "https://$PROJECT_REF.supabase.co/functions/v1/mcp")
+          echo "MCP server answered $code (401 means it is up and asks for sign in)"
+          test "$code" = "401"
