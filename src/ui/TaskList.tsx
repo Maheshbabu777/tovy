@@ -116,17 +116,23 @@ export function AddTaskRow({
   testID = 'new-title',
   placeholder = 'Add task',
   collapsible = false,
+  underline = true,
+  composer = false,
 }: {
   onAdd: (title: string) => void
   testID?: string
   placeholder?: string
   collapsible?: boolean
+  underline?: boolean // a hairline under the field (Paper's Web Today has none on its last row)
+  composer?: boolean // N focuses this field while its screen is showing (Today on a wide screen)
 }) {
   const { theme } = useTheme()
   const c = theme.colors
   const [draft, setDraft] = useState('')
   const [focused, setFocused] = useState(false)
   const [expanded, setExpanded] = useState(!collapsible)
+  const input = useRef<TextInput>(null)
+  useFocusEffect(useCallback(() => (composer ? registerComposer(() => input.current?.focus()) : undefined), [composer]))
   if (!expanded) {
     return (
       <Pressable
@@ -136,15 +142,13 @@ export function AddTaskRow({
         style={{
           flexDirection: 'row',
           alignItems: 'center',
-          minHeight: 44,
-          marginHorizontal: -8,
-          paddingHorizontal: 8,
+          minHeight: 48,
         }}
       >
-        <View style={{ width: 32 }}>
-          <Icons.add size={18} color={c.text3} />
+        <View style={{ width: 34 }}>
+          <Icons.add size={20} color={c.text3} />
         </View>
-        <Text style={[type.bodyS, { color: c.text3 }]}>{placeholder}</Text>
+        <Text style={[type.body, { color: c.text3 }]}>{placeholder}</Text>
       </Pressable>
     )
   }
@@ -155,15 +159,14 @@ export function AddTaskRow({
         alignItems: 'center',
         minHeight: 48,
         borderBottomWidth: 1,
-        borderBottomColor: focused ? c.text : c.line,
-        marginHorizontal: -8,
-        paddingHorizontal: 8,
+        borderBottomColor: focused ? c.text : underline ? c.line : 'transparent',
       }}
     >
-      <View style={{ width: 32 }}>
+      <View style={{ width: 34 }}>
         <Icons.add size={20} color={focused ? c.text : c.text2} />
       </View>
       <TextInput
+        ref={input}
         testID={testID}
         value={draft}
         onChangeText={setDraft}
@@ -183,7 +186,7 @@ export function AddTaskRow({
         placeholder={placeholder}
         placeholderTextColor={c.text2}
         accessibilityLabel={placeholder}
-        style={[type.body, { flex: 1, color: c.text, paddingVertical: 12 }, webStyle({ outlineStyle: 'none' })]}
+        style={[type.body, { flex: 1, color: c.text, paddingVertical: 14 }, webStyle({ outlineStyle: 'none' })]}
       />
     </View>
   )
@@ -262,8 +265,8 @@ export function Composer({
   )
 }
 
-// The hairline above a plain list (Inbox, a project), as wide as the rows' own lines.
+// The hairline above a plain list (Inbox, a project), as wide as the column like the rows' own lines.
 export function ListTop() {
   const { theme } = useTheme()
-  return <View style={{ height: 1, backgroundColor: theme.colors.line, marginHorizontal: -8 }} />
+  return <View style={{ height: 1, backgroundColor: theme.colors.line }} />
 }

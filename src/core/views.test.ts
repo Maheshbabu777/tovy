@@ -13,6 +13,7 @@ import {
   monthTitle,
   shiftMonth,
   daysThrough,
+  todayLine,
 } from './views'
 
 const now = new Date(2026, 9, 3, 10) // Sat 3 Oct 2026
@@ -87,6 +88,11 @@ describe('today header', () => {
     expect(timelyGreeting(new Date(2026, 9, 3, 13), ' ')).toBe('Good afternoon')
     expect(timelyGreeting(new Date(2026, 9, 3, 19), null)).toBe('Good evening')
     expect(timelyGreeting(new Date(2026, 9, 3, 23), 'Mahesh')).toBe('Winding down, Mahesh')
+  })
+  it('names the day and counts its tasks', () => {
+    expect(todayLine(now, 5)).toBe('Saturday 3 October · 5 tasks')
+    expect(todayLine(now, 1)).toBe('Saturday 3 October · 1 task')
+    expect(todayLine(new Date(2026, 0, 4), 0)).toBe('Sunday 4 January · nothing due')
   })
   it('sums up the day without zero parts', () => {
     expect(daySummary({ overdue: [1, 2], dueToday: [1, 2, 3], doneToday: [1] })).toBe(
