@@ -10,13 +10,11 @@ export function SyncProbe() {
   const store = useStore()
   const taskState = syncState(store.tasks$)
   const projectState = syncState(store.projects$)
-  const proposalState = syncState(store.proposals$)
   const logState = syncState(store.logs$)
   const loaded = use$(taskState.isPersistLoaded)
   const pending =
     (use$(taskState.numPendingSets) ?? 0) +
     (use$(projectState.numPendingSets) ?? 0) +
-    (use$(proposalState.numPendingSets) ?? 0) +
     (use$(logState.numPendingSets) ?? 0)
   const value = !loaded ? 'loading' : pending > 0 ? `pending ${pending}` : 'synced'
   useEffect(() => {

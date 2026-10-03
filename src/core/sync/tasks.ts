@@ -39,29 +39,6 @@ export type Project = {
   updated_at?: string | null
 }
 
-export type ProposalKind = 'add_task' | 'update_progress' | 'reschedule'
-export type ProposalStatus = 'pending' | 'approved' | 'rejected'
-
-// What a connected AI app asks for. Nothing in the person's tasks changes until they approve it.
-//   add_task:        after = { title, due_date?, due_time?, project_id? }
-//   update_progress: before = { progress }, after = { progress }, task_id
-//   reschedule:      before = { due_date, due_time? }, after = { due_date, due_time? }, task_id
-export type Proposal = {
-  id: string
-  user_id?: string
-  app_name: string
-  kind: ProposalKind
-  title: string
-  task_id: string | null
-  before: Record<string, unknown>
-  after: Record<string, unknown>
-  status: ProposalStatus
-  decided_at: string | null
-  deleted?: boolean
-  created_at?: string | null
-  updated_at?: string | null
-}
-
 export type NewTask = {
   title: string
   note?: string
@@ -86,7 +63,7 @@ const LINK_RETRIES = 8
 // "pending" and the Undo bar never went away). Sending the very same update for a row again within this time, after it
 // was saved successfully, changes nothing on the server, so it is not sent.
 const REPEAT_UPDATE_MS = 2000
-type Table = 'tasks' | 'projects' | 'proposals' | 'progress_log'
+type Table = 'tasks' | 'projects' | 'progress_log'
 
 function createServerWrites() {
   let tail: Promise<unknown> = Promise.resolve()
@@ -167,18 +144,6 @@ export function createTasksStore(userId: string) {
       update: writes.update('projects') as never,
       realtime: true,
       persist: { name: projectsName, plugin: createPersistPlugin(projectsName), retrySync: true },
-    }),
-  )
-
-  const proposalsName = `proposals-${userId}`
-  const proposals$ = observable(
-    syncedSupabase({
-      supabase,
-      collection: 'proposals',
-      create: writes.create('proposals') as never,
-      update: writes.update('proposals') as never,
-      realtime: true,
-      persist: { name: proposalsName, plugin: createPersistPlugin(proposalsName), retrySync: true },
     }),
   )
 
@@ -275,7 +240,6 @@ export function createTasksStore(userId: string) {
     userId,
     tasks$,
     projects$,
-    proposals$,
     logs$,
 
     // ----- reading -----
@@ -400,60 +364,6 @@ export function createTasksStore(userId: string) {
       )
     },
 
-    // ----- proposals (the approval inbox) -----
-    pendingProposals: (): Proposal[] =>
-      Object.values((proposals$.peek() ?? {}) as Record<string, Proposal>).filter(
-        (p) => p && !p.deleted && p.status === 'pending',
-      ),
-
-    // Does what the proposal asks, then marks it approved. If the task it is about is gone, nothing changes and the
-    // error says so.
-    approveProposal(id: string) {
-      const p = (proposals$.peek() as Record<string, Proposal> | undefined)?.[id]
-      if (!p || p.deleted || p.status !== 'pending') throw new Error('That proposal is no longer waiting')
-      const after = p.after ?? {}
-      batch(() => {
-        if (p.kind === 'add_task') {
-          const projectId =
-            typeof after.project_id === 'string' && liveProjects().some((x) => x.id === after.project_id)
-          this.addTask({
-            title: typeof after.title === 'string' && after.title.trim() ? after.title : p.title,
-            dueDate: typeof after.due_date === 'string' ? after.due_date : null,
-            dueTime: typeof after.due_time === 'string' ? after.due_time : null,
-            projectId: projectId ? (after.project_id as string) : null,
-          })
-        } else if (p.kind === 'reschedule') {
-          if (!p.task_id || !getTask(p.task_id)) throw new Error('That task no longer exists')
-          this.editTask(p.task_id, {
-            dueDate: typeof after.due_date === 'string' ? after.due_date : null,
-            dueTime: typeof after.due_time === 'string' ? after.due_time : null,
-          })
-        } else {
-          if (!p.task_id || !getTask(p.task_id)) throw new Error('That task no longer exists')
-          this.setProgress(p.task_id, Number(after.progress), { source: p.app_name })
-        }
-        proposals$[id].status.set('approved')
-        proposals$[id].decided_at.set(new Date().toISOString())
-      })
-    },
-
-    // Nothing is changed. `undo` puts the proposal back to waiting.
-    rejectProposal(id: string): { undo: () => void } {
-      const p = (proposals$.peek() as Record<string, Proposal> | undefined)?.[id]
-      if (!p || p.deleted || p.status !== 'pending') throw new Error('That proposal is no longer waiting')
-      batch(() => {
-        proposals$[id].status.set('rejected')
-        proposals$[id].decided_at.set(new Date().toISOString())
-      })
-      return {
-        undo: () =>
-          batch(() => {
-            proposals$[id].status.set('pending')
-            proposals$[id].decided_at.set(null)
-          }),
-      }
-    },
-
     // ----- projects -----
     addProject(name: string, color = 'slate'): string {
       const id = uuidv4()
@@ -499,7 +409,6 @@ export function createTasksStore(userId: string) {
       const unsent = () =>
         (syncState(tasks$).numPendingSets.peek() ?? 0) +
         (syncState(projects$).numPendingSets.peek() ?? 0) +
-        (syncState(proposals$).numPendingSets.peek() ?? 0) +
         (syncState(logs$).numPendingSets.peek() ?? 0)
       const syncBoth = (tries = 0) => {
         if (unsent() > 0 && tries < 20) {
@@ -508,14 +417,12 @@ export function createTasksStore(userId: string) {
         }
         void syncState(tasks$).sync()
         void syncState(projects$).sync()
-        void syncState(proposals$).sync()
         void syncState(logs$).sync()
       }
       const channel = supabase
         .channel(`tasks-catch-up-${userId}`)
         .on('postgres_changes', { event: '*', schema: 'public', table: 'tasks' }, () => {})
         .on('postgres_changes', { event: '*', schema: 'public', table: 'projects' }, () => {})
-        .on('postgres_changes', { event: '*', schema: 'public', table: 'proposals' }, () => {})
         .on('postgres_changes', { event: '*', schema: 'public', table: 'progress_log' }, () => {})
         .subscribe((status) => {
           if (status !== 'SUBSCRIBED') return
@@ -530,12 +437,7 @@ export function createTasksStore(userId: string) {
 
     // Forgets this user's tasks and projects on this device (used at sign out). Nothing is deleted on the server.
     async dispose(): Promise<void> {
-      await Promise.all([
-        syncState(tasks$).reset(),
-        syncState(projects$).reset(),
-        syncState(proposals$).reset(),
-        syncState(logs$).reset(),
-      ])
+      await Promise.all([syncState(tasks$).reset(), syncState(projects$).reset(), syncState(logs$).reset()])
     },
   }
 }

@@ -19,7 +19,7 @@ Things agreed to do later. Each becomes a spec in `specs/` when its turn comes. 
 
 ## Later stages (order from the spec)
 
-- Stage 2 leftovers: drop the proposals table, its sync and `src/core/inbox.ts` together with stage 7 (the screen is already gone). Search and Filters and labels in the sidebar once they exist.
+- Stage 2 leftovers: drop the proposals table in a migration once every device runs without its sync (`specs/drop-proposals-sync.md` removed the app side). Search and Filters and labels in the sidebar once they exist.
 - Stage 3, tasks: priorities, labels, deadline and repeats (`specs/task-fields.md`, draft), sections in projects. Done overnight: quick add that reads words, overdue Reschedule, the Completed list, times on a task.
 - Stage 4, Upcoming: drag a task to another day (the week strip is done).
 - Stage 5, motion and gestures: haptics, and moving the PanResponder swipe and sheet drag to Reanimated and Gesture Handler if they feel slow on a phone (checked in Expo Go).
