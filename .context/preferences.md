@@ -23,6 +23,7 @@ Agents: add a line only when the human states a standing preference for this pro
 
 - Don't create random branch names like `claude/...something`. Everything needs to be meaningful: name a branch after the work, e.g. `feat/sync-spike`. (2026-10-01)
 - Keep the repo clean and structured. Create PRs and merge things. (2026-10-01)
+- When the agent merges a PR itself, don't paste the PR text in chat. Just say it's merged and what's next. (2026-10-03)
 
 ## Code
 
