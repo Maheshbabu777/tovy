@@ -105,6 +105,15 @@ export function BrowseScreen() {
         />
       </Group>
 
+      <Group>
+        <Row
+          label="Completed"
+          icon={Icons.check}
+          onPress={() => router.navigate('/completed')}
+          testID="browse-completed"
+        />
+      </Group>
+
       <Group title="Settings">
         <Row
           label="Appearance"

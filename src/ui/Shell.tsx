@@ -35,7 +35,7 @@ import { useNow, useTaskData } from './useTaskData'
 
 // Every route of the tab frame. Inbox, Today, Upcoming and Browse are the tabs (style guide, Navigation). Projects and
 // Profile are reached from the sidebar, Browse and the avatar. Add a route here and a file under `app/(tabs)/`.
-type Href = '/' | '/inbox' | '/upcoming' | '/browse' | '/projects' | '/profile'
+type Href = '/' | '/inbox' | '/upcoming' | '/browse' | '/projects' | '/profile' | '/completed'
 const ROUTES: { name: string; href: Href }[] = [
   { name: 'inbox', href: '/inbox' },
   { name: 'index', href: '/' },
@@ -43,6 +43,7 @@ const ROUTES: { name: string; href: Href }[] = [
   { name: 'browse', href: '/browse' },
   { name: 'projects', href: '/projects' },
   { name: 'profile', href: '/profile' },
+  { name: 'completed', href: '/completed' },
 ]
 // The main places, with their web keyboard shortcut.
 const MAIN: { href: Href; label: string; Icon: ToolkitIcon; key: string }[] = [
@@ -294,6 +295,15 @@ export function Shell() {
                     onPress={() => go(m.href)}
                   />
                 ))}
+                <NavItem
+                  navKey="/completed"
+                  testID="tab-completed"
+                  label="Completed"
+                  Icon={Icons.check}
+                  collapsed={collapsed}
+                  on={section === '/completed'}
+                  onPress={() => go('/completed')}
+                />
                 {collapsed ? (
                   <NavItem
                     navKey="/projects"
@@ -357,7 +367,8 @@ export function Shell() {
     )
   }
 
-  const browseOn = section === '/browse' || section === '/projects' || section === '/profile'
+  const browseOn =
+    section === '/browse' || section === '/projects' || section === '/profile' || section === '/completed'
   // The add button lives where adding is the job: the three lists and a project page (which files the task there).
   const fabHere = section === '/' || section === '/inbox' || section === '/upcoming' || !!projectHere
   const tabs: { href: Href; label: string; Icon: ToolkitIcon; on: boolean }[] = [

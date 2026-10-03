@@ -447,7 +447,8 @@ function Body({
         visible={sheet === 'date'}
         onClose={() => setSheet(null)}
         value={task.due_date}
-        onPick={(day) => run(() => store.editTask(task.id, { dueDate: day, dueTime: day ? task.due_time : null }))}
+        time={task.due_time}
+        onPick={(day, time) => run(() => store.editTask(task.id, { dueDate: day, dueTime: day ? time : null }))}
       />
       <ProjectPickerSheet
         visible={sheet === 'project'}
