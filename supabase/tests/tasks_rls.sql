@@ -144,5 +144,28 @@ begin
   if n <> 0 then raise exception 'FAIL: hard delete of a project should be blocked'; end if;
 end $$;
 
+-- ===== Task fields (migration 0011): defaults for apps that do not send them, and their limits =====
+select set_config('request.jwt.claims', '{"sub":"aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa","role":"authenticated"}', true);
+do $$
+declare t record; ok boolean;
+begin
+  select priority, deadline, labels, repeat into t from public.tasks where id = 'a1000000-0000-0000-0000-000000000004';
+  if t.priority <> 4 or t.deadline is not null or t.labels <> '{}' or t.repeat is not null then
+    raise exception 'FAIL: new task fields should default to none';
+  end if;
+  update public.tasks set priority = 1, deadline = '2026-10-09', labels = '{home,calls}', repeat = '{"every":"week","days":[1]}'
+    where id = 'a1000000-0000-0000-0000-000000000004';
+  ok := false;
+  begin
+    update public.tasks set priority = 0 where id = 'a1000000-0000-0000-0000-000000000004';
+  exception when check_violation then ok := true; end;
+  if not ok then raise exception 'FAIL: priority 0 should be refused'; end if;
+  ok := false;
+  begin
+    update public.tasks set repeat = '"daily"' where id = 'a1000000-0000-0000-0000-000000000004';
+  exception when check_violation then ok := true; end;
+  if not ok then raise exception 'FAIL: a repeat that is not an object should be refused'; end if;
+end $$;
+
 select 'PASS: tasks and projects are isolated and their rules hold' as result;
 rollback;
