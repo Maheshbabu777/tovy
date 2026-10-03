@@ -31,4 +31,5 @@ What the inspiration does (read from the Paper page Inspiration):
 
 - [x] Slice 1 built; frame-by-frame check with Playwright: page switch goes straight from one page to the next; reload shows the frame from the first painted frame; hover actions verified; 16 MCP tests, 91 unit tests
 - [ ] Human: after merge, reconnect Claude with https://<tovy site>/mcp so it shows the Tovy icon
-- [ ] Slices 2 to 5
+- [x] Slice 2 (in the same PR): sidebar header is the mark, wordmark and collapse only; Projects head shows + New project on hover; the account sits at the bottom (avatar, name, @username, shortcuts and settings); menus can group items under labels, show a check or a key, and set Delete apart after a hairline; Google's own G on "Continue with Google" (from Google's sign-in assets); checked in Chromium at 1440, light and dark
+- [ ] Slices 3 to 5
