@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { Pressable, Text, TextInput, View } from 'react-native'
+import { Pressable, Text, TextInput, useWindowDimensions, View } from 'react-native'
 import { useFocusEffect, useGlobalSearchParams } from 'expo-router'
 import { Icons } from './icons'
 import { percentOf, subtaskCount } from '../core/progress'
@@ -10,10 +10,10 @@ import { KeyCap } from './components/KeyCap'
 import { registerComposer } from './quickAdd'
 import { TaskRow } from './TaskRow'
 import { useTheme } from './theme'
-import { radius, type } from './tokens'
+import { radius, type, WIDE_BREAKPOINT } from './tokens'
 import type { useTaskActions } from './useTaskActions'
 
-type Actions = Pick<ReturnType<typeof useTaskActions>, 'toggleDone' | 'open' | 'openMenu'>
+type Actions = Pick<ReturnType<typeof useTaskActions>, 'toggleDone' | 'open' | 'openMenu' | 'moveTomorrow'>
 
 // The rows of one list: a task row each, with its progress and subtask count worked out from all tasks.
 export function TaskRows({
@@ -32,6 +32,7 @@ export function TaskRows({
   showProject?: boolean
 }) {
   const { task: openId } = useGlobalSearchParams<{ task?: string }>()
+  const phone = useWindowDimensions().width < WIDE_BREAKPOINT
   // Rows fade in one after another when the list first shows; rows that arrive later just fade in.
   const [fresh, setFresh] = useState(true)
   useEffect(() => {
@@ -53,6 +54,7 @@ export function TaskRows({
           selected={openId === task.id}
           showProject={showProject}
           onToggleDone={() => actions.toggleDone(task)}
+          onSwipe={phone ? (a) => (a === 'done' ? actions.toggleDone(task) : actions.moveTomorrow(task)) : undefined}
           onOpen={() => actions.open(task)}
           onMenu={(at) => actions.openMenu(task, at)}
         />
@@ -69,9 +71,11 @@ export function TaskSection({
   action,
   danger,
   keepEmpty = false,
+  foldOnPhone = false,
   children,
   ...rest
 }: {
+  foldOnPhone?: boolean // on a phone the rows start folded away behind the header (Done today)
   id: string
   title: string
   rows: Task[]
@@ -80,11 +84,19 @@ export function TaskSection({
   keepEmpty?: boolean
   children?: React.ReactNode
 } & Omit<Parameters<typeof TaskRows>[0], 'rows'>) {
+  const phone = useWindowDimensions().width < WIDE_BREAKPOINT
+  const [open, setOpen] = useState(!(foldOnPhone && phone))
   if (rows.length === 0 && !keepEmpty) return null
   return (
     <View testID={`section-${id}`}>
-      <SectionHeader title={title} count={rows.length} action={action} danger={danger} />
-      <TaskRows rows={rows} {...rest} />
+      <SectionHeader
+        title={title}
+        count={rows.length}
+        action={action}
+        danger={danger}
+        fold={foldOnPhone ? { open, onToggle: () => setOpen(!open), testID: `fold-${id}` } : undefined}
+      />
+      {open ? <TaskRows rows={rows} {...rest} /> : null}
       {children}
     </View>
   )

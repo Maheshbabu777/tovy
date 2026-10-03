@@ -1,4 +1,5 @@
 import { Pressable, Text, View } from 'react-native'
+import { Icons } from '../icons'
 import { useTheme } from '../theme'
 import { type } from '../tokens'
 
@@ -9,7 +10,9 @@ export function SectionHeader({
   count,
   action,
   danger = false,
+  fold,
 }: {
+  fold?: { open: boolean; onToggle: () => void; testID?: string } // the title folds the rows away (Done today)
   title: string
   count?: number
   action?: { label: string; onPress: () => void; testID?: string }
@@ -32,10 +35,32 @@ export function SectionHeader({
         borderBottomColor: c.line,
       }}
     >
-      <Text accessibilityRole="header" style={[type.label, { color: danger ? c.red : c.text }]}>
-        {title}
-      </Text>
-      {count !== undefined ? <Text style={[type.monoS, { color: c.text3 }]}>{count}</Text> : null}
+      {fold ? (
+        <Pressable
+          testID={fold.testID}
+          accessibilityRole="button"
+          accessibilityState={{ expanded: fold.open }}
+          accessibilityLabel={`${title}, ${count ?? 0}. ${fold.open ? 'Hide' : 'Show'}`}
+          onPress={fold.onToggle}
+          hitSlop={10}
+          style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}
+        >
+          <Text accessibilityRole="header" style={[type.label, { color: c.text }]}>
+            {title}
+          </Text>
+          {count ? <Text style={[type.monoS, { color: c.text3 }]}>{count}</Text> : null}
+          <View style={{ transform: [{ rotate: fold.open ? '0deg' : '-90deg' }] }}>
+            <Icons.expand size={14} color={c.text2} />
+          </View>
+        </Pressable>
+      ) : (
+        <>
+          <Text accessibilityRole="header" style={[type.label, { color: danger ? c.red : c.text }]}>
+            {title}
+          </Text>
+          {count ? <Text style={[type.monoS, { color: c.text3 }]}>{count}</Text> : null}
+        </>
+      )}
       <View style={{ flex: 1 }} />
       {action ? (
         <Pressable testID={action.testID} accessibilityRole="button" onPress={action.onPress} hitSlop={8}>

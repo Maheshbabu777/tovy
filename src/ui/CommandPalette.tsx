@@ -77,7 +77,7 @@ function PaletteBody({ onClose }: { onClose: () => void }) {
               width: '100%',
               maxWidth: 600,
               maxHeight: height * 0.7,
-              backgroundColor: c.bg,
+              backgroundColor: c.raised,
               borderRadius: radius.lg,
               borderWidth: 1,
               borderColor: c.line,

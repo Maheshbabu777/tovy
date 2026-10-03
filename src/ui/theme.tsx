@@ -58,6 +58,8 @@ function buildColors(mode: ThemeMode) {
   return {
     ...p,
     bgClear: alpha(p.bg, 0), // for fades
+    // What floats (sheets, menus, the palette): the page ground in light, one step up in dark so it separates.
+    raised: mode === 'dark' ? p.panel : p.bg,
     // Aliases used by the screens built before the black and white system.
     surface: p.panel,
     ink: p.text,

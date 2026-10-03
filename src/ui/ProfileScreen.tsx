@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Modal, Pressable, Text, View } from 'react-native'
+import { Modal, Pressable, Text, useWindowDimensions, View } from 'react-native'
 import { useLocalSearchParams, useRouter } from 'expo-router'
 import { syncState } from '@legendapp/state'
 import { use$ } from '@legendapp/state/react'
@@ -10,12 +10,11 @@ import { Avatar } from './components/Avatar'
 import { Button } from './components/Button'
 import { Enter } from './components/Enter'
 import { Page } from './components/Page'
-import { ScreenHeader } from './components/ScreenHeader'
 import { Group, Row } from './components/SettingsList'
 import { AboutPage, AppearancePage, EditProfilePage, THEME_LABEL } from './ProfilePages'
 import { useStore } from './StoreContext'
 import { useTheme } from './theme'
-import { radius, type } from './tokens'
+import { radius, type, WIDE_BREAKPOINT } from './tokens'
 import { useOnline } from './useOnline'
 import { profileSaved } from './useProfile'
 
@@ -38,8 +37,7 @@ export function ProfileScreen() {
   if (sub) {
     return (
       <Enter key={sub}>
-        <Page maxWidth={576}>
-          <ScreenHeader title={TITLES[sub]} onBack={back} />
+        <Page maxWidth={576} title={TITLES[sub]} onBack={back}>
           {sub === 'appearance' ? <AppearancePage /> : null}
           {sub === 'about' ? <AboutPage /> : null}
           {sub === 'edit' && profile ? (
@@ -64,6 +62,8 @@ export function ProfileScreen() {
 }
 
 function ProfileHome({ profile, open }: { profile: Profile | null; open: (page: SubPage) => void }) {
+  const router = useRouter()
+  const wide = useWindowDimensions().width >= WIDE_BREAKPOINT
   const { theme, preference } = useTheme()
   const c = theme.colors
   const store = useStore()
@@ -112,9 +112,12 @@ function ProfileHome({ profile, open }: { profile: Profile | null; open: (page: 
         : 'Up to date'
 
   return (
-    <Page maxWidth={576}>
-      <ScreenHeader title="Profile" titleTestID="profile-title" />
-
+    <Page
+      maxWidth={576}
+      title="Profile"
+      titleTestID="profile-title"
+      onBack={wide ? undefined : () => router.navigate('/browse')}
+    >
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 16, marginTop: 24 }}>
         <Avatar initials={initials} size={56} />
         <View style={{ flexShrink: 1, gap: 2 }}>

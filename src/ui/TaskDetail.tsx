@@ -71,7 +71,7 @@ function Frame({
   const c = theme.colors
   const wide = useWindowDimensions().width >= WIDE_BREAKPOINT
   return (
-    <View style={{ flex: 1, backgroundColor: c.bg }}>
+    <View style={{ flex: 1 }}>
       <View
         style={{
           minHeight: 56,
@@ -83,16 +83,14 @@ function Frame({
           borderBottomColor: c.line,
         }}
       >
-        {onBack || !wide ? (
-          <IconButton icon={Icons.back} label="Back" onPress={onBack ?? onClose} testID="detail-back" />
-        ) : null}
-        <View style={{ flex: 1, paddingLeft: wide && !onBack ? 4 : 0 }}>
-          {wide ? <Text style={[type.label, { color: c.text2 }]}>{label}</Text> : null}
+        {onBack ? <IconButton icon={Icons.back} label="Back" onPress={onBack} testID="detail-back" /> : null}
+        <View style={{ flex: 1, paddingLeft: onBack ? 0 : 8 }}>
+          <Text style={[type.label, { color: c.text2 }]}>{label}</Text>
         </View>
         {onDelete ? (
           <IconButton icon={Icons.delete} label="Delete task" onPress={onDelete} testID="detail-delete" />
         ) : null}
-        {wide ? <IconButton icon={Icons.close} label="Close" onPress={onClose} testID="detail-close" /> : null}
+        <IconButton icon={Icons.close} label="Close" onPress={onClose} testID="detail-close" />
       </View>
       <ScrollView
         contentContainerStyle={{ paddingHorizontal: wide ? 24 : 20, paddingTop: 16, paddingBottom: 48 }}

@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Pressable, Text, View } from 'react-native'
+import { Pressable, Text, useWindowDimensions, View } from 'react-native'
 import { useLocalSearchParams, useRouter } from 'expo-router'
 import { Icons } from './icons'
 import { projectStats, taskCountLabel } from '../core/projects'
@@ -9,14 +9,13 @@ import { Enter } from './components/Enter'
 import { EmptyState, Skeleton } from './components/Feedback'
 import { IconButton } from './components/IconButton'
 import { Page } from './components/Page'
-import { ScreenHeader } from './components/ScreenHeader'
 import { useToast } from './components/Toast'
 import { transition, useFocusRing, useHover } from './components/web'
 import { ProjectSheet } from './ProjectSheet'
 import { QuickAddSheet } from './QuickAddSheet'
 import { AddTaskRow, ListTop, TaskRows, TaskSection } from './TaskList'
 import { useTheme } from './theme'
-import { type } from './tokens'
+import { type, WIDE_BREAKPOINT } from './tokens'
 import { useTaskActions } from './useTaskActions'
 import { useNow, useTaskData } from './useTaskData'
 
@@ -29,6 +28,7 @@ export function ProjectsScreen() {
 }
 
 function ProjectList() {
+  const wide = useWindowDimensions().width >= WIDE_BREAKPOINT
   const { store, tasks, projects, loaded } = useTaskData()
   const router = useRouter()
   const toast = useToast()
@@ -38,18 +38,18 @@ function ProjectList() {
   if (projectStats(null, tasks).count > 0) rows.push({ id: NONE, name: 'No project' })
 
   return (
-    <Page>
-      <ScreenHeader
-        title="Projects"
-        right={
-          <IconButton
-            icon={Icons.newProject}
-            label="New project"
-            onPress={() => setCreating(true)}
-            testID="new-project"
-          />
-        }
-      />
+    <Page
+      onBack={wide ? undefined : () => router.navigate('/browse')}
+      title="Projects"
+      actions={
+        <IconButton
+          icon={Icons.newProject}
+          label="New project"
+          onPress={() => setCreating(true)}
+          testID="new-project"
+        />
+      }
+    >
       <View style={{ marginTop: 16 }}>
         {!loaded ? (
           <Skeleton rows={3} />
@@ -141,6 +141,7 @@ function ProjectRow({
 }
 
 function ProjectPage({ id }: { id: string }) {
+  const phone = useWindowDimensions().width < WIDE_BREAKPOINT
   const { store, tasks, projects, projectMap, loaded } = useTaskData()
   const router = useRouter()
   const toast = useToast()
@@ -161,8 +162,7 @@ function ProjectPage({ id }: { id: string }) {
 
   if (missing) {
     return (
-      <Page>
-        <ScreenHeader title="Project" onBack={back} />
+      <Page title="Project" onBack={back}>
         <EmptyState
           icon={Icons.projects}
           title="This project is gone"
@@ -181,25 +181,22 @@ function ProjectPage({ id }: { id: string }) {
     })
 
   return (
-    <Page>
-      <ScreenHeader
-        title={title}
-        subtitle={taskCountLabel(own.length)}
-        onBack={back}
-        right={
-          <>
+    <Page
+      title={title}
+      subtitle={taskCountLabel(own.length)}
+      onBack={back}
+      actions={
+        <>
+          {/* On a phone the round add button already adds here; one way to add is enough. */}
+          {phone ? null : (
             <IconButton icon={Icons.add} label="Add task" onPress={() => setAdding(true)} testID="project-add-task" />
-            {loose ? null : (
-              <IconButton
-                icon={Icons.edit}
-                label="Edit project"
-                onPress={() => setEditing(true)}
-                testID="project-edit"
-              />
-            )}
-          </>
-        }
-      />
+          )}
+          {loose ? null : (
+            <IconButton icon={Icons.edit} label="Edit project" onPress={() => setEditing(true)} testID="project-edit" />
+          )}
+        </>
+      }
+    >
       <View style={{ marginTop: 16 }}>
         {!loaded ? (
           <Skeleton rows={4} />

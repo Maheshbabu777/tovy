@@ -35,7 +35,11 @@ export function useTaskActions(now: Date) {
   const toggleDone = (task: Task) =>
     run(() => {
       store.setDone(task.id, !task.done_at)
-      if (!task.done_at) toast.show({ message: `Done: ${task.title}` })
+      if (!task.done_at)
+        toast.show({
+          message: `Done: ${task.title}`,
+          action: { label: 'Undo', onPress: () => run(() => store.setDone(task.id, false)) },
+        })
     })
 
   const remove = (task: Task) =>
@@ -49,10 +53,22 @@ export function useTaskActions(now: Date) {
 
   const open = (task: Task) => router.setParams({ task: task.id })
 
+  // Tomorrow, keeping the time. Undo puts the old date back.
+  const moveTomorrow = (task: Task) =>
+    run(() => {
+      const before = task.due_date
+      store.editTask(task.id, { dueDate: addDays(localDay(now), 1) })
+      toast.show({
+        message: `Moved to tomorrow: ${task.title}`,
+        action: { label: 'Undo', onPress: () => run(() => store.editTask(task.id, { dueDate: before })) },
+      })
+    })
+
   const menuElement = (
     <ContextMenu
       at={menu?.at ?? null}
       onClose={() => setMenu(null)}
+      title={menu?.task.title}
       items={
         menu
           ? [
@@ -61,7 +77,7 @@ export function useTaskActions(now: Date) {
                 label: 'Move to tomorrow',
                 icon: Icons.date,
                 testID: 'menu-tomorrow',
-                onPress: () => run(() => store.editTask(menu.task.id, { dueDate: addDays(localDay(now), 1) })),
+                onPress: () => moveTomorrow(menu.task),
               },
               {
                 label: 'Delete',
@@ -81,6 +97,7 @@ export function useTaskActions(now: Date) {
     toggleDone,
     remove,
     open,
+    moveTomorrow,
     openMenu: (task: Task, at: { x: number; y: number }) => setMenu({ task, at }),
     menuElement,
   }

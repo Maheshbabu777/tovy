@@ -5,7 +5,6 @@ import { localDay } from '../core/today'
 import { upcoming, weekStrip } from '../core/views'
 import { Skeleton } from './components/Feedback'
 import { Page } from './components/Page'
-import { ScreenHeader } from './components/ScreenHeader'
 import { useToast } from './components/Toast'
 import { AddTaskRow, TaskSection } from './TaskList'
 import { prefersReducedMotion } from './motion'
@@ -27,12 +26,36 @@ export function UpcomingScreen() {
   const scroll = useRef<ScrollView>(null)
   const spots = useRef<Record<string, number>>({})
   const [selected, setSelected] = useState(localDay(now))
+  const headHeight = useRef(0)
+  const jumping = useRef(false)
+
+  // Where a day's section starts in the scroll. Phone: the sections sit under the large title, and the strip is pinned
+  // over the top of the list. Web: positions are measured inside the page column, below its 40 px top padding.
+  const offsetOf = (day: string) => {
+    const y = spots.current[day]
+    if (y === undefined) return undefined
+    return wide ? 40 + y - 8 : headHeight.current + y
+  }
 
   // Pressing a day in the strip scrolls its section to the top of the page.
   function jumpTo(day: string) {
     setSelected(day)
-    const y = spots.current[day]
-    if (y !== undefined) scroll.current?.scrollTo({ y: y + (wide ? 40 : 8) - 8, animated: !prefersReducedMotion() })
+    const y = offsetOf(day)
+    if (y === undefined) return
+    jumping.current = true
+    scroll.current?.scrollTo({ y, animated: !prefersReducedMotion() })
+    setTimeout(() => (jumping.current = false), 500)
+  }
+
+  // While scrolling, the strip follows: the last day whose section has reached the top is the one in view.
+  function follow(y: number) {
+    if (jumping.current) return
+    let inView = localDay(now)
+    for (const d of view.days) {
+      const at = offsetOf(d.day)
+      if (at !== undefined && at <= y + 12) inView = d.day
+    }
+    if (inView !== selected) setSelected(inView)
   }
 
   function rescheduleOverdue() {
@@ -59,9 +82,15 @@ export function UpcomingScreen() {
   }
 
   return (
-    <Page scrollRef={scroll}>
-      <ScreenHeader title="Upcoming" subtitle={monthLine(now)} titleTestID="upcoming-title" />
-      <WeekStrip days={weekStrip(tasks, now)} selected={selected} onPick={jumpTo} />
+    <Page
+      scrollRef={scroll}
+      title="Upcoming"
+      subtitle={monthLine(now)}
+      titleTestID="upcoming-title"
+      onScroll={follow}
+      onHeadHeight={(h) => (headHeight.current = h)}
+      sticky={<WeekStrip days={weekStrip(tasks, now)} selected={selected} onPick={jumpTo} />}
+    >
       {!loaded ? (
         <View style={{ marginTop: 16 }}>
           <Skeleton />
@@ -119,7 +148,7 @@ function WeekStrip({
   const { theme } = useTheme()
   const c = theme.colors
   return (
-    <View testID="week-strip" style={{ flexDirection: 'row', gap: 6, marginTop: 20 }}>
+    <View testID="week-strip" style={{ flexDirection: 'row', gap: 6, paddingTop: 16, paddingBottom: 8 }}>
       {days.map((d, i) => {
         const on = d.day === selected
         const today = i === 0

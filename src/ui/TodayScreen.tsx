@@ -69,36 +69,47 @@ export function TodayScreen() {
 
   const shared = { all: tasks, projectMap, now, actions }
 
-  return (
-    <Page>
-      <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 8, paddingTop: 8 }}>
-        <View style={{ flex: 1, minWidth: 0 }}>
-          <Text testID="today-date" style={[type.monoS, { color: c.text2 }]}>
-            {dateLine(now)}
-          </Text>
-          <Text
-            testID="today-title"
-            accessibilityRole="header"
-            style={[wide ? type.displayXl : type.display, { color: c.text, marginTop: 6 }]}
-          >
-            {timelyGreeting(now, profile?.first_name)}
-          </Text>
-          <Text testID="day-summary" style={[type.bodyS, { color: c.text2, marginTop: 6 }]}>
-            {daySummary(groups)}
-          </Text>
-        </View>
-        {wide ? (
-          <View style={{ flexDirection: 'row', gap: 4, marginTop: 14 }}>
-            <IconButton icon={Icons.search} label="Search" onPress={requestPalette} testID="today-search" />
-            <IconButton
-              icon={Icons.upcoming}
-              label="Upcoming"
-              onPress={() => router.navigate('/upcoming')}
-              testID="today-upcoming"
-            />
-          </View>
-        ) : null}
+  const hero = (
+    <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 8, paddingTop: 8 }}>
+      <View style={{ flex: 1, minWidth: 0 }}>
+        <Text testID="today-date" style={[type.monoS, { color: c.text2 }]}>
+          {dateLine(now)}
+        </Text>
+        <Text
+          testID="today-title"
+          accessibilityRole="header"
+          style={[wide ? type.displayXl : type.display, { color: c.text, marginTop: 6 }]}
+        >
+          {timelyGreeting(now, profile?.first_name)}
+        </Text>
+        <Text testID="day-summary" style={[type.bodyS, { color: c.text2, marginTop: 6 }]}>
+          {daySummary(groups)}
+        </Text>
       </View>
+      {wide ? (
+        <View style={{ flexDirection: 'row', gap: 4, marginTop: 14 }}>
+          <IconButton icon={Icons.search} label="Search" onPress={requestPalette} testID="today-search" />
+          <IconButton
+            icon={Icons.upcoming}
+            label="Upcoming"
+            onPress={() => router.navigate('/upcoming')}
+            testID="today-upcoming"
+          />
+        </View>
+      ) : null}
+    </View>
+  )
+
+  return (
+    <Page
+      title="Today"
+      hero={hero}
+      actions={
+        wide ? undefined : (
+          <IconButton icon={Icons.search} label="Search" onPress={requestPalette} testID="today-search" />
+        )
+      }
+    >
       {wide ? (
         <View style={{ marginTop: 24 }}>
           <Composer onAdd={addTask} placeholder="Add a task" testID="new-title" />
@@ -131,7 +142,7 @@ export function TodayScreen() {
           {empty ? (
             <EmptyState icon={Icons.today} title="A clear day" body="Nothing scheduled. Add a task to get started." />
           ) : null}
-          <TaskSection id="done-today" title="Done today" rows={groups.doneToday} {...shared} />
+          <TaskSection id="done-today" title="Done today" rows={groups.doneToday} foldOnPhone {...shared} />
         </>
       )}
       {actions.menuElement}

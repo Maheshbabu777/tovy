@@ -4,7 +4,6 @@ import { taskCountLabel } from '../core/projects'
 import { inboxTasks } from '../core/views'
 import { EmptyState, Skeleton } from './components/Feedback'
 import { Page } from './components/Page'
-import { ScreenHeader } from './components/ScreenHeader'
 import { useToast } from './components/Toast'
 import { Composer, ListTop, TaskRows } from './TaskList'
 import { WIDE_BREAKPOINT } from './tokens'
@@ -28,12 +27,7 @@ export function InboxScreen() {
   }
 
   return (
-    <Page>
-      <ScreenHeader
-        title="Inbox"
-        subtitle={rows.length ? taskCountLabel(rows.length) : undefined}
-        titleTestID="inbox-title"
-      />
+    <Page title="Inbox" subtitle={rows.length ? taskCountLabel(rows.length) : undefined} titleTestID="inbox-title">
       {wide ? (
         <View style={{ marginTop: 24 }}>
           <Composer onAdd={addTask} placeholder="Capture a task" testID="inbox-new-title" />

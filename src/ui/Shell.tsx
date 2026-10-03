@@ -17,7 +17,7 @@ import { projectStats } from '../core/projects'
 import { inboxTasks, todayCount } from '../core/views'
 import storage from '../core/db/authStorage'
 import { Avatar } from './components/Avatar'
-import { IconButton } from './components/IconButton'
+import { DragSheet } from './components/DragSheet'
 import { useToast } from './components/Toast'
 import { shadow, SHADOWS, transition, useFocusRing, useHover } from './components/web'
 import { Logo } from './Brand'
@@ -357,6 +357,8 @@ export function Shell() {
   }
 
   const browseOn = section === '/browse' || section === '/projects' || section === '/profile'
+  // The add button lives where adding is the job: the three lists and a project page (which files the task there).
+  const fabHere = section === '/' || section === '/inbox' || section === '/upcoming' || !!projectHere
   const tabs: { href: Href; label: string; Icon: ToolkitIcon; on: boolean }[] = [
     ...MAIN.map((m) => ({ href: m.href, label: m.label, Icon: m.Icon, on: section === m.href })),
     { href: '/browse', label: 'Browse', Icon: Icons.browse, on: browseOn },
@@ -365,30 +367,6 @@ export function Shell() {
   return (
     <NavigationContent>
       <View style={{ flex: 1, backgroundColor: c.bg }}>
-        <View
-          style={{
-            paddingTop: insets.top,
-            paddingHorizontal: 20,
-            height: 52 + insets.top,
-            flexDirection: 'row',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-          }}
-        >
-          <Logo size={24} />
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-            <IconButton icon={Icons.search} label="Search" onPress={requestPalette} testID="open-palette" />
-            <Pressable
-              testID="tab-profile"
-              accessibilityRole="button"
-              accessibilityLabel="Profile and settings"
-              onPress={() => go('/profile')}
-              hitSlop={8}
-            >
-              <Avatar initials={initials} size={30} />
-            </Pressable>
-          </View>
-        </View>
         <View style={{ flex: 1 }}>
           <RouteEnter>
             <TabSlot style={{ flex: 1 }} />
@@ -421,7 +399,7 @@ export function Shell() {
             </Pressable>
           ))}
         </View>
-        {panel ? null : (
+        {panel || !fabHere ? null : (
           <Pressable
             testID="fab"
             accessibilityRole="button"
@@ -446,22 +424,9 @@ export function Shell() {
           </Pressable>
         )}
         {panel ? (
-          <View
-            testID="task-panel"
-            style={{
-              position: 'absolute',
-              top: 0,
-              left: 0,
-              right: 0,
-              bottom: 0,
-              paddingTop: insets.top,
-              backgroundColor: c.bg,
-            }}
-          >
-            <TaskPanel key={openId} wide={false}>
-              {panel}
-            </TaskPanel>
-          </View>
+          <DragSheet key={openId} onClose={closeTask} testID="task-panel">
+            {panel}
+          </DragSheet>
         ) : null}
       </View>
       {quickAdd}
