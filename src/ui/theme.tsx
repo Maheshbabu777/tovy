@@ -131,9 +131,22 @@ function crossFade() {
   setTimeout(() => root.classList.remove('tovy-theme-fade'), 300)
 }
 
+function webSavedPreference(): ThemePreference | null {
+  if (Platform.OS !== 'web' || typeof localStorage === 'undefined') return null
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY)
+    const p = raw ? (JSON.parse(raw) as { preference?: string }).preference : null
+    return p === 'light' || p === 'dark' || p === 'system' ? p : null
+  } catch {
+    return null
+  }
+}
+
 export function ThemeProvider({ children }: { children: ReactNode }) {
   const system = useColorScheme()
-  const [preference, setPreferenceState] = useState<ThemePreference>('system')
+  // On the web the saved choice is read before the first paint (the boot page in public/index.html reads it too), so a
+  // reload never draws one theme and then switches. Phones read it from storage just after.
+  const [preference, setPreferenceState] = useState<ThemePreference>(() => webSavedPreference() ?? 'system')
 
   // Read the saved choice once. A blank or broken value means the defaults.
   useEffect(() => {
@@ -169,6 +182,7 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (Platform.OS !== 'web' || typeof document === 'undefined') return
     document.body.style.backgroundColor = themeColors.bg
+    document.documentElement.setAttribute('data-theme', mode)
     let style = document.getElementById('tovy-selection') as HTMLStyleElement | null
     if (!style) {
       style = document.createElement('style')
@@ -176,7 +190,7 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
       document.head.appendChild(style)
     }
     style.textContent = `::selection { background: ${themeColors.selection}; }`
-  }, [themeColors.bg, themeColors.selection])
+  }, [themeColors.bg, themeColors.selection, mode])
   const value = useMemo<ThemeContextValue>(
     () => ({ theme: makeTheme(mode), preference, setPreference }),
     [mode, preference, setPreference],

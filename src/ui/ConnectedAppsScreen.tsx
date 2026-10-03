@@ -2,10 +2,11 @@ import { useState } from 'react'
 import { Platform, Pressable, Share, Text, useWindowDimensions, View } from 'react-native'
 import { useRouter } from 'expo-router'
 import { Icons } from './icons'
-import { ACCESS_LABEL, mcpUrl, type AiAccess } from '../core/ai'
+import { ACCESS_LABEL, connectAddress, type AiAccess } from '../core/ai'
 import { disconnectApp, loadConnectedApps, saveAccess, type ConnectedApp } from '../core/aiApi'
 import { localDay } from '../core/today'
 import { dayTitle } from '../core/views'
+import { AppIcon } from './components/AppIcon'
 import { Button } from './components/Button'
 import { Confirm } from './components/Confirm'
 import { Banner, Skeleton } from './components/Feedback'
@@ -19,7 +20,10 @@ import { fonts, radius, type, WIDE_BREAKPOINT } from './tokens'
 import { useLoaded } from './useLoaded'
 import { useNow } from './useTaskData'
 
-const SERVER_URL = mcpUrl(process.env.EXPO_PUBLIC_SUPABASE_URL)
+const SERVER_URL = connectAddress(
+  Platform.OS === 'web' && typeof window !== 'undefined' ? window.location.origin : undefined,
+  process.env.EXPO_PUBLIC_SUPABASE_URL,
+)
 const ACCESS: { value: Exclude<AiAccess, 'none'>; label: string }[] = [
   { value: 'write', label: 'Can make changes' },
   { value: 'read', label: 'Read only' },
@@ -207,18 +211,7 @@ function AppCard({
       style={{ borderWidth: 1, borderColor: c.line, borderRadius: radius.lg, padding: 16, gap: 14 }}
     >
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-        <View
-          style={{
-            width: 36,
-            height: 36,
-            borderRadius: radius.md,
-            backgroundColor: c.panel,
-            alignItems: 'center',
-            justifyContent: 'center',
-          }}
-        >
-          <Icons.ai size={18} color={c.text} />
-        </View>
+        <AppIcon name={app.name} logoUri={app.logoUri} />
         <View style={{ flex: 1, minWidth: 0 }}>
           <Text numberOfLines={1} style={[type.bodyMedium, { color: c.text }]}>
             {app.name}

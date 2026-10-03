@@ -1,4 +1,14 @@
-import { activityByDay, canUndo, daysLeft, isNotSetUp, mcpUrl, trashItems, undoPlan, type AiAction } from './ai'
+import {
+  activityByDay,
+  connectAddress,
+  canUndo,
+  daysLeft,
+  isNotSetUp,
+  mcpUrl,
+  trashItems,
+  undoPlan,
+  type AiAction,
+} from './ai'
 import type { Task } from './sync/tasks'
 
 const action = (over: Partial<AiAction>): AiAction => ({
@@ -124,6 +134,14 @@ describe('trashItems', () => {
 })
 
 describe('setup', () => {
+  it("gives Tovy's own address to paste, when it has one", () => {
+    expect(connectAddress('https://tovy.app', 'https://ref.supabase.co')).toBe('https://tovy.app/mcp')
+    expect(connectAddress('http://localhost:8081', 'https://ref.supabase.co')).toBe(
+      'https://ref.supabase.co/functions/v1/mcp',
+    )
+    expect(connectAddress(undefined, 'https://ref.supabase.co')).toBe('https://ref.supabase.co/functions/v1/mcp')
+  })
+
   it('builds the server address', () => {
     expect(mcpUrl('https://ref.supabase.co/')).toBe('https://ref.supabase.co/functions/v1/mcp')
     expect(mcpUrl(undefined)).toBe('')

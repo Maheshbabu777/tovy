@@ -1,5 +1,5 @@
 import { Platform, type ViewStyle } from 'react-native'
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { motion } from '../tokens'
 
 export const isWeb = Platform.OS === 'web'
@@ -39,6 +39,22 @@ export function useFocusRing(accent: string) {
 export function useHover() {
   const [hovered, setHovered] = useState(false)
   return { hovered, handlers: { onHoverIn: () => setHovered(true), onHoverOut: () => setHovered(false) } }
+}
+
+// Hover over a group of pressables (a task row and its action buttons): moving from one to the next fires "out" then
+// "in", so "out" waits a moment and is cancelled by the next "in". The row's actions then stay put under the pointer.
+export function useGroupHover() {
+  const [hovered, setHovered] = useState(false)
+  const timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
+  const onHoverIn = useCallback(() => {
+    clearTimeout(timer.current)
+    setHovered(true)
+  }, [])
+  const onHoverOut = useCallback(() => {
+    clearTimeout(timer.current)
+    timer.current = setTimeout(() => setHovered(false), 60)
+  }, [])
+  return { hovered, handlers: { onHoverIn, onHoverOut } }
 }
 
 // Shadows of the style guide (Space and shape): only what floats has one.

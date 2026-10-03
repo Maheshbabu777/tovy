@@ -323,3 +323,22 @@ Deno.test('rate limit answers 429', async () => {
   assertEquals((await hit()).status, 200)
   assertEquals((await hit()).status, 429)
 })
+
+Deno.test("reached through Tovy's own site: metadata and the sign-in hint name that address", async () => {
+  const { app } = setup()
+  const viaSite = { 'x-mcp-public-url': 'https://tovy.example.app/mcp' }
+  const res = await app.request('/mcp', { method: 'POST', headers: viaSite, body: '{}' })
+  assertMatch(
+    res.headers.get('WWW-Authenticate') ?? '',
+    /resource_metadata="https:\/\/tovy\.example\.app\/mcp\/\.well-known\/oauth-protected-resource"/,
+  )
+  const meta = await (await app.request('/mcp/.well-known/oauth-protected-resource', { headers: viaSite })).json()
+  assertEquals(meta.resource, 'https://tovy.example.app/mcp')
+  // anything that is not an https address ending in /mcp is ignored
+  const odd = await (
+    await app.request('/mcp/.well-known/oauth-protected-resource', {
+      headers: { 'x-mcp-public-url': 'javascript:alert(1)' },
+    })
+  ).json()
+  assertEquals(odd.resource, 'https://ref.supabase.co/functions/v1/mcp')
+})

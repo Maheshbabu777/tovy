@@ -73,25 +73,20 @@ const sectionOf = (pathname: string): Href => {
   return hit ? hit.href : '/'
 }
 
-// A page fades in and rises 8 px every time the route changes (180 ms).
+// Pages switch at once (spec design-v2): fading and rising every page on every switch read as a flicker, and the apps
+// people compare us with (Linear, Cursor, Devin) swap instantly. Motion is kept for things that arrive or leave.
 function RouteEnter({ children }: { children: ReactNode }) {
-  const pathname = usePathname()
-  const [t] = useState(() => new Animated.Value(1))
-  useEffect(() => {
-    t.setValue(prefersReducedMotion() ? 1 : 0)
-    animate(t, 1, motion.route)
-  }, [pathname, t])
-  return (
-    <Animated.View
-      style={{
-        flex: 1,
-        opacity: t,
-        transform: [{ translateY: t.interpolate({ inputRange: [0, 1], outputRange: [8, 0] }) }],
-      }}
-    >
-      {children}
-    </Animated.View>
-  )
+  return <View style={{ flex: 1 }}>{children}</View>
+}
+
+// The sidebar's saved width, read before the first paint on the web so a collapsed sidebar does not open and then shut.
+function savedCollapsed(): boolean {
+  if (Platform.OS !== 'web' || typeof localStorage === 'undefined') return false
+  try {
+    return localStorage.getItem(COLLAPSE_KEY) === '1'
+  } catch {
+    return false
+  }
 }
 
 // The open task: slides in from the right beside the page (wide) or over it (phone).
@@ -141,11 +136,12 @@ export function Shell() {
     else router.navigate(href)
   }
 
-  const [collapsed, setCollapsed] = useState(false)
+  const [collapsed, setCollapsed] = useState(savedCollapsed)
   const [barWidth, setBarWidth] = useState(0)
   const [showKeys, setShowKeys] = useState(false)
-  const [width] = useState(() => new Animated.Value(SIDEBAR.open))
+  const [width] = useState(() => new Animated.Value(savedCollapsed() ? SIDEBAR.collapsed : SIDEBAR.open))
   useEffect(() => {
+    if (Platform.OS === 'web') return
     void (async () => {
       try {
         if ((await storage.getItem(COLLAPSE_KEY)) === '1') {

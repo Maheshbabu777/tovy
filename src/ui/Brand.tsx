@@ -1,4 +1,5 @@
-import { Image, View } from 'react-native'
+import { Image } from 'react-native'
+import { BootShell } from './BootShell'
 import { useTheme } from './theme'
 
 // The mark: three stacked stones (`.context/design/style-guide.md`, Mark). Black on the light theme, white on the
@@ -20,16 +21,7 @@ export function Logo({ size = 44 }: { size?: number }) {
   )
 }
 
-// What shows while the app checks who is signed in: the mark on the page ground, nothing else.
+// While the session and profile load: the empty app frame, not a logo, so loading looks like the app arriving.
 export function LoadingScreen({ testID }: { testID?: string }) {
-  const { theme } = useTheme()
-  return (
-    <View
-      testID={testID ?? 'app-loading'}
-      accessibilityLabel="Loading"
-      style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: theme.colors.bg }}
-    >
-      <Logo size={40} />
-    </View>
-  )
+  return <BootShell testID={testID ?? 'app-loading'} />
 }

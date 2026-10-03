@@ -155,6 +155,9 @@ export function useTaskActions(now: Date) {
     open,
     moveTomorrow,
     openMenu: (task: Task, at: { x: number; y: number }) => setMenu({ task, at }),
+    // A row's hover actions on the web (spec design-v2): the same sheets the menu opens, one click away.
+    schedule: (task: Task) => setSheet({ task, kind: 'date' }),
+    pickProject: (task: Task) => setSheet({ task, kind: 'project' }),
     menuElement: (
       <>
         {menuElement}

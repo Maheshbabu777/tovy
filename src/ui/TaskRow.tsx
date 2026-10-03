@@ -8,14 +8,16 @@ import { useTheme } from './theme'
 import { type } from './tokens'
 import { AIBadge } from './components/AppMark'
 import { ProgressRing } from './components/ProgressRing'
-import { transition, useFocusRing, useHover, webStyle } from './components/web'
+import { transition, useFocusRing, useGroupHover, useHover, webStyle } from './components/web'
+import type { ToolkitIcon } from './icons'
 import { dueLabel, isOverdue } from '../core/today'
 import type { Project, Task } from '../core/sync/tasks'
 
 // Style guide, Task row: a 20 px check on the left (tap to finish or reopen), the title, then one meta line only when
 // something is set (the due date, red when late; the percent in mono and "2 of 5" subtasks). The project name sits at
-// the right in text-2. Rows are split by hairlines, never boxed. Tapping the text opens the task; right-click or
-// long-press opens the menu.
+// the right in text-2. Rows are split by hairlines, never boxed. Tapping the text opens the task. On the web, pointing at
+// a row swaps the project name for its actions (Schedule, Move, More), so nothing needs a right-click (spec design-v2);
+// right-click and long-press still open the full menu.
 export function TaskRow({
   task,
   project,
@@ -28,10 +30,14 @@ export function TaskRow({
   onOpen,
   onMenu,
   onSwipe,
-  enterDelay = 0,
+  onSchedule,
+  onMove,
+  animateIn = false,
 }: {
+  onSchedule?: () => void // web hover action
+  onMove?: () => void // web hover action
   onSwipe?: (action: SwipeAction) => void // phone: swipe right finishes, left moves to tomorrow
-  enterDelay?: number // fade and rise in after this many ms (a small stagger on first load)
+  animateIn?: boolean // rise in when it first shows (a row that just arrived); rows already there stay put
   task: Task
   project: Project | undefined
   progress: number | null // 0 to 100, or null
@@ -45,7 +51,7 @@ export function TaskRow({
 }) {
   const { theme } = useTheme()
   const c = theme.colors
-  const { hovered, handlers: hover } = useHover()
+  const { hovered, handlers: hover } = useGroupHover()
   const ring = useFocusRing(c.primary)
   const done = !!task.done_at
   const partial = progress !== null && progress > 0 && progress < 100
@@ -54,7 +60,7 @@ export function TaskRow({
   const byAi = !!task.created_by // added by an AI app (spec mcp-server)
   const hasMeta = !!task.due_date || partial || hasSubs || byAi
   const keyboardFocus = Object.keys(ring.style).length > 0
-  const enter = useEnter({ delay: enterDelay, distance: 6, duration: 200 })
+  const enter = useEnter({ distance: 6, duration: 200, skip: !animateIn })
   const swipe = useSwipe(onSwipe, { left: !done })
   const dragRef = useDraggableTask(task.id) // the web: drag onto a day or a list (spec upcoming-drag)
 
@@ -148,14 +154,96 @@ export function TaskRow({
               </View>
             ) : null}
           </View>
-          {showProject && project ? (
+          {(hovered || keyboardFocus) && (onSchedule || onMove) ? null : showProject && project ? (
             <Text numberOfLines={1} style={[type.meta, { color: c.text2, maxWidth: 140, paddingTop: 2 }]}>
               {project.name}
             </Text>
           ) : null}
         </Pressable>
+        {(hovered || keyboardFocus) && (onSchedule || onMove) ? (
+          <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 2, paddingTop: 10 }}>
+            {onSchedule && !done ? (
+              <RowAction
+                icon={Icons.date}
+                label="Schedule"
+                onPress={onSchedule}
+                hover={hover}
+                testID={`row-schedule-${task.id}`}
+              />
+            ) : null}
+            {onMove ? (
+              <RowAction
+                icon={Icons.project}
+                label="Move to project"
+                onPress={onMove}
+                hover={hover}
+                testID={`row-move-${task.id}`}
+              />
+            ) : null}
+            <RowAction
+              icon={Icons.more}
+              label="More actions"
+              onPressAt={(at) => onMenu(at)}
+              hover={hover}
+              testID={`row-more-${task.id}`}
+            />
+          </View>
+        ) : null}
       </Animated.View>
     </Animated.View>
+  )
+}
+
+// A 28 px icon button in a row's hover actions. It shares the row's hover, so the actions stay while the pointer moves
+// across them, and it shows its name as the tooltip.
+function RowAction({
+  icon: Icon,
+  label,
+  onPress,
+  onPressAt,
+  hover,
+  testID,
+}: {
+  icon: ToolkitIcon
+  label: string
+  onPress?: () => void
+  onPressAt?: (at: { x: number; y: number }) => void
+  hover: { onHoverIn: () => void; onHoverOut: () => void }
+  testID: string
+}) {
+  const { theme } = useTheme()
+  const c = theme.colors
+  const own = useHover()
+  return (
+    <Pressable
+      testID={testID}
+      accessibilityRole="button"
+      accessibilityLabel={label}
+      // @ts-expect-error `title` is the web tooltip
+      title={label}
+      onPress={(e) => (onPressAt ? onPressAt({ x: e.nativeEvent.pageX, y: e.nativeEvent.pageY }) : onPress?.())}
+      onHoverIn={() => {
+        hover.onHoverIn()
+        own.handlers.onHoverIn()
+      }}
+      onHoverOut={() => {
+        hover.onHoverOut()
+        own.handlers.onHoverOut()
+      }}
+      style={[
+        {
+          width: 28,
+          height: 28,
+          borderRadius: 6,
+          alignItems: 'center',
+          justifyContent: 'center',
+          backgroundColor: own.hovered ? c.lineStrong : 'transparent',
+        },
+        transition('background-color'),
+      ]}
+    >
+      <Icon size={17} color={c.text2} />
+    </Pressable>
   )
 }
 

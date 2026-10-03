@@ -16,7 +16,8 @@ import { useTheme } from './theme'
 import { radius, type, WIDE_BREAKPOINT } from './tokens'
 import type { useTaskActions } from './useTaskActions'
 
-type Actions = Pick<ReturnType<typeof useTaskActions>, 'toggleDone' | 'open' | 'openMenu' | 'moveTomorrow'>
+type Actions = Pick<ReturnType<typeof useTaskActions>, 'toggleDone' | 'open' | 'openMenu' | 'moveTomorrow'> &
+  Partial<Pick<ReturnType<typeof useTaskActions>, 'schedule' | 'pickProject'>>
 
 // The rows of one list: a task row each, with its progress and subtask count worked out from all tasks.
 export function TaskRows({
@@ -36,19 +37,20 @@ export function TaskRows({
 }) {
   const { task: openId } = useGlobalSearchParams<{ task?: string }>()
   const phone = useWindowDimensions().width < WIDE_BREAKPOINT
-  // Rows fade in one after another when the list first shows; rows that arrive later just fade in.
-  const [fresh, setFresh] = useState(true)
+  // Rows that are there when the list shows are simply there: opening a page or switching tabs never replays an
+  // animation (spec design-v2). Only a row that arrives later (you added it, an AI app did, it synced in) rises in.
+  const [settled, setSettled] = useState(false)
+  const [initial] = useState(() => new Set(rows.map((t) => t.id)))
   useEffect(() => {
-    const timer = setTimeout(() => setFresh(false), 800)
+    const timer = setTimeout(() => setSettled(true), 600)
     return () => clearTimeout(timer)
   }, [])
-  const stagger = (i: number) => (fresh ? Math.min(i * 30, 240) : 0)
   return (
     <>
-      {rows.map((task, i) => (
+      {rows.map((task) => (
         <TaskRow
           key={task.id}
-          enterDelay={stagger(i)}
+          animateIn={settled && !initial.has(task.id)}
           task={task}
           project={task.project_id ? projectMap?.[task.project_id] : undefined}
           progress={percentOf(task, all)}
@@ -60,6 +62,8 @@ export function TaskRows({
           onSwipe={phone ? (a) => (a === 'done' ? actions.toggleDone(task) : actions.moveTomorrow(task)) : undefined}
           onOpen={() => actions.open(task)}
           onMenu={(at) => actions.openMenu(task, at)}
+          onSchedule={!phone && actions.schedule ? () => actions.schedule!(task) : undefined}
+          onMove={!phone && actions.pickProject && !task.parent_id ? () => actions.pickProject!(task) : undefined}
         />
       ))}
     </>

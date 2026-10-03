@@ -63,7 +63,15 @@ export function createApp(deps: Deps) {
   const now = deps.now ?? (() => new Date())
   const limit = deps.rateLimit ?? 120
   const calls = new Map<string, number[]>() // per user, best effort within one running instance
-  const metadataUrl = `${deps.publicUrl}/.well-known/oauth-protected-resource`
+  // The address the app used to reach this server. Tovy's own site forwards /mcp here (vercel.json, api/mcp.ts) and
+  // says so in X-Mcp-Public-Url, so AI apps see Tovy's address (and its icon) instead of Supabase's. The metadata must
+  // name the address the app actually used (RFC 9728), so it follows the header. Trusting it is safe: it only changes
+  // the answer to the request that sent it, and the sign-in server named in it is fixed.
+  const publicUrlOf = (req: Request) => {
+    const forwarded = req.headers.get('x-mcp-public-url') ?? ''
+    return /^https:\/\/[a-z0-9.-]+(:\d+)?\/mcp$/i.test(forwarded) ? forwarded : deps.publicUrl
+  }
+  const metadataUrlOf = (req: Request) => `${publicUrlOf(req)}/.well-known/oauth-protected-resource`
 
   const app = new Hono().basePath('/mcp')
   app.use(
@@ -77,9 +85,9 @@ export function createApp(deps: Deps) {
   )
 
   // Where to sign in (RFC 9728). Public on purpose: it holds no secret.
-  const metadata = () =>
+  const metadata = (c: { req: { raw: Request } }) =>
     Response.json({
-      resource: deps.publicUrl,
+      resource: publicUrlOf(c.req.raw),
       authorization_servers: [deps.authServer],
       bearer_methods_supported: ['header'],
       resource_name: 'Tovy',
@@ -87,14 +95,14 @@ export function createApp(deps: Deps) {
   app.get('/.well-known/oauth-protected-resource', metadata)
   app.get('/.well-known/oauth-protected-resource/*', metadata)
 
-  const challenge = (error?: string, description?: string) =>
+  const challenge = (req: Request, error?: string, description?: string) =>
     new Response(
       JSON.stringify({ error: error ?? 'unauthorized', error_description: description ?? 'Sign in to Tovy' }),
       {
         status: 401,
         headers: {
           'Content-Type': 'application/json',
-          'WWW-Authenticate': `Bearer resource_metadata="${metadataUrl}"${
+          'WWW-Authenticate': `Bearer resource_metadata="${metadataUrlOf(req)}"${
             error ? `, error="${error}", error_description="${description}"` : ''
           }`,
         },
@@ -104,7 +112,7 @@ export function createApp(deps: Deps) {
   const serve = async (c: { req: { raw: Request; header: (n: string) => string | undefined } }) => {
     const header = c.req.header('Authorization') ?? ''
     const match = /^Bearer\s+(\S+)$/i.exec(header)
-    if (!match) return challenge()
+    if (!match) return challenge(c.req.raw)
     const token = match[1]
     let who: Verified | null = null
     try {
@@ -112,7 +120,7 @@ export function createApp(deps: Deps) {
     } catch {
       who = null
     }
-    if (!who) return challenge('invalid_token', 'The token is missing, expired or not from a connected app')
+    if (!who) return challenge(c.req.raw, 'invalid_token', 'The token is missing, expired or not from a connected app')
 
     const stamp = now().getTime()
     const recent = (calls.get(who.userId) ?? []).filter((t) => stamp - t < RATE_WINDOW_MS)
