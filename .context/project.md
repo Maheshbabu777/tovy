@@ -55,4 +55,3 @@ Built: Expo (React Native, TypeScript) with Expo Router, Legend-State v3 beta lo
 ## Ask the human
 
 <!-- Questions bootstrap couldn't answer. Delete each one once it's answered and written above. -->
-- Does Supabase Auth accept an OAuth app's access token for account changes (`PUT /auth/v1/user`)? Check before AI apps are opened to anyone (`specs/mcp-server.md`, S5).

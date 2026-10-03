@@ -8,6 +8,12 @@ create table if not exists auth.users (
   role text,
   email text
 );
+-- Columns and tables Supabase Auth has that migration 0010 guards.
+alter table auth.users
+  add column if not exists encrypted_password text,
+  add column if not exists email_change text,
+  add column if not exists phone_change text;
+create table if not exists auth.mfa_factors (id uuid primary key, user_id uuid not null, factor_type text);
 create or replace function auth.uid() returns uuid language sql stable as $$
   select nullif(current_setting('request.jwt.claims', true)::json ->> 'sub', '')::uuid
 $$;
