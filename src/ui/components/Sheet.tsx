@@ -66,7 +66,7 @@ export function Sheet({
               width: '100%',
               maxWidth: wide ? 512 : undefined,
               maxHeight: height * 0.88,
-              backgroundColor: c.bg,
+              backgroundColor: c.raised,
               borderRadius: wide ? radius.lg : 0,
               borderTopLeftRadius: wide ? radius.lg : radius.xl,
               borderTopRightRadius: wide ? radius.lg : radius.xl,

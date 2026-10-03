@@ -1,5 +1,14 @@
 import type { Task } from './sync/tasks'
-import { daySummary, dayTitle, inboxTasks, timelyGreeting, todayCount, upcoming, weekStrip } from './views'
+import {
+  completedByDay,
+  daySummary,
+  dayTitle,
+  inboxTasks,
+  timelyGreeting,
+  todayCount,
+  upcoming,
+  weekStrip,
+} from './views'
 
 const now = new Date(2026, 9, 3, 10) // Sat 3 Oct 2026
 const t = (id: string, extra: Partial<Task> = {}): Task => ({
@@ -90,5 +99,24 @@ describe('week strip', () => {
     expect(strip[0]).toEqual({ day: '2026-10-03', weekday: 'Sat', date: 3, busy: false })
     expect(strip[1].busy).toBe(true)
     expect(strip[2].busy).toBe(false)
+  })
+})
+
+describe('completed', () => {
+  it('groups finished top level tasks by the day, newest first, for the last 30 days', () => {
+    const at = (d: number, h: number) => new Date(2026, 9, d, h).toISOString()
+    const tasks = [
+      t('a', { done_at: at(3, 9) }),
+      t('b', { done_at: at(3, 11) }),
+      t('c', { done_at: at(2, 9) }),
+      t('d', { done_at: at(1, 9) }),
+      t('e', { done_at: new Date(2026, 7, 1).toISOString() }), // too old
+      t('f', { done_at: at(3, 8), parent_id: 'a' }), // a subtask
+      t('g', { done_at: at(3, 8), deleted: true }),
+      t('h'),
+    ]
+    const days = completedByDay(tasks, now)
+    expect(days.map((d) => d.title)).toEqual(['Today', 'Yesterday', 'Thu 1 Oct'])
+    expect(days[0].tasks.map((x) => x.id)).toEqual(['b', 'a'])
   })
 })

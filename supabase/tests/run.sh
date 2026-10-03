@@ -10,6 +10,7 @@ run_tests() {
   psql "$1" -v ON_ERROR_STOP=1 -q -t -f supabase/tests/tasks_rls.sql
   psql "$1" -v ON_ERROR_STOP=1 -q -t -f supabase/tests/profiles_rls.sql
   psql "$1" -v ON_ERROR_STOP=1 -q -t -f supabase/tests/proposals_rls.sql
+  psql "$1" -v ON_ERROR_STOP=1 -q -t -f supabase/tests/ai_rls.sql
 }
 
 if [ -n "${DATABASE_URL:-}" ]; then

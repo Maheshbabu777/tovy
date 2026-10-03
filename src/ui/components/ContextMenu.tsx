@@ -2,7 +2,8 @@ import { Animated, Modal, Pressable, Text, useWindowDimensions } from 'react-nat
 import { type ToolkitIcon } from '../icons'
 import { usePop } from '../motion'
 import { useTheme } from '../theme'
-import { radius, type } from './../tokens'
+import { radius, type, WIDE_BREAKPOINT } from './../tokens'
+import { ActionSheet } from './ActionSheet'
 import { shadow, SHADOWS, useHover } from './web'
 
 const MENU_WIDTH = 232
@@ -10,18 +11,23 @@ const MENU_WIDTH = 232
 export type MenuItem = { label: string; icon: ToolkitIcon; onPress: () => void; danger?: boolean; testID?: string }
 
 // Style guide, Menu: 232 wide, padding 4, radius 12, a hairline and a soft shadow, items 34 tall with an 18 px icon and
-// a 14 px label; Delete last in red. It pops in from 0.96 at the pointer and stays inside the screen. Right-click on the web, long-press on a phone.
+// a 14 px label; Delete last in red. It pops in from 0.96 at the pointer and stays inside the screen. Right-click on the
+// web. On a phone, long-press opens the same items as an action sheet from the bottom.
 export function ContextMenu({
   at,
   items,
   onClose,
+  title,
 }: {
   at: { x: number; y: number } | null
   items: MenuItem[]
   onClose: () => void
+  title?: string // shown at the top of the phone's action sheet (the task's title)
 }) {
   const { width, height } = useWindowDimensions()
   if (!at) return null
+  // A phone gets the sheet from the bottom, where the thumb already is.
+  if (width < WIDE_BREAKPOINT) return <ActionSheet title={title} items={items} onClose={onClose} />
   return <MenuBody at={at} items={items} onClose={onClose} width={width} height={height} />
 }
 
@@ -59,7 +65,7 @@ function MenuBody({
               borderRadius: radius.lg,
               borderWidth: 1,
               borderColor: c.line,
-              backgroundColor: c.bg,
+              backgroundColor: c.raised,
             },
             shadow(SHADOWS.menu),
             pop,

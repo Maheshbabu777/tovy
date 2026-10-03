@@ -4,6 +4,7 @@ import { Icons } from './icons'
 import { supabase } from '../core/db/supabase'
 import { describeAuthError, isValidEmail } from '../core/auth/errors'
 import { AuthLayout } from './components/AuthLayout'
+import { rememberReturn } from './returnTo'
 import { Button } from './components/Button'
 import { Input } from './components/Input'
 import { OtpInput } from './components/OtpInput'
@@ -75,6 +76,7 @@ export function SignInScreen() {
 
   // Google sign in is for web in this version (a phone needs a dev build, see the auth spec).
   async function signInWithGoogle() {
+    rememberReturn()
     const { error } = await supabase.auth.signInWithOAuth({
       provider: 'google',
       options: { redirectTo: window.location.origin },
@@ -107,7 +109,7 @@ export function SignInScreen() {
           <Icons.back size={16} color={c.ink6} strokeWidth={1.75} />
           <Text style={[type.bodySMedium, { color: c.ink6 }]}>Back</Text>
         </Pressable>
-        <Text style={[type.h1Large, { color: c.ink }]}>Check your email</Text>
+        <Text style={[type.display, { color: c.text }]}>Check your email</Text>
         <Text testID="code-hint" style={[type.body, { color: c.ink6, marginTop: 12 }]}>
           We sent a 6-digit code to <Text style={{ fontFamily: fonts.semibold, color: c.ink }}>{email}</Text>.
         </Text>
@@ -119,6 +121,9 @@ export function SignInScreen() {
             {codeError}
           </Text>
         ) : null}
+        <Text style={[type.meta, { color: c.text2, marginTop: 16 }]}>
+          The code works once and expires in an hour. Check spam if it does not arrive.
+        </Text>
         <Pressable
           testID="resend-code"
           accessibilityRole="button"
@@ -140,64 +145,66 @@ export function SignInScreen() {
   }
 
   return (
-    <AuthLayout>
-      <Text style={[type.display, { color: c.ink }]}>Welcome to Tovy</Text>
-      <Text style={[type.body, { color: c.ink6, marginTop: 12 }]}>
-        New or returning, it is the same step. We create your account if needed.
-      </Text>
-
-      {Platform.OS === 'web' ? (
+    <AuthLayout
+      actions={
         <>
-          <View style={{ marginTop: 32 }}>
+          {Platform.OS === 'web' ? (
+            <>
+              <View>
+                <Button
+                  testID="google-sign-in"
+                  label="Continue with Google"
+                  variant="ghost"
+                  bordered
+                  fullWidth
+                  onPress={signInWithGoogle}
+                />
+              </View>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, marginVertical: 20 }}>
+                <View style={{ flex: 1, height: 1, backgroundColor: c.ink3 }} />
+                <Text style={[type.meta, { color: c.ink5 }]}>or</Text>
+                <View style={{ flex: 1, height: 1, backgroundColor: c.ink3 }} />
+              </View>
+            </>
+          ) : null}
+
+          <Input
+            testID="email"
+            label="Email"
+            placeholder="you@example.com"
+            value={email}
+            onChangeText={(v) => {
+              setEmail(v)
+              setEmailError('') // the message clears as soon as the person types
+            }}
+            error={emailError}
+            autoCapitalize="none"
+            autoCorrect={false}
+            autoComplete="email"
+            keyboardType="email-address"
+            onSubmitEditing={sendCode}
+          />
+          <View style={{ marginTop: 12 }}>
             <Button
-              testID="google-sign-in"
-              label="Continue with Google"
-              variant="ghost"
-              bordered
+              testID="send-code"
+              label={busy ? 'Sending' : wait > 0 ? `Wait ${wait}s` : 'Email me a code'}
               fullWidth
-              onPress={signInWithGoogle}
+              disabled={busy || wait > 0}
+              onPress={sendCode}
             />
           </View>
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, marginVertical: 20 }}>
-            <View style={{ flex: 1, height: 1, backgroundColor: c.ink3 }} />
-            <Text style={[type.meta, { color: c.ink5 }]}>or</Text>
-            <View style={{ flex: 1, height: 1, backgroundColor: c.ink3 }} />
-          </View>
+          {formError ? (
+            <Text testID="auth-error" accessibilityRole="alert" style={[type.label, { color: c.bad, marginTop: 12 }]}>
+              {formError}
+            </Text>
+          ) : null}
         </>
-      ) : (
-        <View style={{ height: 32 }} />
-      )}
-
-      <Input
-        testID="email"
-        label="Email"
-        placeholder="you@example.com"
-        value={email}
-        onChangeText={(v) => {
-          setEmail(v)
-          setEmailError('') // the message clears as soon as the person types
-        }}
-        error={emailError}
-        autoCapitalize="none"
-        autoCorrect={false}
-        autoComplete="email"
-        keyboardType="email-address"
-        onSubmitEditing={sendCode}
-      />
-      <View style={{ marginTop: 12 }}>
-        <Button
-          testID="send-code"
-          label={busy ? 'Sending' : wait > 0 ? `Wait ${wait}s` : 'Email me a code'}
-          fullWidth
-          disabled={busy || wait > 0}
-          onPress={sendCode}
-        />
-      </View>
-      {formError ? (
-        <Text testID="auth-error" accessibilityRole="alert" style={[type.label, { color: c.bad, marginTop: 12 }]}>
-          {formError}
-        </Text>
-      ) : null}
+      }
+    >
+      <Text style={[type.display, { color: c.text }]}>Your day, in order.</Text>
+      <Text style={[type.body, { color: c.text2, marginTop: 12 }]}>
+        Tasks and routines that work on this device first and sync everywhere. New or returning, it is the same step.
+      </Text>
     </AuthLayout>
   )
 }

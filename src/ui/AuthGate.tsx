@@ -7,6 +7,8 @@ import { ProfileGate } from './ProfileGate'
 import { SignInScreen } from './SignInScreen'
 import { StoreContext } from './StoreContext'
 import { SyncProbe } from './SyncProbe'
+import { takeReturn } from './returnTo'
+import { useRouter } from 'expo-router'
 
 // Everything behind sign in. Signed out: the sign in screen. Signed in: the profile step if it is not done, then the
 // app, with the person's own tasks store available to every screen.
@@ -43,10 +45,21 @@ export function AuthGate({ children }: { children: ReactNode }) {
       <ProfileGate key={store.userId} userId={store.userId} metadata={metadata}>
         <StoreContext.Provider value={store}>
           <SyncProbe />
+          <ReturnAfterSignIn />
           {children}
         </StoreContext.Provider>
       </ProfileGate>
     )
   }
   return <SignInScreen />
+}
+
+// Back to the consent screen after a Google sign in that started there (see returnTo.ts).
+function ReturnAfterSignIn() {
+  const router = useRouter()
+  useEffect(() => {
+    const path = takeReturn()
+    if (path) router.replace(path as never)
+  }, [router])
+  return null
 }

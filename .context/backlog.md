@@ -9,14 +9,22 @@ Things agreed to do later. Each becomes a spec in `specs/` when its turn comes. 
 - Project colours: every project shows grey for now (`PROJECT_COLORS` in `src/ui/theme.tsx`). Decide in the information architecture stage whether projects keep any colour.
 - Local shell on the human's Windows machine cannot finish `npm ci` in one run; checks run in a cloud copy. Worth a note in `project.md` Gotchas if it keeps happening.
 
+## Waiting on the human (from the night of 2026-10-03)
+
+- Push the branch, then check on a real phone: swipe rows, the task sheet drag, the keyboard over quick add and sign in, long-press action sheet (specs `mobile-screens`, `first-run`).
+- Approve `specs/task-fields.md` (priorities, deadlines, labels, repeats). It needs a migration that must reach the database before the app sends the new fields; the spec sets the order.
+- Approve or adjust the overnight specs, all `in review`: `design-polish`, `mobile-screens`, `quick-add-words`, `first-run`, `task-schedule`, `keyboard-lists`.
+- A Google mark on "Continue with Google" needs the official asset.
+- AI apps (`specs/mcp-server.md`, in review): merge so migration 0009 reaches dev, then the dashboard steps (OAuth server on, path `/oauth/consent`, dynamic registration, asymmetric keys), deploy the `mcp` function, check security finding S5 with a real token, and connect Claude once.
+
 ## Later stages (order from the spec)
 
-- Stage 2 leftovers: drop the proposals table, its sync and `src/core/inbox.ts` together with stage 7 (the screen is already gone). Search and Filters and labels in the sidebar once they exist.
-- Stage 3, tasks: quick add that reads words, priorities, labels, sections, deadline, overdue Reschedule, completed log.
-- Stage 4, Upcoming week strip with drag.
-- Stage 5, motion and gestures (Reanimated, Gesture Handler, sheets, swipe, haptics), checked in Expo Go.
+- Stage 2 leftovers: drop the proposals table in a migration once every device runs without its sync (`specs/drop-proposals-sync.md` removed the app side). Search and Filters and labels in the sidebar once they exist.
+- Stage 3, tasks: priorities, labels, deadline and repeats (`specs/task-fields.md`, draft), sections in projects. Done overnight: quick add that reads words, overdue Reschedule, the Completed list, times on a task.
+- Stage 4, Upcoming: reorder tasks within a day (needs a sort order column). Drag to a day or list is done (`specs/upcoming-drag.md`).
+- Stage 5, motion and gestures: haptics, and moving the PanResponder swipe and sheet drag to Reanimated and Gesture Handler if they feel slow on a phone (checked in Expo Go).
 - Stage 6, habits with per habit streaks, skip and pause, heatmap.
-- Stage 7, MCP with direct writes, destructive tools that ask in the AI app, activity feed with undo, Trash.
+- Stage 7 leftovers (`specs/mcp-server.md` built the rest): purge Trash after 30 days with pg_cron, elicitation for deletes once the transport keeps sessions, `check_in_routine` and `add_reminder` tools with their phases.
 
 ## Ideas from the human
 

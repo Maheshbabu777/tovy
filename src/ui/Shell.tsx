@@ -14,14 +14,20 @@ import { TabSlot, useTabsWithTriggers } from 'expo-router/ui'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { Icons, type ToolkitIcon } from './icons'
 import { projectStats } from '../core/projects'
+import { addedMessage } from '../core/parseTask'
 import { inboxTasks, todayCount } from '../core/views'
 import storage from '../core/db/authStorage'
 import { Avatar } from './components/Avatar'
-import { IconButton } from './components/IconButton'
+import { DragSheet } from './components/DragSheet'
 import { useToast } from './components/Toast'
-import { shadow, SHADOWS, transition, useFocusRing, useHover } from './components/web'
+import { shadow, SHADOWS, transition, useFocusRing, useHover, webStyle } from './components/web'
+import { useTaskDrop } from './dragTask'
+import { useDropActions } from './useDropActions'
+import { localDay } from '../core/today'
 import { Logo } from './Brand'
 import { CommandPalette } from './CommandPalette'
+import { moveFocus, toggleFocused } from './keyboardList'
+import { ShortcutsSheet } from './ShortcutsSheet'
 import { KeyCap } from './components/KeyCap'
 import { animate, EASE, prefersReducedMotion, useSlideIn } from './motion'
 import { onQuickAdd, requestPalette, requestQuickAdd } from './quickAdd'
@@ -34,7 +40,8 @@ import { useNow, useTaskData } from './useTaskData'
 
 // Every route of the tab frame. Inbox, Today, Upcoming and Browse are the tabs (style guide, Navigation). Projects and
 // Profile are reached from the sidebar, Browse and the avatar. Add a route here and a file under `app/(tabs)/`.
-type Href = '/' | '/inbox' | '/upcoming' | '/browse' | '/projects' | '/profile'
+type Href =
+  '/' | '/inbox' | '/upcoming' | '/browse' | '/projects' | '/profile' | '/completed' | '/apps' | '/activity' | '/trash'
 const ROUTES: { name: string; href: Href }[] = [
   { name: 'inbox', href: '/inbox' },
   { name: 'index', href: '/' },
@@ -42,6 +49,10 @@ const ROUTES: { name: string; href: Href }[] = [
   { name: 'browse', href: '/browse' },
   { name: 'projects', href: '/projects' },
   { name: 'profile', href: '/profile' },
+  { name: 'completed', href: '/completed' },
+  { name: 'apps', href: '/apps' },
+  { name: 'activity', href: '/activity' },
+  { name: 'trash', href: '/trash' },
 ]
 // The main places, with their web keyboard shortcut.
 const MAIN: { href: Href; label: string; Icon: ToolkitIcon; key: string }[] = [
@@ -115,6 +126,8 @@ export function Shell() {
   })
 
   useEffect(() => store.catchUpAfterRealtime(), [store])
+  // A task dragged onto Inbox, Today or a project in the sidebar (web, spec upcoming-drag).
+  const drop = useDropActions(now)
 
   // Quick add: the sidebar button, the phone add button, and N or Q on the web. Inside a project it files the task there.
   const [adding, setAdding] = useState(false)
@@ -130,6 +143,7 @@ export function Shell() {
 
   const [collapsed, setCollapsed] = useState(false)
   const [barWidth, setBarWidth] = useState(0)
+  const [showKeys, setShowKeys] = useState(false)
   const [width] = useState(() => new Animated.Value(SIDEBAR.open))
   useEffect(() => {
     void (async () => {
@@ -175,9 +189,21 @@ export function Shell() {
       }
       const place = MAIN.find((m) => m.key.toLowerCase() === key)
       if (place) router.navigate(place.href)
-      else if (key === 'n' || key === 'q') {
+      else if (key === 'n') {
         e.preventDefault()
         requestQuickAdd()
+      } else if (key === 'q') {
+        e.preventDefault()
+        requestQuickAdd(true)
+      } else if (key === 'j' || key === 'arrowdown') {
+        if (moveFocus(1)) e.preventDefault()
+      } else if (key === 'k' || key === 'arrowup') {
+        if (moveFocus(-1)) e.preventDefault()
+      } else if (key === 'x') {
+        if (toggleFocused()) e.preventDefault()
+      } else if (e.key === '?') {
+        e.preventDefault()
+        setShowKeys(true)
       }
     }
     window.addEventListener('keydown', onKey)
@@ -207,8 +233,8 @@ export function Shell() {
       defaultProjectId={projectHere}
       onAdd={(t) => {
         try {
-          store.addTask({ title: t.title, dueDate: t.dueDate, projectId: t.projectId })
-          toast.show({ message: `Added "${t.title}"` })
+          store.addTask({ title: t.title, dueDate: t.dueDate, dueTime: t.dueTime, projectId: t.projectId })
+          toast.show({ message: addedMessage(t, new Date(), projects.find((p) => p.id === t.projectId)?.name) })
         } catch (e) {
           toast.show({ message: e instanceof Error ? e.message : String(e) })
         }
@@ -291,8 +317,33 @@ export function Shell() {
                     collapsed={collapsed}
                     on={section === m.href}
                     onPress={() => go(m.href)}
+                    onDropTask={
+                      m.href === '/inbox'
+                        ? (id) => drop.toProject(id, null, 'Inbox')
+                        : m.href === '/'
+                          ? (id) => drop.toDay(id, localDay(now))
+                          : undefined
+                    }
                   />
                 ))}
+                <NavItem
+                  navKey="/completed"
+                  testID="tab-completed"
+                  label="Completed"
+                  Icon={Icons.check}
+                  collapsed={collapsed}
+                  on={section === '/completed'}
+                  onPress={() => go('/completed')}
+                />
+                <NavItem
+                  navKey="/activity"
+                  testID="tab-activity"
+                  label="Activity"
+                  Icon={Icons.activity}
+                  collapsed={collapsed}
+                  on={section === '/activity'}
+                  onPress={() => go('/activity')}
+                />
                 {collapsed ? (
                   <NavItem
                     navKey="/projects"
@@ -329,6 +380,7 @@ export function Shell() {
                         collapsed={false}
                         on={section === '/projects' && params.id === p.id}
                         onPress={() => router.navigate({ pathname: '/projects', params: { id: p.id } })}
+                        onDropTask={(id) => drop.toProject(id, p.id, p.name)}
                       />
                     ))}
               </NavColumn>
@@ -352,11 +404,14 @@ export function Shell() {
         </View>
         {quickAdd}
         <CommandPalette />
+        <ShortcutsSheet visible={showKeys} onClose={() => setShowKeys(false)} />
       </NavigationContent>
     )
   }
 
-  const browseOn = section === '/browse' || section === '/projects' || section === '/profile'
+  const browseOn = !MAIN.some((m) => m.href === section)
+  // The add button lives where adding is the job: the three lists and a project page (which files the task there).
+  const fabHere = section === '/' || section === '/inbox' || section === '/upcoming' || !!projectHere
   const tabs: { href: Href; label: string; Icon: ToolkitIcon; on: boolean }[] = [
     ...MAIN.map((m) => ({ href: m.href, label: m.label, Icon: m.Icon, on: section === m.href })),
     { href: '/browse', label: 'Browse', Icon: Icons.browse, on: browseOn },
@@ -365,30 +420,6 @@ export function Shell() {
   return (
     <NavigationContent>
       <View style={{ flex: 1, backgroundColor: c.bg }}>
-        <View
-          style={{
-            paddingTop: insets.top,
-            paddingHorizontal: 20,
-            height: 52 + insets.top,
-            flexDirection: 'row',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-          }}
-        >
-          <Logo size={24} />
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-            <IconButton icon={Icons.search} label="Search" onPress={requestPalette} testID="open-palette" />
-            <Pressable
-              testID="tab-profile"
-              accessibilityRole="button"
-              accessibilityLabel="Profile and settings"
-              onPress={() => go('/profile')}
-              hitSlop={8}
-            >
-              <Avatar initials={initials} size={30} />
-            </Pressable>
-          </View>
-        </View>
         <View style={{ flex: 1 }}>
           <RouteEnter>
             <TabSlot style={{ flex: 1 }} />
@@ -421,7 +452,7 @@ export function Shell() {
             </Pressable>
           ))}
         </View>
-        {panel ? null : (
+        {panel || !fabHere ? null : (
           <Pressable
             testID="fab"
             accessibilityRole="button"
@@ -446,22 +477,12 @@ export function Shell() {
           </Pressable>
         )}
         {panel ? (
-          <View
-            testID="task-panel"
-            style={{
-              position: 'absolute',
-              top: 0,
-              left: 0,
-              right: 0,
-              bottom: 0,
-              paddingTop: insets.top,
-              backgroundColor: c.bg,
-            }}
-          >
+          // The sheet stays up while moving between a task and its subtasks; only its content changes.
+          <DragSheet onClose={closeTask} testID="task-panel">
             <TaskPanel key={openId} wide={false}>
               {panel}
             </TaskPanel>
-          </View>
+          </DragSheet>
         ) : null}
       </View>
       {quickAdd}
@@ -541,7 +562,9 @@ function NavItem({
   testID,
   style,
   keyHint,
+  onDropTask,
 }: {
+  onDropTask?: (taskId: string) => void // a dragged task can be dropped here (web)
   keyHint?: string
   navKey: string
   label: string
@@ -559,8 +582,11 @@ function NavItem({
   const report = useContext(NavLayout)
   const { hovered, handlers: hover } = useHover()
   const ring = useFocusRing(c.primary)
+  const [attach, held] = useTaskDrop((id) => onDropTask?.(id))
+  const over = !!onDropTask && held
   return (
     <Pressable
+      ref={onDropTask ? attach : undefined}
       testID={testID}
       accessibilityRole="tab"
       accessibilityState={{ selected: on }}
@@ -578,8 +604,9 @@ function NavItem({
           justifyContent: collapsed ? 'center' : 'flex-start',
           gap: 10,
           paddingHorizontal: collapsed ? 0 : 10,
-          backgroundColor: hovered && !on ? c.hover : 'transparent',
+          backgroundColor: (hovered && !on) || over ? c.hover : 'transparent',
         },
+        over ? webStyle({ boxShadow: `inset 0 0 0 1.5px ${c.text}` }) : {},
         transition('background-color'),
         ring.style,
         style ?? {},

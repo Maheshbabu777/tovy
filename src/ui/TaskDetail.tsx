@@ -1,5 +1,6 @@
 import { useState } from 'react'
-import { ScrollView, Text, TextInput, useWindowDimensions, View } from 'react-native'
+import { Pressable, ScrollView, Text, TextInput, useWindowDimensions, View } from 'react-native'
+import { useRouter } from 'expo-router'
 import { use$ } from '@legendapp/state/react'
 import { Icons } from './icons'
 import { logStamp, percentOf, hasSubtasks, type LogEntry } from '../core/progress'
@@ -71,7 +72,7 @@ function Frame({
   const c = theme.colors
   const wide = useWindowDimensions().width >= WIDE_BREAKPOINT
   return (
-    <View style={{ flex: 1, backgroundColor: c.bg }}>
+    <View style={{ flex: 1 }}>
       <View
         style={{
           minHeight: 56,
@@ -83,16 +84,14 @@ function Frame({
           borderBottomColor: c.line,
         }}
       >
-        {onBack || !wide ? (
-          <IconButton icon={Icons.back} label="Back" onPress={onBack ?? onClose} testID="detail-back" />
-        ) : null}
-        <View style={{ flex: 1, paddingLeft: wide && !onBack ? 4 : 0 }}>
-          {wide ? <Text style={[type.label, { color: c.text2 }]}>{label}</Text> : null}
+        {onBack ? <IconButton icon={Icons.back} label="Back" onPress={onBack} testID="detail-back" /> : null}
+        <View style={{ flex: 1, paddingLeft: onBack ? 0 : 8 }}>
+          <Text style={[type.label, { color: c.text2 }]}>{label}</Text>
         </View>
         {onDelete ? (
           <IconButton icon={Icons.delete} label="Delete task" onPress={onDelete} testID="detail-delete" />
         ) : null}
-        {wide ? <IconButton icon={Icons.close} label="Close" onPress={onClose} testID="detail-close" /> : null}
+        <IconButton icon={Icons.close} label="Close" onPress={onClose} testID="detail-close" />
       </View>
       <ScrollView
         contentContainerStyle={{ paddingHorizontal: wide ? 24 : 20, paddingTop: 16, paddingBottom: 48 }}
@@ -127,6 +126,7 @@ function Body({
   const [sheet, setSheet] = useState<'date' | 'project' | null>(null)
   const [subTitle, setSubTitle] = useState('')
   const now = new Date()
+  const router = useRouter()
 
   const deep = task.kind === 'deep'
   const done = !!task.done_at
@@ -204,13 +204,26 @@ function Body({
         />
         <Chip
           testID="chip-project"
-          label={project ? project.name : 'No project'}
+          label={project ? project.name : 'Inbox'}
           dot={project ? (PROJECT_COLORS[project.color] ?? PROJECT_COLORS.slate) : undefined}
           onPress={() => setSheet('project')}
         />
       </View>
       {isOverdue(task, now) ? (
         <Text style={[type.meta, { color: c.red, marginTop: 8 }]}>This task is overdue.</Text>
+      ) : null}
+      {task.created_by ? (
+        // Added by an AI app (spec mcp-server): what it did is in Activity, where it can be undone.
+        <Pressable
+          testID="detail-added-by-ai"
+          accessibilityRole="link"
+          onPress={() => router.navigate('/activity')}
+          style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 10, alignSelf: 'flex-start' }}
+        >
+          <Icons.ai size={14} color={c.text2} />
+          <Text style={[type.meta, { color: c.text2 }]}>Added by an AI app · </Text>
+          <Text style={[type.meta, { color: c.text, textDecorationLine: 'underline' }]}>See activity</Text>
+        </Pressable>
       ) : null}
 
       {!deep ? (
@@ -449,7 +462,8 @@ function Body({
         visible={sheet === 'date'}
         onClose={() => setSheet(null)}
         value={task.due_date}
-        onPick={(day) => run(() => store.editTask(task.id, { dueDate: day, dueTime: day ? task.due_time : null }))}
+        time={task.due_time}
+        onPick={(day, time) => run(() => store.editTask(task.id, { dueDate: day, dueTime: day ? time : null }))}
       />
       <ProjectPickerSheet
         visible={sheet === 'project'}

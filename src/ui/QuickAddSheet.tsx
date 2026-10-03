@@ -1,17 +1,22 @@
 import { useState } from 'react'
-import { ScrollView, Text, TextInput, View } from 'react-native'
+import { ScrollView, Text, TextInput, useWindowDimensions, View } from 'react-native'
 import { Icons } from './icons'
 import type { Project } from '../core/sync/tasks'
+import { dateLabel, parseTask, timeLabelOf } from '../core/parseTask'
 import { nextDays } from '../core/today'
 import { Button } from './components/Button'
 import { Chip } from './components/Chip'
 import { Sheet } from './components/Sheet'
 import { webStyle } from './components/web'
 import { useTheme } from './theme'
-import { type } from './tokens'
+import { type, WIDE_BREAKPOINT } from './tokens'
+
+export type NewQuickTask = { title: string; dueDate: string | null; dueTime: string | null; projectId: string | null }
 
 // Style guide, Quick add: the task name, date chips and project chips (a set chip is filled, an empty one outlined), and a
 // footer on panel with Cancel and Add task pills. Enter or "Add task" adds it. A task needs a title.
+// The name is read as it is typed (spec quick-add-words): "call mum tomorrow 5pm #home" fills the date, time and
+// project, and a line under the field shows what was read. Tapping a chip overrides what the words said.
 export function QuickAddSheet({
   visible,
   onClose,
@@ -23,7 +28,7 @@ export function QuickAddSheet({
   onClose: () => void
   projects: Project[]
   defaultProjectId?: string | null
-  onAdd: (task: { title: string; dueDate: string | null; projectId: string | null }) => void
+  onAdd: (task: NewQuickTask) => void
 }) {
   // The form is mounted only while open, so it starts empty every time it opens.
   return visible ? (
@@ -40,20 +45,27 @@ function QuickAddForm({
   onClose: () => void
   projects: Project[]
   defaultProjectId: string | null
-  onAdd: (task: { title: string; dueDate: string | null; projectId: string | null }) => void
+  onAdd: (task: NewQuickTask) => void
 }) {
   const { theme } = useTheme()
   const c = theme.colors
   const [title, setTitle] = useState('')
-  const [dueDate, setDueDate] = useState<string | null>(null)
-  const [projectId, setProjectId] = useState<string | null>(defaultProjectId)
+  // undefined: follow the words. A chip tap sets it (null clears it).
+  const [pickedDate, setPickedDate] = useState<string | null | undefined>(undefined)
+  const [pickedProject, setPickedProject] = useState<string | null | undefined>(undefined)
 
-  const days = nextDays(new Date())
+  const now = new Date()
+  const days = nextDays(now)
+  const wide = useWindowDimensions().width >= WIDE_BREAKPOINT
+  const read = parseTask(title, now, projects)
+  const dueDate = pickedDate !== undefined ? pickedDate : read.dueDate
+  const dueTime = dueDate ? read.dueTime : null
+  const projectId = pickedProject !== undefined ? pickedProject : (read.projectId ?? defaultProjectId)
+  const projectName = projects.find((p) => p.id === projectId)?.name
 
   function submit() {
-    const text = title.trim()
-    if (!text) return
-    onAdd({ title: text, dueDate, projectId })
+    if (!title.trim()) return
+    onAdd({ title: read.title, dueDate, dueTime, projectId })
     onClose()
   }
 
@@ -76,28 +88,44 @@ function QuickAddForm({
         placeholderTextColor={c.text3}
         style={[type.h1, { color: c.text, paddingVertical: 8 }, webStyle({ outlineStyle: 'none' })]}
       />
+      {read.tokens.length ? (
+        <View testID="quick-add-read" style={{ flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 6 }}>
+          <Icons.ai size={14} color={c.text2} />
+          <Text style={[type.meta, { color: c.text2 }]}>
+            {[dueDate ? dateLabel(dueDate, now) : '', dueTime ? timeLabelOf(dueTime) : '', projectName ?? '']
+              .filter(Boolean)
+              .join(' · ')}
+          </Text>
+        </View>
+      ) : null}
       <Text style={[type.label, { color: c.text2, marginTop: 12, marginBottom: 8 }]}>Date</Text>
-      <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}>
+      {/* One scrolling row on a phone, so the sheet stays short above the keyboard; two wrapped rows on the web. */}
+      <ScrollView
+        horizontal={!wide}
+        scrollEnabled={!wide}
+        showsHorizontalScrollIndicator={false}
+        contentContainerStyle={{ flexDirection: 'row', flexWrap: wide ? 'wrap' : 'nowrap', gap: 6 }}
+      >
         {days.map(({ day, label }) => (
           <Chip
             key={day}
             label={label}
             icon={Icons.date}
             active={dueDate === day}
-            onPress={() => setDueDate(dueDate === day ? null : day)}
+            onPress={() => setPickedDate(dueDate === day ? null : day)}
           />
         ))}
-      </View>
+      </ScrollView>
       <Text style={[type.label, { color: c.text2, marginTop: 16, marginBottom: 8 }]}>Project</Text>
       <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 6 }}>
-        <Chip label="Inbox" icon={Icons.inbox} active={projectId === null} onPress={() => setProjectId(null)} />
+        <Chip label="Inbox" icon={Icons.inbox} active={projectId === null} onPress={() => setPickedProject(null)} />
         {projects.map((p) => (
           <Chip
             key={p.id}
             label={p.name}
             icon={Icons.project}
             active={projectId === p.id}
-            onPress={() => setProjectId(p.id)}
+            onPress={() => setPickedProject(p.id)}
           />
         ))}
       </ScrollView>

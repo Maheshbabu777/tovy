@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Modal, Pressable, Text, View } from 'react-native'
+import { Modal, Pressable, Text, useWindowDimensions, View } from 'react-native'
 import { useLocalSearchParams, useRouter } from 'expo-router'
 import { syncState } from '@legendapp/state'
 import { use$ } from '@legendapp/state/react'
@@ -10,12 +10,11 @@ import { Avatar } from './components/Avatar'
 import { Button } from './components/Button'
 import { Enter } from './components/Enter'
 import { Page } from './components/Page'
-import { ScreenHeader } from './components/ScreenHeader'
 import { Group, Row } from './components/SettingsList'
 import { AboutPage, AppearancePage, EditProfilePage, THEME_LABEL } from './ProfilePages'
 import { useStore } from './StoreContext'
 import { useTheme } from './theme'
-import { radius, type } from './tokens'
+import { radius, type, WIDE_BREAKPOINT } from './tokens'
 import { useOnline } from './useOnline'
 import { profileSaved } from './useProfile'
 
@@ -38,8 +37,7 @@ export function ProfileScreen() {
   if (sub) {
     return (
       <Enter key={sub}>
-        <Page maxWidth={576}>
-          <ScreenHeader title={TITLES[sub]} onBack={back} />
+        <Page maxWidth={576} title={TITLES[sub]} onBack={back}>
           {sub === 'appearance' ? <AppearancePage /> : null}
           {sub === 'about' ? <AboutPage /> : null}
           {sub === 'edit' && profile ? (
@@ -64,18 +62,18 @@ export function ProfileScreen() {
 }
 
 function ProfileHome({ profile, open }: { profile: Profile | null; open: (page: SubPage) => void }) {
+  const router = useRouter()
+  const wide = useWindowDimensions().width >= WIDE_BREAKPOINT
   const { theme, preference } = useTheme()
   const c = theme.colors
   const store = useStore()
   const online = useOnline()
   const taskState = syncState(store.tasks$)
   const projectState = syncState(store.projects$)
-  const proposalState = syncState(store.proposals$)
   const logState = syncState(store.logs$)
   const pending =
     (use$(taskState.numPendingSets) ?? 0) +
     (use$(projectState.numPendingSets) ?? 0) +
-    (use$(proposalState.numPendingSets) ?? 0) +
     (use$(logState.numPendingSets) ?? 0)
   const taskError = use$(taskState.error)
   const projectError = use$(projectState.error)
@@ -95,7 +93,7 @@ function ProfileHome({ profile, open }: { profile: Profile | null; open: (page: 
   function requestSignOut() {
     const count = (st: typeof taskState) =>
       Math.max(st.numPendingSets.peek() ?? 0, Object.keys(st.getPendingChanges() ?? {}).length)
-    setUnsynced(count(taskState) + count(projectState) + count(proposalState) + count(logState))
+    setUnsynced(count(taskState) + count(projectState) + count(logState))
     setConfirming(true)
   }
   // This device only: other devices stay signed in. The user's store on this device is cleared once we are signed out.
@@ -112,9 +110,12 @@ function ProfileHome({ profile, open }: { profile: Profile | null; open: (page: 
         : 'Up to date'
 
   return (
-    <Page maxWidth={576}>
-      <ScreenHeader title="Profile" titleTestID="profile-title" />
-
+    <Page
+      maxWidth={576}
+      title="Profile"
+      titleTestID="profile-title"
+      onBack={wide ? undefined : () => router.navigate('/browse')}
+    >
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 16, marginTop: 24 }}>
         <Avatar initials={initials} size={56} />
         <View style={{ flexShrink: 1, gap: 2 }}>
@@ -155,6 +156,19 @@ function ProfileHome({ profile, open }: { profile: Profile | null; open: (page: 
         />
         <Row label="Sync status" icon={Icons.sync} value={syncLabel} valueTestID="sync-status" />
       </Group>
+
+      {/* On a phone these are in Browse, one tap from here. The web has no Browse, so they live with the settings. */}
+      {wide ? (
+        <Group title="AI apps">
+          <Row
+            label="Connected apps"
+            icon={Icons.connectedApps}
+            onPress={() => router.navigate('/apps')}
+            testID="profile-apps"
+          />
+          <Row label="Trash" icon={Icons.delete} onPress={() => router.navigate('/trash')} testID="profile-trash" />
+        </Group>
+      ) : null}
 
       <Group>
         <Row label="About Tovy" icon={Icons.info} onPress={() => open('about')} testID="about" />

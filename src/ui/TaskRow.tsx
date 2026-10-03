@@ -1,9 +1,14 @@
 import { Animated, Pressable, Text, View } from 'react-native'
+import { Icons } from './icons'
 import { useEnter } from './motion'
+import { useSwipe } from './components/useSwipe'
+import { useDraggableTask } from './dragTask'
+import type { SwipeAction } from '../core/swipe'
 import { useTheme } from './theme'
 import { type } from './tokens'
+import { AIBadge } from './components/AppMark'
 import { ProgressRing } from './components/ProgressRing'
-import { transition, useFocusRing, useHover } from './components/web'
+import { transition, useFocusRing, useHover, webStyle } from './components/web'
 import { dueLabel, isOverdue } from '../core/today'
 import type { Project, Task } from '../core/sync/tasks'
 
@@ -22,8 +27,10 @@ export function TaskRow({
   onToggleDone,
   onOpen,
   onMenu,
+  onSwipe,
   enterDelay = 0,
 }: {
+  onSwipe?: (action: SwipeAction) => void // phone: swipe right finishes, left moves to tomorrow
   enterDelay?: number // fade and rise in after this many ms (a small stagger on first load)
   task: Task
   project: Project | undefined
@@ -44,86 +51,160 @@ export function TaskRow({
   const partial = progress !== null && progress > 0 && progress < 100
   const overdue = isOverdue(task, now)
   const hasSubs = !!subtasks && subtasks.total > 0
-  const hasMeta = !!task.due_date || partial || hasSubs
+  const byAi = !!task.created_by // added by an AI app (spec mcp-server)
+  const hasMeta = !!task.due_date || partial || hasSubs || byAi
+  const keyboardFocus = Object.keys(ring.style).length > 0
   const enter = useEnter({ delay: enterDelay, distance: 6, duration: 200 })
+  const swipe = useSwipe(onSwipe, { left: !done })
+  const dragRef = useDraggableTask(task.id) // the web: drag onto a day or a list (spec upcoming-drag)
 
   return (
     <Animated.View
+      ref={dragRef}
       testID="task"
-      style={[
-        enter,
-        {
-          flexDirection: 'row',
-          alignItems: 'flex-start',
-          borderBottomWidth: 1,
-          borderBottomColor: c.line,
-          backgroundColor: selected || hovered ? c.hover : 'transparent',
-          marginHorizontal: -8,
-          paddingHorizontal: 8,
-        },
-        transition('background-color'),
-      ]}
+      onLayout={(e) => swipe.onLayout(e.nativeEvent.layout.width)}
+      style={[enter, { marginHorizontal: -8, borderBottomWidth: 1, borderBottomColor: c.line, overflow: 'hidden' }]}
     >
-      <Pressable
-        testID={`done-${task.id}`}
-        accessibilityRole="checkbox"
-        accessibilityLabel={done ? `Reopen ${task.title}` : `Finish ${task.title}`}
-        accessibilityState={{ checked: done }}
-        onPress={onToggleDone}
-        {...hover}
-        hitSlop={6}
-        style={{ width: 32, paddingTop: 13, paddingBottom: 12 }}
+      {onSwipe ? <SwipeBackdrop x={swipe.x} done={done} /> : null}
+      <Animated.View
+        {...swipe.handlers}
+        style={[
+          {
+            flexDirection: 'row',
+            alignItems: 'flex-start',
+            backgroundColor: selected || hovered || keyboardFocus ? c.hover : c.bg,
+            // Reached with the keyboard (J and K on the web): the whole row lights up, with a bar at the left edge.
+            borderLeftWidth: 2,
+            borderLeftColor: keyboardFocus ? c.text : 'transparent',
+            paddingLeft: 6,
+            paddingHorizontal: 8,
+            transform: [{ translateX: swipe.x }],
+          },
+          transition('background-color'),
+        ]}
       >
-        <ProgressRing
-          size={20}
-          stroke={partial ? 2 : 1.5}
-          progress={(progress ?? 0) / 100}
-          done={done}
-          doneAt={task.done_at}
-        />
-      </Pressable>
-      <Pressable
-        testID={`open-${task.id}`}
-        accessibilityRole="button"
-        onPress={onOpen}
-        onLongPress={(e) => onMenu({ x: e.nativeEvent.pageX, y: e.nativeEvent.pageY })}
-        // @ts-expect-error the right-click event only exists on the web
-        onContextMenu={(e: { preventDefault: () => void; pageX: number; pageY: number }) => {
-          e.preventDefault()
-          onMenu({ x: e.pageX, y: e.pageY })
-        }}
-        style={[{ flex: 1, flexDirection: 'row', gap: 12, paddingVertical: 12, minHeight: 48 }, ring.style]}
-        {...ring.handlers}
-        {...hover}
-      >
-        <View style={{ flex: 1, gap: 2 }}>
-          <Text
-            testID={`title-${task.id}`}
-            numberOfLines={2}
-            style={[type.body, { color: done ? c.text3 : c.text, textDecorationLine: done ? 'line-through' : 'none' }]}
-          >
-            {task.title}
-          </Text>
-          {hasMeta && !done ? (
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-              {task.due_date ? (
-                <Text style={[type.meta, { color: overdue ? c.red : c.text2 }]}>{dueLabel(task, now)}</Text>
-              ) : null}
-              {partial ? <Text style={[type.monoS, { color: c.text2 }]}>{progress}%</Text> : null}
-              {hasSubs ? (
-                <Text style={[type.meta, { color: c.text2 }]}>
-                  {subtasks!.done} of {subtasks!.total}
-                </Text>
-              ) : null}
-            </View>
+        <Pressable
+          testID={`done-${task.id}`}
+          accessibilityRole="checkbox"
+          accessibilityLabel={done ? `Reopen ${task.title}` : `Finish ${task.title}`}
+          accessibilityState={{ checked: done }}
+          onPress={() => {
+            if (!swipe.justSwiped()) onToggleDone()
+          }}
+          {...hover}
+          hitSlop={6}
+          style={{ width: 32, paddingTop: 13, paddingBottom: 12 }}
+        >
+          <ProgressRing
+            size={20}
+            stroke={partial ? 2 : 1.5}
+            progress={(progress ?? 0) / 100}
+            done={done}
+            doneAt={task.done_at}
+          />
+        </Pressable>
+        <Pressable
+          testID={`open-${task.id}`}
+          accessibilityRole="button"
+          onPress={() => {
+            if (!swipe.justSwiped()) onOpen()
+          }}
+          onLongPress={(e) => onMenu({ x: e.nativeEvent.pageX, y: e.nativeEvent.pageY })}
+          // @ts-expect-error the right-click event only exists on the web
+          onContextMenu={(e: { preventDefault: () => void; pageX: number; pageY: number }) => {
+            e.preventDefault()
+            onMenu({ x: e.pageX, y: e.pageY })
+          }}
+          style={[
+            { flex: 1, flexDirection: 'row', gap: 12, paddingVertical: 12, minHeight: 48 },
+            webStyle({ outlineStyle: 'none' }),
+          ]}
+          {...ring.handlers}
+          {...hover}
+        >
+          <View style={{ flex: 1, gap: 2 }}>
+            <Text
+              testID={`title-${task.id}`}
+              numberOfLines={2}
+              style={[
+                type.body,
+                { color: done ? c.text3 : c.text, textDecorationLine: done ? 'line-through' : 'none' },
+              ]}
+            >
+              {task.title}
+            </Text>
+            {hasMeta && !done ? (
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                {task.due_date ? (
+                  <Text style={[type.meta, { color: overdue ? c.red : c.text2 }]}>{dueLabel(task, now)}</Text>
+                ) : null}
+                {partial ? <Text style={[type.monoS, { color: c.text2 }]}>{progress}%</Text> : null}
+                {hasSubs ? (
+                  <Text style={[type.meta, { color: c.text2 }]}>
+                    {subtasks!.done} of {subtasks!.total}
+                  </Text>
+                ) : null}
+                {byAi ? <AIBadge /> : null}
+              </View>
+            ) : null}
+          </View>
+          {showProject && project ? (
+            <Text numberOfLines={1} style={[type.meta, { color: c.text2, maxWidth: 140, paddingTop: 2 }]}>
+              {project.name}
+            </Text>
           ) : null}
-        </View>
-        {showProject && project ? (
-          <Text numberOfLines={1} style={[type.meta, { color: c.text2, maxWidth: 140, paddingTop: 2 }]}>
-            {project.name}
-          </Text>
-        ) : null}
-      </Pressable>
+        </Pressable>
+      </Animated.View>
     </Animated.View>
+  )
+}
+
+// What sits under a row while it is swiped: finish on the left (revealed by swiping right), tomorrow on the right.
+// The side that is not in play stays hidden.
+function SwipeBackdrop({ x, done }: { x: Animated.Value; done: boolean }) {
+  const { theme } = useTheme()
+  const c = theme.colors
+  const right = x.interpolate({ inputRange: [0, 1], outputRange: [0, 1], extrapolate: 'clamp' })
+  const left = x.interpolate({ inputRange: [-1, 0], outputRange: [1, 0], extrapolate: 'clamp' })
+  return (
+    <View pointerEvents="none" style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }}>
+      <Animated.View
+        style={{
+          position: 'absolute',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          opacity: right,
+          backgroundColor: c.primary,
+          flexDirection: 'row',
+          alignItems: 'center',
+          gap: 8,
+          paddingLeft: 20,
+        }}
+      >
+        <Icons.check size={20} color={c.onPrimary} bold />
+        <Text style={[type.label, { color: c.onPrimary }]}>{done ? 'Reopen' : 'Done'}</Text>
+      </Animated.View>
+      <Animated.View
+        style={{
+          position: 'absolute',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          opacity: left,
+          backgroundColor: c.panel,
+          flexDirection: 'row',
+          alignItems: 'center',
+          justifyContent: 'flex-end',
+          gap: 8,
+          paddingRight: 20,
+        }}
+      >
+        <Text style={[type.label, { color: c.text }]}>Tomorrow</Text>
+        <Icons.date size={20} color={c.text} />
+      </Animated.View>
+    </View>
   )
 }

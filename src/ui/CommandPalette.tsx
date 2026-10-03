@@ -3,6 +3,7 @@ import { Animated, Modal, Pressable, ScrollView, Text, TextInput, useWindowDimen
 import { useRouter } from 'expo-router'
 import { Icons, type ToolkitIcon } from './icons'
 import { paletteResults, type PaletteItem } from '../core/palette'
+import { addedMessage, parseTask } from '../core/parseTask'
 import { KeyCap } from './components/KeyCap'
 import { useToast } from './components/Toast'
 import { shadow, SHADOWS, webStyle } from './components/web'
@@ -53,8 +54,11 @@ function PaletteBody({ onClose }: { onClose: () => void }) {
     else if (item.kind === 'theme') setPreference(theme.mode === 'dark' ? 'light' : 'dark')
     else {
       try {
-        store.addTask({ title: item.title, dueDate: null, projectId: null })
-        toast.show({ message: `Added "${item.title}" to Inbox` })
+        const read = parseTask(item.title, new Date(), projects)
+        const task = { title: read.title, dueDate: read.dueDate, dueTime: read.dueTime, projectId: read.projectId }
+        store.addTask(task)
+        const where = projects.find((p) => p.id === task.projectId)?.name
+        toast.show({ message: addedMessage(task, new Date(), where ?? 'Inbox') })
       } catch (e) {
         toast.show({ message: e instanceof Error ? e.message : String(e) })
       }
@@ -77,7 +81,7 @@ function PaletteBody({ onClose }: { onClose: () => void }) {
               width: '100%',
               maxWidth: 600,
               maxHeight: height * 0.7,
-              backgroundColor: c.bg,
+              backgroundColor: c.raised,
               borderRadius: radius.lg,
               borderWidth: 1,
               borderColor: c.line,

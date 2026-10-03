@@ -87,3 +87,24 @@ export function weekStrip(
     return { day, weekday: WEEKDAYS[new Date(y, m - 1, d).getDay()], date: d, busy: open.has(day) }
   })
 }
+
+// The Completed page: finished top level tasks grouped by the day they were finished, newest day first, newest first
+// within a day, for the last `days` days.
+export function completedByDay(tasks: Task[], now: Date, days = 30): UpcomingDay[] {
+  const since = addDays(localDay(now), -(days - 1))
+  const byDay = new Map<string, Task[]>()
+  for (const t of tasks) {
+    if (!t || t.deleted || t.parent_id || !t.done_at) continue
+    const day = localDay(new Date(t.done_at))
+    if (day < since) continue
+    byDay.set(day, [...(byDay.get(day) ?? []), t])
+  }
+  return [...byDay.keys()]
+    .sort()
+    .reverse()
+    .map((day) => ({
+      day,
+      title: day === localDay(now) ? 'Today' : day === addDays(localDay(now), -1) ? 'Yesterday' : dayTitle(day, now),
+      tasks: byDay.get(day)!.sort((a, b) => (b.done_at ?? '').localeCompare(a.done_at ?? '')),
+    }))
+}
