@@ -6,7 +6,7 @@ import type { SwipeAction } from '../core/swipe'
 import { useTheme } from './theme'
 import { type } from './tokens'
 import { ProgressRing } from './components/ProgressRing'
-import { transition, useFocusRing, useHover } from './components/web'
+import { transition, useFocusRing, useHover, webStyle } from './components/web'
 import { dueLabel, isOverdue } from '../core/today'
 import type { Project, Task } from '../core/sync/tasks'
 
@@ -50,6 +50,7 @@ export function TaskRow({
   const overdue = isOverdue(task, now)
   const hasSubs = !!subtasks && subtasks.total > 0
   const hasMeta = !!task.due_date || partial || hasSubs
+  const keyboardFocus = Object.keys(ring.style).length > 0
   const enter = useEnter({ delay: enterDelay, distance: 6, duration: 200 })
   const swipe = useSwipe(onSwipe)
 
@@ -66,7 +67,11 @@ export function TaskRow({
           {
             flexDirection: 'row',
             alignItems: 'flex-start',
-            backgroundColor: selected || hovered ? c.hover : c.bg,
+            backgroundColor: selected || hovered || keyboardFocus ? c.hover : c.bg,
+            // Reached with the keyboard (J and K on the web): the whole row lights up, with a bar at the left edge.
+            borderLeftWidth: 2,
+            borderLeftColor: keyboardFocus ? c.text : 'transparent',
+            paddingLeft: 6,
             paddingHorizontal: 8,
             transform: [{ translateX: swipe.x }],
           },
@@ -105,7 +110,10 @@ export function TaskRow({
             e.preventDefault()
             onMenu({ x: e.pageX, y: e.pageY })
           }}
-          style={[{ flex: 1, flexDirection: 'row', gap: 12, paddingVertical: 12, minHeight: 48 }, ring.style]}
+          style={[
+            { flex: 1, flexDirection: 'row', gap: 12, paddingVertical: 12, minHeight: 48 },
+            webStyle({ outlineStyle: 'none' }),
+          ]}
           {...ring.handlers}
           {...hover}
         >

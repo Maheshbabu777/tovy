@@ -23,6 +23,8 @@ import { useToast } from './components/Toast'
 import { shadow, SHADOWS, transition, useFocusRing, useHover } from './components/web'
 import { Logo } from './Brand'
 import { CommandPalette } from './CommandPalette'
+import { moveFocus, toggleFocused } from './keyboardList'
+import { ShortcutsSheet } from './ShortcutsSheet'
 import { KeyCap } from './components/KeyCap'
 import { animate, EASE, prefersReducedMotion, useSlideIn } from './motion'
 import { onQuickAdd, requestPalette, requestQuickAdd } from './quickAdd'
@@ -132,6 +134,7 @@ export function Shell() {
 
   const [collapsed, setCollapsed] = useState(false)
   const [barWidth, setBarWidth] = useState(0)
+  const [showKeys, setShowKeys] = useState(false)
   const [width] = useState(() => new Animated.Value(SIDEBAR.open))
   useEffect(() => {
     void (async () => {
@@ -177,9 +180,21 @@ export function Shell() {
       }
       const place = MAIN.find((m) => m.key.toLowerCase() === key)
       if (place) router.navigate(place.href)
-      else if (key === 'n' || key === 'q') {
+      else if (key === 'n') {
         e.preventDefault()
         requestQuickAdd()
+      } else if (key === 'q') {
+        e.preventDefault()
+        requestQuickAdd(true)
+      } else if (key === 'j' || key === 'arrowdown') {
+        if (moveFocus(1)) e.preventDefault()
+      } else if (key === 'k' || key === 'arrowup') {
+        if (moveFocus(-1)) e.preventDefault()
+      } else if (key === 'x') {
+        if (toggleFocused()) e.preventDefault()
+      } else if (e.key === '?') {
+        e.preventDefault()
+        setShowKeys(true)
       }
     }
     window.addEventListener('keydown', onKey)
@@ -363,6 +378,7 @@ export function Shell() {
         </View>
         {quickAdd}
         <CommandPalette />
+        <ShortcutsSheet visible={showKeys} onClose={() => setShowKeys(false)} />
       </NavigationContent>
     )
   }
