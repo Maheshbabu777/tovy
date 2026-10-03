@@ -82,9 +82,10 @@ function RouteEnter({ children }: { children: ReactNode }) {
 
 // The sidebar's saved width, read before the first paint on the web so a collapsed sidebar does not open and then shut.
 function savedCollapsed(): boolean {
-  if (Platform.OS !== 'web' || typeof localStorage === 'undefined') return false
+  if (Platform.OS !== 'web') return false
+  // Inside the try: with storage blocked (cookies off), even reading `localStorage` throws.
   try {
-    return localStorage.getItem(COLLAPSE_KEY) === '1'
+    return globalThis.localStorage?.getItem(COLLAPSE_KEY) === '1'
   } catch {
     return false
   }
