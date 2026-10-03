@@ -1,6 +1,8 @@
 # Sorting tasks from the list
 
-Status: in review
+Status: in progress
+
+Waiting on: the human trying it (built overnight).
 
 ## Problem
 

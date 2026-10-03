@@ -159,6 +159,19 @@ function ProfileHome({ profile, open }: { profile: Profile | null; open: (page: 
         <Row label="Sync status" icon={Icons.sync} value={syncLabel} valueTestID="sync-status" />
       </Group>
 
+      {/* On a phone these are in Browse, one tap from here. The web has no Browse, so they live with the settings. */}
+      {wide ? (
+        <Group title="AI apps">
+          <Row
+            label="Connected apps"
+            icon={Icons.connectedApps}
+            onPress={() => router.navigate('/apps')}
+            testID="profile-apps"
+          />
+          <Row label="Trash" icon={Icons.delete} onPress={() => router.navigate('/trash')} testID="profile-trash" />
+        </Group>
+      ) : null}
+
       <Group>
         <Row label="About Tovy" icon={Icons.info} onPress={() => open('about')} testID="about" />
         <Row label="Sign out" icon={Icons.signOut} onPress={requestSignOut} chevron={false} testID="sign-out" />

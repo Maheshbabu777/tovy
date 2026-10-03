@@ -21,7 +21,7 @@ Built: Expo (React Native, TypeScript) with Expo Router, Legend-State v3 beta lo
 | Install | `npm ci` (the `.npmrc` sets legacy-peer-deps) |
 | Run locally | `npx expo start` (scan the QR code with Expo Go, or press w for web) |
 | Unit tests | `npm test` |
-| All tests | `npm test` ; `npm run test:e2e` (needs Supabase reachable and a fresh `expo export`) ; `bash supabase/tests/run.sh` (row security, local Postgres) |
+| All tests | `npm test` ; `npm run test:e2e` (needs Supabase reachable and a fresh `expo export`) ; `bash supabase/tests/run.sh` (row security, local Postgres) ; in `supabase/functions/mcp`: `deno test --allow-env` (MCP server) |
 | One test | `npm run test:e2e -- -g "2:"` |
 | Lint | `npm run lint` ; format: `npm run format:check` (fix with `npm run format`) |
 | Type check | `npm run typecheck` |
@@ -33,6 +33,7 @@ Built: Expo (React Native, TypeScript) with Expo Router, Legend-State v3 beta lo
 - `.context/project-plan.md` - the approved plan and slice list
 - `app/` - Expo Router screens; `src/core/db/` Supabase client; `src/core/sync/` per-user tasks store and sync; `tests/e2e/` Playwright sync tests
 - `supabase/migrations/` - schema; `supabase/tests/` - row security test and runner (uses `DATABASE_URL` or a throwaway local Postgres)
+- `supabase/functions/mcp/` - the MCP server for AI apps (Deno, its own `supabase/functions/mcp/deno.json`; not linted or type checked by the app's tools)
 
 ## Conventions
 
@@ -48,9 +49,10 @@ Built: Expo (React Native, TypeScript) with Expo Router, Legend-State v3 beta lo
 - Cloud sandbox: Chromium cannot reach Supabase, Node can, so tests fetch from Node and bridge the websocket by hand (`tests/e2e/sync.e2e.ts`).
 - Migrations reach the dev project only when they merge to `main` (`.github/workflows/migrate-dev.yml`). Never edit the dashboard by hand. The app shows `synced` even if the table is missing (`src/core/sync/tasks.ts`).
 - Never clear synced data by emptying its observable (it would sync as deletes). Use `store.dispose()` (`syncState(obs$).reset()`), and keep one store per user (`src/core/sync/tasks.ts`).
+- An AI app's token also works against the REST API directly, so rules for AI apps live in row security and triggers (`supabase/migrations/0009_ai_connection.sql`), never only in the MCP server.
 - `waitSynced` in the e2e tests can pass on a stale "synced" label. When a test needs a note really saved, poll the server for it (`serverTitles`).
 
 ## Ask the human
 
 <!-- Questions bootstrap couldn't answer. Delete each one once it's answered and written above. -->
-- 
+- Does Supabase Auth accept an OAuth app's access token for account changes (`PUT /auth/v1/user`)? Check before AI apps are opened to anyone (`specs/mcp-server.md`, S5).

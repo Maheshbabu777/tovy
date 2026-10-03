@@ -21,6 +21,9 @@ export type Task = {
   progress?: number // 0 to 100, how far a deep task is (the server default is 0)
   project_id: string | null // null means "No project"
   parent_id: string | null // null means a top level task
+  // The AI app that added it (its OAuth client id), set only by the MCP server. The app never writes it, so it works
+  // before and after migration 0009.
+  created_by?: string | null
   deleted?: boolean
   created_at?: string | null
   updated_at?: string | null

@@ -1,6 +1,8 @@
 # Quick add that reads dates, times and projects
 
-Status: in review
+Status: in progress
+
+Waiting on: the human trying it (built overnight).
 
 ## Problem
 

@@ -21,9 +21,13 @@ do $$ begin
     create role anon nologin;
   end if;
 end $$;
+create or replace function auth.jwt() returns jsonb language sql stable as $$
+  select coalesce(nullif(current_setting('request.jwt.claims', true), ''), '{}')::jsonb
+$$;
 grant usage on schema auth, public to authenticated;
 grant usage on schema public to anon;
 grant execute on function auth.uid() to authenticated;
+grant execute on function auth.jwt() to authenticated;
 create publication supabase_realtime;
 -- Supabase grants these by default on new public tables.
 alter default privileges in schema public grant all on tables to authenticated;

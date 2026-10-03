@@ -1,6 +1,8 @@
 # Sign in and first run on a phone
 
-Status: in review
+Status: in progress
+
+Waiting on: the human trying it (built overnight).
 
 ## Problem
 

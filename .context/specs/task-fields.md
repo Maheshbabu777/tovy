@@ -1,6 +1,8 @@
 # Priorities, deadlines, labels and repeats
 
-Status: draft (needs the human: it adds database columns)
+Status: draft
+
+Waiting on: the human (it adds database columns).
 
 Size: risky (a migration on `tasks`, row security unchanged but checked).
 
@@ -25,7 +27,7 @@ Stage 3 of `foundation-reset.md` lists priorities, labels, deadlines and repeats
 
 ## Plan
 
-1. PR A: migration `0009_task_fields.sql` only, plus the RLS test. Merge, let CI apply it to dev.
+1. PR A: migration `0010_task_fields.sql` only (0009 is `mcp-server`), plus the RLS test. Merge, let CI apply it to dev.
 2. PR B: store and sync (`tasks.ts` types, `addTask`, `editTask`, `setDone` repeat logic) with tests.
 3. PR C: UI: row tags, detail chips and sheets (priority, deadline, labels, repeat), quick add words, Labels page.
 

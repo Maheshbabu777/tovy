@@ -15,6 +15,7 @@ Things agreed to do later. Each becomes a spec in `specs/` when its turn comes. 
 - Approve `specs/task-fields.md` (priorities, deadlines, labels, repeats). It needs a migration that must reach the database before the app sends the new fields; the spec sets the order.
 - Approve or adjust the overnight specs, all `in review`: `design-polish`, `mobile-screens`, `quick-add-words`, `first-run`, `task-schedule`, `keyboard-lists`.
 - A Google mark on "Continue with Google" needs the official asset.
+- AI apps (`specs/mcp-server.md`, in review): merge so migration 0009 reaches dev, then the dashboard steps (OAuth server on, path `/oauth/consent`, dynamic registration, asymmetric keys), deploy the `mcp` function, check security finding S5 with a real token, and connect Claude once.
 
 ## Later stages (order from the spec)
 
@@ -23,7 +24,7 @@ Things agreed to do later. Each becomes a spec in `specs/` when its turn comes. 
 - Stage 4, Upcoming: drag a task to another day (the week strip is done).
 - Stage 5, motion and gestures: haptics, and moving the PanResponder swipe and sheet drag to Reanimated and Gesture Handler if they feel slow on a phone (checked in Expo Go).
 - Stage 6, habits with per habit streaks, skip and pause, heatmap.
-- Stage 7, MCP with direct writes, destructive tools that ask in the AI app, activity feed with undo, Trash.
+- Stage 7 leftovers (`specs/mcp-server.md` built the rest): purge Trash after 30 days with pg_cron, elicitation for deletes once the transport keeps sessions, `check_in_routine` and `add_reminder` tools with their phases.
 
 ## Ideas from the human
 

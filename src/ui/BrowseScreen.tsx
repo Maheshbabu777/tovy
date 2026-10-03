@@ -112,6 +112,22 @@ export function BrowseScreen() {
           onPress={() => router.navigate('/completed')}
           testID="browse-completed"
         />
+        <Row label="Trash" icon={Icons.delete} onPress={() => router.navigate('/trash')} testID="browse-trash" />
+      </Group>
+
+      <Group title="AI apps">
+        <Row
+          label="Connected apps"
+          icon={Icons.connectedApps}
+          onPress={() => router.navigate('/apps')}
+          testID="browse-apps"
+        />
+        <Row
+          label="Activity"
+          icon={Icons.activity}
+          onPress={() => router.navigate('/activity')}
+          testID="browse-activity"
+        />
       </Group>
 
       <Group title="Settings">

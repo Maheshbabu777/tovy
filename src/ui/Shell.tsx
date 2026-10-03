@@ -37,7 +37,8 @@ import { useNow, useTaskData } from './useTaskData'
 
 // Every route of the tab frame. Inbox, Today, Upcoming and Browse are the tabs (style guide, Navigation). Projects and
 // Profile are reached from the sidebar, Browse and the avatar. Add a route here and a file under `app/(tabs)/`.
-type Href = '/' | '/inbox' | '/upcoming' | '/browse' | '/projects' | '/profile' | '/completed'
+type Href =
+  '/' | '/inbox' | '/upcoming' | '/browse' | '/projects' | '/profile' | '/completed' | '/apps' | '/activity' | '/trash'
 const ROUTES: { name: string; href: Href }[] = [
   { name: 'inbox', href: '/inbox' },
   { name: 'index', href: '/' },
@@ -46,6 +47,9 @@ const ROUTES: { name: string; href: Href }[] = [
   { name: 'projects', href: '/projects' },
   { name: 'profile', href: '/profile' },
   { name: 'completed', href: '/completed' },
+  { name: 'apps', href: '/apps' },
+  { name: 'activity', href: '/activity' },
+  { name: 'trash', href: '/trash' },
 ]
 // The main places, with their web keyboard shortcut.
 const MAIN: { href: Href; label: string; Icon: ToolkitIcon; key: string }[] = [
@@ -319,6 +323,15 @@ export function Shell() {
                   on={section === '/completed'}
                   onPress={() => go('/completed')}
                 />
+                <NavItem
+                  navKey="/activity"
+                  testID="tab-activity"
+                  label="Activity"
+                  Icon={Icons.activity}
+                  collapsed={collapsed}
+                  on={section === '/activity'}
+                  onPress={() => go('/activity')}
+                />
                 {collapsed ? (
                   <NavItem
                     navKey="/projects"
@@ -383,8 +396,7 @@ export function Shell() {
     )
   }
 
-  const browseOn =
-    section === '/browse' || section === '/projects' || section === '/profile' || section === '/completed'
+  const browseOn = !MAIN.some((m) => m.href === section)
   // The add button lives where adding is the job: the three lists and a project page (which files the task there).
   const fabHere = section === '/' || section === '/inbox' || section === '/upcoming' || !!projectHere
   const tabs: { href: Href; label: string; Icon: ToolkitIcon; on: boolean }[] = [

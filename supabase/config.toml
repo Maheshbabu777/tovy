@@ -363,14 +363,19 @@ enabled = false
 # Obtain from https://clerk.com/setup/supabase
 # domain = "example.clerk.accounts.dev"
 
-# OAuth server configuration
+# OAuth server configuration (spec mcp-server: AI apps sign in here, the person approves on /oauth/consent).
+# This file only sets up a local stack. The hosted project is set in the dashboard: Authentication > OAuth Server.
 [auth.oauth_server]
 # Enable OAuth server functionality
-enabled = false
+enabled = true
 # Path for OAuth consent flow UI
 authorization_url_path = "/oauth/consent"
-# Allow dynamic client registration
-allow_dynamic_registration = false
+# Allow dynamic client registration (MCP apps register themselves)
+allow_dynamic_registration = true
+
+# The MCP server checks tokens itself, so an app with no token gets the 401 that tells it where to sign in.
+[functions.mcp]
+verify_jwt = false
 
 [edge_runtime]
 enabled = true

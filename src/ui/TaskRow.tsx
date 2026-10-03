@@ -5,6 +5,7 @@ import { useSwipe } from './components/useSwipe'
 import type { SwipeAction } from '../core/swipe'
 import { useTheme } from './theme'
 import { type } from './tokens'
+import { AIBadge } from './components/AppMark'
 import { ProgressRing } from './components/ProgressRing'
 import { transition, useFocusRing, useHover, webStyle } from './components/web'
 import { dueLabel, isOverdue } from '../core/today'
@@ -49,7 +50,8 @@ export function TaskRow({
   const partial = progress !== null && progress > 0 && progress < 100
   const overdue = isOverdue(task, now)
   const hasSubs = !!subtasks && subtasks.total > 0
-  const hasMeta = !!task.due_date || partial || hasSubs
+  const byAi = !!task.created_by // added by an AI app (spec mcp-server)
+  const hasMeta = !!task.due_date || partial || hasSubs || byAi
   const keyboardFocus = Object.keys(ring.style).length > 0
   const enter = useEnter({ delay: enterDelay, distance: 6, duration: 200 })
   const swipe = useSwipe(onSwipe, { left: !done })
@@ -139,6 +141,7 @@ export function TaskRow({
                     {subtasks!.done} of {subtasks!.total}
                   </Text>
                 ) : null}
+                {byAi ? <AIBadge /> : null}
               </View>
             ) : null}
           </View>

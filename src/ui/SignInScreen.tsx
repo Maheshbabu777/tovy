@@ -4,6 +4,7 @@ import { Icons } from './icons'
 import { supabase } from '../core/db/supabase'
 import { describeAuthError, isValidEmail } from '../core/auth/errors'
 import { AuthLayout } from './components/AuthLayout'
+import { rememberReturn } from './returnTo'
 import { Button } from './components/Button'
 import { Input } from './components/Input'
 import { OtpInput } from './components/OtpInput'
@@ -75,6 +76,7 @@ export function SignInScreen() {
 
   // Google sign in is for web in this version (a phone needs a dev build, see the auth spec).
   async function signInWithGoogle() {
+    rememberReturn()
     const { error } = await supabase.auth.signInWithOAuth({
       provider: 'google',
       options: { redirectTo: window.location.origin },
