@@ -59,7 +59,10 @@ export function Row({
       accessibilityRole={onPress ? 'button' : undefined}
       accessibilityLabel={value && onPress ? `${label}, ${value}` : undefined}
       onPress={onPress}
-      disabled={!onPress}
+      // A row with a control (the theme switch) is not itself a button, but it must not mark itself disabled either:
+      // that would mark the control inside it disabled for screen readers too.
+      disabled={!onPress && !control}
+      focusable={!!onPress}
       style={[
         {
           minHeight: 52,
