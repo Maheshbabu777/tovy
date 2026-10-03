@@ -2,9 +2,9 @@ import { useEffect, useState, type ReactNode } from 'react'
 import { Animated, Modal, Platform, Pressable, Text, useWindowDimensions, View } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { Icons } from '../icons'
-import { animate, prefersReducedMotion } from '../motion'
+import { animate, DRAWER, prefersReducedMotion } from '../motion'
 import { useTheme } from '../theme'
-import { motion, radius, type, WIDE_BREAKPOINT } from '../tokens'
+import { radius, type, WIDE_BREAKPOINT } from '../tokens'
 import { IconButton } from './IconButton'
 import { shadow, SHADOWS } from './web'
 
@@ -35,12 +35,12 @@ export function Sheet({
   useEffect(() => {
     if (!visible) return
     enter.setValue(prefersReducedMotion() ? 1 : 0)
-    animate(enter, 1, motion.sheet)
+    animate(enter, 1, wide ? 200 : 300, 0, wide ? undefined : DRAWER)
     if (Platform.OS !== 'web' || typeof window === 'undefined') return
     const onKey = (e: KeyboardEvent) => e.key === 'Escape' && onClose()
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [visible, enter, onClose])
+  }, [visible, enter, onClose, wide])
 
   return (
     <Modal visible={visible} transparent animationType="none" onRequestClose={onClose} statusBarTranslucent>
@@ -52,11 +52,13 @@ export function Sheet({
           paddingTop: wide ? height * 0.14 : 0,
         }}
       >
-        <Pressable
-          accessibilityLabel="Close"
-          onPress={onClose}
-          style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: c.sheetScrim }}
-        />
+        <Animated.View style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, opacity: enter }}>
+          <Pressable
+            accessibilityLabel="Close"
+            onPress={onClose}
+            style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: c.sheetScrim }}
+          />
+        </Animated.View>
         <Animated.View
           testID={testID}
           accessibilityViewIsModal
@@ -74,8 +76,11 @@ export function Sheet({
               borderColor: c.line,
               paddingBottom: footer ? 0 : Math.max(insets.bottom, 16),
               overflow: 'hidden',
-              opacity: enter,
-              transform: [{ translateY: enter.interpolate({ inputRange: [0, 1], outputRange: [24, 0] }) }],
+              // Wide: it settles in from 0.96 in the middle. Phone: it slides up from below the screen on the drawer curve.
+              opacity: wide ? enter : enter.interpolate({ inputRange: [0, 0.3, 1], outputRange: [0, 1, 1] }),
+              transform: wide
+                ? [{ scale: enter.interpolate({ inputRange: [0, 1], outputRange: [0.96, 1] }) }]
+                : [{ translateY: enter.interpolate({ inputRange: [0, 1], outputRange: [height * 0.6, 0] }) }],
             },
             shadow(SHADOWS.overlay),
           ]}

@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { Platform, Pressable, ScrollView, Text, useWindowDimensions, View } from 'react-native'
+import { Animated, Platform, Pressable, ScrollView, Text, useWindowDimensions, View } from 'react-native'
 import { batch } from '@legendapp/state'
 import { addDays, localDay } from '../core/today'
 import { daysThrough, shiftMonth, upcoming, weekStart, weekStrip, type CalendarDay } from '../core/views'
@@ -8,7 +8,7 @@ import { Skeleton } from './components/Feedback'
 import { Page } from './components/Page'
 import { useToast } from './components/Toast'
 import { AddTaskRow, TaskSection } from './TaskList'
-import { prefersReducedMotion } from './motion'
+import { animate, prefersReducedMotion } from './motion'
 import { useTheme } from './theme'
 import { radius, type, WIDE_BREAKPOINT } from './tokens'
 import { useTaskActions } from './useTaskActions'
@@ -300,8 +300,51 @@ function WeekStrip({
   onPick: (day: string) => void
   onDrop: (taskId: string, day: string) => void
 }) {
+  const { theme } = useTheme()
+  const [width, setWidth] = useState(0)
+  const [x] = useState(() => new Animated.Value(0))
+  const [shown] = useState(() => new Animated.Value(0))
+  const placed = useRef(false)
+  const index = days.findIndex((d) => d.day === selected)
+  const cell = (width - 6 * 6) / 7
+  // The picked day's fill is one shape that glides from day to day (Paper "06 Motion"), not seven that blink.
+  useEffect(() => {
+    if (!width) return
+    if (index < 0) {
+      animate(shown, 0, 120)
+      return
+    }
+    const to = index * (cell + 6)
+    if (!placed.current || prefersReducedMotion()) {
+      x.setValue(to)
+      placed.current = true
+    } else {
+      Animated.spring(x, { toValue: to, stiffness: 420, damping: 34, mass: 1, useNativeDriver: false }).start()
+    }
+    animate(shown, 1, 120)
+  }, [index, cell, width, x, shown])
   return (
-    <View testID="week-strip" style={{ flexDirection: 'row', gap: 6, paddingTop: 12, paddingBottom: 8 }}>
+    <View
+      testID="week-strip"
+      onLayout={(e) => setWidth(e.nativeEvent.layout.width)}
+      style={{ flexDirection: 'row', gap: 6, paddingTop: 12, paddingBottom: 8 }}
+    >
+      {width ? (
+        <Animated.View
+          pointerEvents="none"
+          style={{
+            position: 'absolute',
+            top: 12,
+            left: 0,
+            width: cell,
+            height: 68,
+            borderRadius: radius.lg,
+            backgroundColor: theme.colors.primary,
+            opacity: shown,
+            transform: [{ translateX: x }],
+          }}
+        />
+      ) : null}
       {days.map((d) => (
         <WeekCell key={d.day} d={d} on={d.day === selected} onPick={onPick} onDrop={(id) => onDrop(id, d.day)} />
       ))}
@@ -343,7 +386,8 @@ function WeekCell({
         alignItems: 'center',
         justifyContent: 'center',
         gap: 4,
-        backgroundColor: on ? c.primary : 'transparent',
+        // The picked day's fill is the gliding shape behind (WeekStrip); a task held over a day fills that day.
+        backgroundColor: over && !d.past ? c.primary : 'transparent',
         borderWidth: 1,
         borderColor: on ? c.primary : today ? c.text : c.line,
       }}

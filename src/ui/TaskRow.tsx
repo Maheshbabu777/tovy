@@ -1,6 +1,7 @@
+import { useState } from 'react'
 import { Animated, Pressable, Text, View } from 'react-native'
 import { Icons } from './icons'
-import { useEnter } from './motion'
+import { EASE, prefersReducedMotion, useEnter } from './motion'
 import { useSwipe } from './components/useSwipe'
 import { useDraggableTask } from './dragTask'
 import type { SwipeAction } from '../core/swipe'
@@ -8,7 +9,7 @@ import { useTheme } from './theme'
 import { type } from './tokens'
 import { AIBadge } from './components/AppMark'
 import { ProgressRing } from './components/ProgressRing'
-import { transition, useFocusRing, useGroupHover, useHover, webStyle } from './components/web'
+import { pressScale, transition, useFocusRing, useGroupHover, useHover, webStyle } from './components/web'
 import type { ToolkitIcon } from './icons'
 import { dueLabel, isOverdue } from '../core/today'
 import type { Project, Task } from '../core/sync/tasks'
@@ -53,7 +54,31 @@ export function TaskRow({
   const c = theme.colors
   const { hovered, handlers: hover } = useGroupHover()
   const ring = useFocusRing(c.primary)
-  const done = !!task.done_at
+  // Finishing (Paper "06 Motion", the finished task): the circle fills with a pop, a line draws through the title, the
+  // row stays a beat so you see it, then folds away; only then is the task marked done and moved to Done.
+  const [finishedAt, setFinishedAt] = useState<string | null>(null) // set while the finishing moment plays
+  const finishing = finishedAt !== null
+  const [strike] = useState(() => new Animated.Value(0))
+  const [leave] = useState(() => new Animated.Value(1))
+  const [rowHeight, setRowHeight] = useState(0)
+  const done = !!task.done_at || finishing
+  function toggle() {
+    if (task.done_at || finishing || prefersReducedMotion()) {
+      onToggleDone()
+      return
+    }
+    setFinishedAt(new Date().toISOString())
+    Animated.timing(strike, { toValue: 1, duration: 300, delay: 120, easing: EASE, useNativeDriver: false }).start()
+    Animated.timing(leave, { toValue: 0, duration: 260, delay: 600, easing: EASE, useNativeDriver: false }).start(
+      () => {
+        onToggleDone()
+        // Still here (a list that keeps done rows): show it again, as a done row.
+        leave.setValue(1)
+        strike.setValue(0)
+        setFinishedAt(null)
+      },
+    )
+  }
   const partial = progress !== null && progress > 0 && progress < 100
   const overdue = isOverdue(task, now)
   const hasSubs = !!subtasks && subtasks.total > 0
@@ -68,8 +93,17 @@ export function TaskRow({
     <Animated.View
       ref={dragRef}
       testID="task"
-      onLayout={(e) => swipe.onLayout(e.nativeEvent.layout.width)}
-      style={[enter, { marginHorizontal: -8, overflow: 'hidden' }]}
+      onLayout={(e) => {
+        swipe.onLayout(e.nativeEvent.layout.width)
+        if (!finishing) setRowHeight(e.nativeEvent.layout.height)
+      }}
+      style={[
+        enter,
+        { marginHorizontal: -8, overflow: 'hidden' },
+        finishing && rowHeight
+          ? { opacity: leave, maxHeight: leave.interpolate({ inputRange: [0, 1], outputRange: [0, rowHeight] }) }
+          : {},
+      ]}
     >
       {onSwipe ? <SwipeBackdrop x={swipe.x} done={done} /> : null}
       {/* The hairline is as wide as the column (Paper, Web Today); the hover fill reaches 8 px past it. */}
@@ -100,18 +134,18 @@ export function TaskRow({
           accessibilityLabel={done ? `Reopen ${task.title}` : `Finish ${task.title}`}
           accessibilityState={{ checked: done }}
           onPress={() => {
-            if (!swipe.justSwiped()) onToggleDone()
+            if (!swipe.justSwiped()) toggle()
           }}
           {...hover}
           hitSlop={6}
-          style={{ width: 34, paddingTop: 14, paddingBottom: 14 }}
+          style={({ pressed }) => [{ width: 34, paddingTop: 14, paddingBottom: 14 }, pressScale(pressed, 0.88)]}
         >
           <ProgressRing
             size={20}
             stroke={partial ? 2 : 1.5}
             progress={(progress ?? 0) / 100}
             done={done}
-            doneAt={task.done_at}
+            doneAt={task.done_at ?? finishedAt}
           />
         </Pressable>
         <Pressable
@@ -134,17 +168,37 @@ export function TaskRow({
           {...hover}
         >
           <View style={{ flex: 1, gap: 4 }}>
-            <Text
-              testID={`title-${task.id}`}
-              numberOfLines={2}
-              style={[
-                type.body,
-                { color: done ? c.text3 : c.text, textDecorationLine: done ? 'line-through' : 'none' },
-              ]}
-            >
-              {task.title}
-            </Text>
-            {hasMeta && !done ? (
+            <View style={{ alignSelf: 'flex-start', maxWidth: '100%' }}>
+              <Text
+                testID={`title-${task.id}`}
+                numberOfLines={2}
+                style={[
+                  type.body,
+                  {
+                    color: done ? c.text3 : c.text,
+                    textDecorationLine: done && !finishing ? 'line-through' : 'none',
+                  },
+                  transition('color', 300),
+                ]}
+              >
+                {task.title}
+              </Text>
+              {finishing ? (
+                <Animated.View
+                  pointerEvents="none"
+                  style={{
+                    position: 'absolute',
+                    left: 0,
+                    top: Math.round(type.body.lineHeight / 2),
+                    height: 1.5,
+                    borderRadius: 1,
+                    backgroundColor: c.text3,
+                    width: strike.interpolate({ inputRange: [0, 1], outputRange: ['0%', '100%'] }),
+                  }}
+                />
+              ) : null}
+            </View>
+            {hasMeta && !task.done_at ? (
               <View style={{ flexDirection: 'row', alignItems: 'center', columnGap: 12, rowGap: 4, flexWrap: 'wrap' }}>
                 {task.due_date ? (
                   <Text style={[type.meta, { color: overdue ? c.red : c.text2 }]}>{dueLabel(task, now)}</Text>

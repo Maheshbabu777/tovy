@@ -2,7 +2,7 @@ import { Pressable, Text, View, type ViewStyle } from 'react-native'
 import { type ToolkitIcon } from '../icons'
 import { useTheme, useThemedStyles } from '../theme'
 import { fonts, radius } from '../tokens'
-import { transition, useFocusRing, useHover, webStyle } from './web'
+import { pressScale, transition, useFocusRing, useHover, webStyle } from './web'
 
 export type ButtonVariant = 'primary' | 'soft' | 'ghost' | 'danger'
 
@@ -87,7 +87,8 @@ export function Button({
       style={({ pressed }) => [
         ...style,
         // pressed: back to rest, no shadow (7.1)
-        pressed ? { transform: [{ translateY: 0 }], ...webStyle({ boxShadow: 'none' }) } : {},
+        pressed ? webStyle({ boxShadow: 'none' }) : {},
+        disabled ? {} : pressScale(pressed),
       ]}
       {...hover}
       {...ring.handlers}

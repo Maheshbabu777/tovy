@@ -57,6 +57,12 @@ export function useGroupHover() {
   return { hovered, handlers: { onHoverIn, onHoverOut } }
 }
 
+// A pressed control gives a little (scale 0.97, Paper "06 Motion"), so a touch is answered at once.
+export const pressScale = (pressed: boolean, to = 0.97): ViewStyle => ({
+  transform: [{ scale: pressed ? to : 1 }],
+  ...webStyle({ transitionProperty: 'transform, background-color, opacity', transitionDuration: `${motion.press}ms` }),
+})
+
 // Shadows of the style guide (Space and shape): only what floats has one.
 export const SHADOWS = {
   lift: '0 1px 2px rgba(0,0,0,0.06)',
@@ -65,5 +71,6 @@ export const SHADOWS = {
   overlay: '0 12px 32px rgba(0,0,0,0.08)',
   toast: '0 12px 32px rgba(0,0,0,0.18)',
   fab: '0 8px 24px rgba(0,0,0,0.20)',
+  card: '0 30px 60px rgba(0,0,0,0.22), 0 8px 16px rgba(0,0,0,0.12)', // the profile ID card
 }
 export const shadow = (value: string): ViewStyle => ({ boxShadow: value }) as ViewStyle

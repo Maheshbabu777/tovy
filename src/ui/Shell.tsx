@@ -20,7 +20,16 @@ import storage from '../core/db/authStorage'
 import { Avatar } from './components/Avatar'
 import { DragSheet } from './components/DragSheet'
 import { useToast } from './components/Toast'
-import { shadow, SHADOWS, transition, useFocusRing, useGroupHover, useHover, webStyle } from './components/web'
+import {
+  shadow,
+  SHADOWS,
+  transition,
+  useFocusRing,
+  useGroupHover,
+  useHover,
+  webStyle,
+  pressScale,
+} from './components/web'
 import { useTaskDrop } from './dragTask'
 import { useDropActions } from './useDropActions'
 import { localDay } from '../core/today'
@@ -645,7 +654,7 @@ function AddTaskPill({ collapsed, onPress }: { collapsed: boolean; onPress: () =
       // @ts-expect-error `title` is the web tooltip
       title={collapsed ? 'Add task' : undefined}
       onPress={onPress}
-      style={[
+      style={({ pressed }) => [
         {
           height: 36,
           borderRadius: radius.pill,
@@ -659,6 +668,7 @@ function AddTaskPill({ collapsed, onPress }: { collapsed: boolean; onPress: () =
         },
         transition('opacity'),
         ring.style,
+        pressScale(pressed),
       ]}
       {...hover}
       {...ring.handlers}
