@@ -149,6 +149,18 @@ Deno.test('protected resource metadata names the auth server', async () => {
   assertEquals(body.authorization_servers, ['https://ref.supabase.co/auth/v1'])
 })
 
+Deno.test('initialize names Tovy and gives its icon', async () => {
+  const { rpc } = setup()
+  const { result } = await rpc('initialize', {
+    protocolVersion: '2025-06-18',
+    capabilities: {},
+    clientInfo: { name: 't', version: '1' },
+  })
+  assertEquals(result.serverInfo.name, 'tovy')
+  assertEquals(result.serverInfo.title, 'Tovy')
+  assertMatch(result.serverInfo.icons[0].src, /^data:image\/png;base64,/)
+})
+
 Deno.test('tool list carries the hints, delete is destructive', async () => {
   const { rpc } = setup()
   await rpc('initialize', { protocolVersion: '2025-06-18', capabilities: {}, clientInfo: { name: 't', version: '1' } })

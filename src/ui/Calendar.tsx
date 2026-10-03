@@ -158,6 +158,8 @@ export function MonthPicker({
   month,
   selected,
   onMonth,
+  canPrevMonth = true,
+  canNextMonth = true,
   onPick,
   floating,
 }: {
@@ -167,6 +169,8 @@ export function MonthPicker({
   month: string
   selected: string
   onMonth: (step: -1 | 1) => void
+  canPrevMonth?: boolean
+  canNextMonth?: boolean // the list reaches a year ahead, so the grid stops there too
   onPick: (day: string) => void
 }) {
   const { theme } = useTheme()
@@ -191,8 +195,20 @@ export function MonthPicker({
     >
       <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8 }}>
         <Text style={[type.bodySMedium, { color: c.text, flex: 1, paddingLeft: 4 }]}>{monthTitle(month)}</Text>
-        <NavButton icon={Icons.back} label="Previous month" onPress={() => onMonth(-1)} testID="month-prev" />
-        <NavButton icon={Icons.forward} label="Next month" onPress={() => onMonth(1)} testID="month-next" />
+        <NavButton
+          icon={Icons.back}
+          label="Previous month"
+          onPress={() => onMonth(-1)}
+          disabled={!canPrevMonth}
+          testID="month-prev"
+        />
+        <NavButton
+          icon={Icons.forward}
+          label="Next month"
+          onPress={() => onMonth(1)}
+          disabled={!canNextMonth}
+          testID="month-next"
+        />
       </View>
       <View style={{ flexDirection: 'row' }}>
         {WEEK_HEAD.map((w, i) => (

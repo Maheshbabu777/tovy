@@ -132,9 +132,10 @@ function crossFade() {
 }
 
 function webSavedPreference(): ThemePreference | null {
-  if (Platform.OS !== 'web' || typeof localStorage === 'undefined') return null
+  if (Platform.OS !== 'web') return null
+  // Inside the try: with storage blocked (cookies off), even reading `localStorage` throws.
   try {
-    const raw = localStorage.getItem(STORAGE_KEY)
+    const raw = globalThis.localStorage?.getItem(STORAGE_KEY)
     const p = raw ? (JSON.parse(raw) as { preference?: string }).preference : null
     return p === 'light' || p === 'dark' || p === 'system' ? p : null
   } catch {

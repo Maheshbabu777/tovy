@@ -16,6 +16,7 @@ import { createClient } from '@supabase/supabase-js'
 import { z } from 'zod'
 import { type Repo, supabaseRepo } from './repo.ts'
 import { ANNOTATIONS, type Caller, registerTools } from './tools.ts'
+import { ICON_96 } from './icon.ts'
 
 export type Verified = { userId: string; clientId: string }
 
@@ -41,8 +42,18 @@ export function createMcp(): McpServer {
     await next()
     const req = ctx.request as { method?: string }
     const result = (
-      ctx.response as { result?: { tools?: { name: string; annotations?: unknown; title?: string }[] } } | null
+      ctx.response as {
+        result?: {
+          tools?: { name: string; annotations?: unknown; title?: string }[]
+          serverInfo?: Record<string, unknown>
+        }
+      } | null
     )?.result
+    // Tovy's name and icon for AI apps that show them (MCP 2025-11-25 `Implementation.title` and `icons`).
+    if (req.method === 'initialize' && result?.serverInfo) {
+      result.serverInfo.title = 'Tovy'
+      result.serverInfo.icons = [{ src: ICON_96, mimeType: 'image/png', sizes: ['96x96'] }]
+    }
     if (req.method === 'tools/list' && result?.tools) {
       for (const tool of result.tools) {
         const a = ANNOTATIONS[tool.name]

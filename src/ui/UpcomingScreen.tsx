@@ -199,6 +199,8 @@ export function UpcomingScreen() {
               month={pickerMonth}
               selected={selected}
               onMonth={(step) => setPickerMonth((m) => shiftMonth(m, step))}
+              canPrevMonth={shiftMonth(pickerMonth, 0) > shiftMonth(today, 0)}
+              canNextMonth={shiftMonth(pickerMonth, 1) <= addDays(today, MOST_DAYS - 1)}
               onPick={(day) => {
                 setPickerOpen(false)
                 jumpTo(day)
