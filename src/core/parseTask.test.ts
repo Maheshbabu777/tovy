@@ -25,7 +25,9 @@ describe('quick add reads the words', () => {
   it('reads weekdays as the next one, never today', () => {
     expect(parse('gym monday')).toMatchObject({ title: 'gym', dueDate: '2026-10-05' })
     expect(parse('gym on fri')).toMatchObject({ title: 'gym', dueDate: '2026-10-09' })
-    expect(parse('review sat')).toMatchObject({ dueDate: '2026-10-10' }) // today is Saturday
+    expect(parse('review on sat')).toMatchObject({ title: 'review', dueDate: '2026-10-10' }) // today is Saturday
+    expect(parse('review saturday')).toMatchObject({ dueDate: '2026-10-10' })
+    expect(parse('dentist fri at 4')).toMatchObject({ title: 'dentist', dueDate: '2026-10-09', dueTime: '16:00' })
     expect(parse('review next monday')).toMatchObject({ title: 'review', dueDate: '2026-10-12' })
     expect(parse('plan next week')).toMatchObject({ title: 'plan', dueDate: '2026-10-05' })
   })
@@ -88,6 +90,26 @@ describe('quick add reads the words', () => {
     expect(parse('marketing plan')).toMatchObject({ title: 'marketing plan', dueDate: null })
     expect(parse('update docs')).toMatchObject({ title: 'update docs', dueDate: null })
     expect(parse('buy 2 apples')).toMatchObject({ title: 'buy 2 apples', dueDate: null })
+  })
+
+  it('leaves ordinary titles alone (found in review)', () => {
+    const plain = (t: string) => expect(parse(t)).toMatchObject({ title: t, dueDate: null, dueTime: null })
+    plain("Finish today's report")
+    plain("Prep for Monday's meeting")
+    plain('Apply sun cream')
+    plain('SAT prep')
+    plain('Call Tod')
+    plain('24/7 support rota')
+    plain('Rate 4/5 stars')
+    plain('Look at 5 options')
+    plain('Read John 3:16')
+    plain('Set screen to 16:9')
+  })
+
+  it('still reads the marked forms of those', () => {
+    expect(parse('support rota on 24/7')).toMatchObject({ title: 'support rota', dueDate: '2027-07-24' })
+    expect(parse('call at 5 tomorrow')).toMatchObject({ title: 'call', dueDate: '2026-10-04', dueTime: '17:00' })
+    expect(parse('read at 9:15')).toMatchObject({ title: 'read', dueTime: '09:15' })
   })
 
   it('reports what it read for the chips', () => {

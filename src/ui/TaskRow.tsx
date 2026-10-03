@@ -52,7 +52,7 @@ export function TaskRow({
   const hasMeta = !!task.due_date || partial || hasSubs
   const keyboardFocus = Object.keys(ring.style).length > 0
   const enter = useEnter({ delay: enterDelay, distance: 6, duration: 200 })
-  const swipe = useSwipe(onSwipe)
+  const swipe = useSwipe(onSwipe, { left: !done })
 
   return (
     <Animated.View

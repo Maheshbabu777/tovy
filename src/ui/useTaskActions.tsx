@@ -56,6 +56,7 @@ export function useTaskActions(now: Date) {
   // Tomorrow, keeping the time. Undo puts the old date back.
   const moveTomorrow = (task: Task) =>
     run(() => {
+      if (task.done_at) return // a finished task has nowhere to move
       const before = task.due_date
       store.editTask(task.id, { dueDate: addDays(localDay(now), 1) })
       toast.show({

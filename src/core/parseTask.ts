@@ -5,16 +5,17 @@ import { addDays, localDay } from './today'
 // come in as arguments.
 //
 // What it understands, anywhere in the text, case does not matter:
-//   days:   today, tod, tonight (today, 20:00 unless a time is given), tomorrow, tmr, tmrw, the weekday names and their
-//           three letter forms (the next one, never today), "next <weekday>" (the one after that week's), "in N days",
-//           "in N weeks", "next week" (next Monday), a date like "5 oct", "oct 5", "5 october", "5/10" (day first,
-//           as in India and most of the world), with an optional year
-//   times:  5pm, 5 pm, 5:30pm, 17:00, "at 5" (a bare hour after "at": 1 to 6 means afternoon, 7 to 11 morning),
-//           noon, midnight
-//   project: "#Name" matched to an existing project by name (spaces in names can be typed or left out, "#bigideas"
-//           finds "Big ideas"), the best prefix wins; an unknown "#word" stays in the title
-// A word is only taken when it stands alone, so "Monday meeting notes" keeps "Monday" when it starts the title and the
-// title would otherwise be empty. Words that were read are reported with their positions, so the UI can show them.
+//   days:   today, tonight (today, 20:00 unless a time is given), tomorrow, tmr, tmrw; weekday names (the next one,
+//           never today); their three letter forms only after on, by or due, or right before a time ("fri 5pm");
+//           "next <weekday>" (the one after that week's), "next week" (next Monday), "in N days", "in N weeks";
+//           dates like "5 oct", "oct 5th", "5 october 2027"; "5/10" day first, as in India, when nothing but a date
+//           word follows it (so "24/7 support" stays a title) or when on, by or due comes before it
+//   times:  5pm, 5:30 pm, 17:00 (two digit hour), "at 9:15", "at 5" at the end or before a day word (1 to 6 means
+//           afternoon, 7 to 11 morning), noon, midnight
+//   project: "#Name" matched to an existing project by name (spaces optional, "#bigideas" finds "Big ideas"), the
+//           shortest name that starts with it wins; an unknown "#word" stays in the title
+// Only whole words are read, never part of one ("today's" stays). One of each kind, the first typed. A task never
+// ends up without a title. Words that were read are reported, so the UI can show them.
 
 export type ParsedTask = {
   title: string
@@ -110,7 +111,7 @@ export function parseTask(input: string, now: Date, projects: { id: string; name
     }
   }
   const B = '(?<![\\w#])' // start of a word
-  const E = '(?![\\w])' // end of a word
+  const E = "(?![\\w'’])" // end of a word (and not "today's")
 
   // Projects first, so "#Mon" is a project and not Monday.
   add(new RegExp(`${B}#([\\w-]+)`, 'gi'), 'project', (m) => {
@@ -129,10 +130,14 @@ export function parseTask(input: string, now: Date, projects: { id: string; name
     if (m[3].toLowerCase() === 'am' && h === 12) h = 0
     return toHHMM(h, Number(m[2] ?? 0))
   })
-  add(new RegExp(`${B}(?:at\\s+)?([01]?\\d|2[0-3]):([0-5]\\d)${E}`, 'gi'), 'time', (m) =>
-    toHHMM(Number(m[1]), Number(m[2])),
+  // 17:00 or 09:15 (two digit hour), or "at 9:15"; a lone "3:16" is a verse or a ratio, not a time.
+  add(new RegExp(`${B}(?:at\\s+([01]?\\d|2[0-3])|([01]\\d|2[0-3])):([0-5]\\d)${E}`, 'gi'), 'time', (m) =>
+    toHHMM(Number(m[1] ?? m[2]), Number(m[3])),
   )
-  add(new RegExp(`${B}at\\s+(\\d{1,2})${E}(?!\\s*(?:/|-|\\.))`, 'gi'), 'time', (m) => {
+  // "at 5" only at the end, or right before a day ("call at 5 tomorrow"); "look at 5 options" stays a title.
+  const DAY_WORD =
+    '(?:today|tomorrow|tmrw|tmr|tonight|on|next|in|by|sunday|monday|tuesday|wednesday|thursday|friday|saturday|sun|mon|tue|wed|thu|fri|sat)'
+  add(new RegExp(`${B}at\\s+(\\d{1,2})(?=\\s*$|\\s+${DAY_WORD}${E}|\\s+#)`, 'gi'), 'time', (m) => {
     const h = Number(m[1])
     if (h < 1 || h > 12) return null
     return toHHMM(h <= 6 ? h + 12 : h === 12 ? 12 : h, 0)
@@ -142,7 +147,7 @@ export function parseTask(input: string, now: Date, projects: { id: string; name
 
   // Days.
   const today = localDay(now)
-  add(new RegExp(`${B}(today|tod)${E}`, 'gi'), 'date', () => today)
+  add(new RegExp(`${B}today${E}`, 'gi'), 'date', () => today)
   add(new RegExp(`${B}tonight${E}`, 'gi'), 'date', () => today)
   add(new RegExp(`${B}(tomorrow|tmrw|tmr)${E}`, 'gi'), 'date', () => addDays(today, 1))
   add(new RegExp(`${B}next\\s+week${E}`, 'gi'), 'date', () => nextWeekday(now, 1))
@@ -163,15 +168,33 @@ export function parseTask(input: string, now: Date, projects: { id: string; name
     const mi = monthIndex(m[1])
     return mi < 0 ? null : calendarDate(now, Number(m[2]), mi, m[3] ? Number(m[3]) : undefined)
   })
-  // "5/10", "5/10/2027", day first
-  add(new RegExp(`${B}(\\d{1,2})/(\\d{1,2})(?:/(\\d{2,4}))?${E}`, 'gi'), 'date', (m) => {
+  // "5/10", "5/10/2027", day first; not when a word follows ("24/7 support", "rate 4/5 stars") unless "on" or "by"
+  // comes before it
+  add(new RegExp(`${B}(?:(?:on|by|due)\\s+)?(\\d{1,2})/(\\d{1,2})(?:/(\\d{2,4}))?${E}`, 'gi'), 'date', (m) => {
+    const marked = /^(on|by|due)\s/i.test(m[0])
+    const after = text.slice(m.index + m[0].length)
+    if (!marked && !m[3] && /^\s+[a-z0-9]/i.test(after)) return null
     const y = m[3] ? (m[3].length === 2 ? 2000 + Number(m[3]) : Number(m[3])) : undefined
     return calendarDate(now, Number(m[1]), Number(m[2]) - 1, y)
   })
-  add(new RegExp(`${B}(?:on\\s+)?([a-z]{3,9})${E}`, 'gi'), 'date', (m) => {
-    const i = weekdayIndex(m[1])
-    return i < 0 ? null : nextWeekday(now, i)
-  })
+  // Weekdays: the full name anywhere ("gym monday"); the short form ("fri") only after on, by or due, or right before a
+  // time, so "apply sun cream" and "SAT prep" stay titles.
+  add(
+    new RegExp(`${B}(?:(?:on|by|due)\\s+)?(sunday|monday|tuesday|wednesday|thursday|friday|saturday)${E}`, 'gi'),
+    'date',
+    (m) => nextWeekday(now, weekdayIndex(m[1])),
+  )
+  add(new RegExp(`${B}(?:on|by|due)\\s+(sun|mon|tue|wed|thu|fri|sat)${E}`, 'gi'), 'date', (m) =>
+    nextWeekday(now, weekdayIndex(m[1])),
+  )
+  add(
+    new RegExp(
+      `${B}(sun|mon|tue|wed|thu|fri|sat)(?=\\s+(?:at\\s+)?\\d{1,2}(?::\\d{2})?\\s?(?:am|pm)?(?![\\w/]))`,
+      'gi',
+    ),
+    'date',
+    (m) => nextWeekday(now, weekdayIndex(m[1])),
+  )
 
   // One of each kind: the first one typed wins, the rest stay in the title.
   const kept: Hit[] = []

@@ -452,8 +452,11 @@ export function Shell() {
           </Pressable>
         )}
         {panel ? (
-          <DragSheet key={openId} onClose={closeTask} testID="task-panel">
-            {panel}
+          // The sheet stays up while moving between a task and its subtasks; only its content changes.
+          <DragSheet onClose={closeTask} testID="task-panel">
+            <TaskPanel key={openId} wide={false}>
+              {panel}
+            </TaskPanel>
           </DragSheet>
         ) : null}
       </View>

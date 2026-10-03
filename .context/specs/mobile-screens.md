@@ -72,6 +72,7 @@ The web keeps its current layout; only shared components change.
 - [x] Floating surfaces one step lighter in dark (`raised` colour) so sheets separate from the page
 - [x] Checks: lint, format, typecheck, 64 unit tests, web export
 - [x] Screenshots at 390 wide, light and dark, of Today (top, scrolled, mid-swipe), Inbox, Upcoming (top, scrolled), Browse, Projects, a project, task sheet, Profile, Appearance, action sheet, quick add; and 1440 wide to check the web did not change
+- [x] Review fixes (2026-10-03): the task sheet settles back if another gesture takes over, reads its height live, and closes on Android back; it stays up between a task and its subtasks; a finished task cannot be swiped left (no due date on a done task); a swipe that is sliding off cannot be grabbed again; a page keeps its back and actions on the web while its title is still empty; Upcoming measures sections when asked on the web (the web only reports size changes) and has room under the last day
 - [ ] Human checks on a real phone (swipe and drag feel, keyboard over quick add)
 
 ## Notes

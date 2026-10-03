@@ -6,38 +6,46 @@ import { EASE, prefersReducedMotion } from '../motion'
 // A sideways swipe on a row (spec mobile-screens, criterion 3), with React Native's PanResponder so it needs no native
 // library. The row follows the finger; let go past the commit point and it slides off, the action runs, and the row
 // returns to place (by then it has usually moved to another section). Short of it, it springs back.
-export function useSwipe(onSwipe: ((action: SwipeAction) => void) | undefined) {
+// `left: false` turns off the left swipe (a finished task has nothing to move to tomorrow).
+export function useSwipe(onSwipe: ((action: SwipeAction) => void) | undefined, { left = true } = {}) {
   const [x] = useState(() => new Animated.Value(0))
   const width = useRef(360)
   const latest = useRef(onSwipe)
+  const allowLeft = useRef(left)
+  const committing = useRef(false) // a swipe is sliding off: a new touch does not start another one
   const lastSwipe = useRef(0) // when the last swipe moved the row, so the tap that ends it is not taken as a press
   useEffect(() => {
     latest.current = onSwipe
-  }, [onSwipe])
+    allowLeft.current = left
+  }, [onSwipe, left])
 
   // The handlers read the refs only when a gesture fires, never while rendering, which the hooks rule cannot see.
   // eslint-disable-next-line react-hooks/refs
   const [responder] = useState(() =>
     PanResponder.create({
-      onMoveShouldSetPanResponder: (_e, g) => !!latest.current && isHorizontal(g.dx, g.dy),
-      onMoveShouldSetPanResponderCapture: (_e, g) => !!latest.current && isHorizontal(g.dx, g.dy),
+      onMoveShouldSetPanResponder: (_e, g) =>
+        !!latest.current && !committing.current && isHorizontal(g.dx, g.dy) && (g.dx > 0 || allowLeft.current),
+      onMoveShouldSetPanResponderCapture: (_e, g) =>
+        !!latest.current && !committing.current && isHorizontal(g.dx, g.dy) && (g.dx > 0 || allowLeft.current),
       onPanResponderTerminationRequest: () => false,
       onPanResponderGrant: () => {
         lastSwipe.current = Date.now()
       },
       onPanResponderMove: (_e, g) => {
         lastSwipe.current = Date.now()
-        x.setValue(follow(g.dx, width.current))
+        x.setValue(follow(allowLeft.current ? g.dx : Math.max(0, g.dx), width.current))
       },
       onPanResponderRelease: (_e, g) => {
-        const action = swipeDecision(g.dx, g.vx, width.current)
+        const action = swipeDecision(allowLeft.current ? g.dx : Math.max(0, g.dx), g.vx, width.current)
         const native = Platform.OS !== 'web'
         if (!action) {
           Animated.spring(x, { toValue: 0, useNativeDriver: native, bounciness: 0, speed: 20 }).start()
           return
         }
         const out = (g.dx > 0 ? 1 : -1) * width.current
+        committing.current = true
         const done = () => {
+          committing.current = false
           latest.current?.(action)
           x.setValue(0)
         }

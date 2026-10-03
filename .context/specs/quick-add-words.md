@@ -8,7 +8,7 @@ Stage 3 of `foundation-reset.md` starts with quick add that understands words, t
 
 ## Acceptance criteria
 
-1. Days: today, tod, tonight (8 PM unless a time is given), tomorrow, tmr, tmrw, weekday names and three letter forms (the next one, never today), next <weekday>, next week (next Monday), in N days, in N weeks, dates as "5 oct", "oct 5th", "5 october 2027", "5/10" (day first), rolling to next year when the date has passed.
+1. Days: today, tonight (8 PM unless a time is given), tomorrow, tmr, tmrw, weekday names (the next one, never today), three letter forms only after on, by or due or right before a time, next <weekday>, next week (next Monday), in N days, in N weeks, dates as "5 oct", "oct 5th", "5 october 2027", "5/10" (day first), rolling to next year when the date has passed.
 2. Times: 5pm, 5:30 pm, 17:00, at 5 (1 to 6 afternoon, 7 to 11 morning), noon, midnight. A time with no day means today if it is still ahead, else tomorrow.
 3. Projects: #Name matches an existing project, case and spaces optional, the shortest name that starts with the typed text wins; an unknown #word stays in the title.
 4. Only whole words are read; one of each kind (the first typed); the read words leave the title; a task never ends up without a title (if everything was a date, the text stays as typed and nothing is read).
@@ -37,5 +37,7 @@ Stage 3 of `foundation-reset.md` starts with quick add that understands words, t
 - [ ] Human tries it on the preview
 
 ## Notes
+
+- Review pass (2026-10-03, an independent reviewer read the code): ordinary titles were being changed ("Finish today's report", "Apply sun cream", "SAT prep", "Call Tod", "24/7 support rota", "Rate 4/5 stars", "Look at 5 options", "Read John 3:16"). Fixed: no word followed by an apostrophe; short weekday forms only after on, by or due or before a time; "tod" dropped; a slash date only when nothing but a date word follows, or after on, by or due; "at 5" only at the end or before a day word; colon times need a two digit hour or "at". All ten titles are now unit tests. Criterion 1 changed accordingly: a bare "sat" is not read, "on sat" and "saturday" are.
 
 - The e2e titles (`perf-0`, `doomed-5`, `x3` and the rest) contain no word the parser reads: numbers only count with am, pm, a colon, a month or "at".

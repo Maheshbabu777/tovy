@@ -67,9 +67,9 @@ export function Page({
           {column(
             <>
               {hero ??
-                (title ? (
+                (title !== undefined || onBack || actions ? (
                   <ScreenHeader
-                    title={title}
+                    title={title ?? ''}
                     subtitle={subtitle}
                     onBack={onBack}
                     right={actions}

@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react'
-import { Animated, PanResponder, Platform, Pressable, useWindowDimensions, View } from 'react-native'
+import { Animated, BackHandler, PanResponder, Platform, Pressable, useWindowDimensions, View } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { animate, EASE, prefersReducedMotion } from '../motion'
 import { useTheme } from '../theme'
@@ -25,9 +25,20 @@ export function DragSheet({
   const sheetHeight = Math.round((height - insets.top) * 0.92)
   const [y] = useState(() => new Animated.Value(prefersReducedMotion() ? 0 : sheetHeight))
   const latestClose = useRef(onClose)
+  const heightRef = useRef(sheetHeight) // the gesture reads the current height, not the one from the first render
   useEffect(() => {
     latestClose.current = onClose
-  }, [onClose])
+    heightRef.current = sheetHeight
+  }, [onClose, sheetHeight])
+
+  // Android's back button closes the sheet instead of leaving the page.
+  useEffect(() => {
+    const sub = BackHandler.addEventListener('hardwareBackPress', () => {
+      latestClose.current()
+      return true
+    })
+    return () => sub.remove()
+  }, [])
 
   useEffect(() => {
     animate(y, 0, 260)
@@ -45,11 +56,17 @@ export function DragSheet({
         if (g.dy > 120 || g.vy > 0.8) {
           if (prefersReducedMotion()) latestClose.current()
           else
-            Animated.timing(y, { toValue: sheetHeight, duration: 200, easing: EASE, useNativeDriver: native }).start(
-              () => latestClose.current(),
-            )
+            Animated.timing(y, {
+              toValue: heightRef.current,
+              duration: 200,
+              easing: EASE,
+              useNativeDriver: native,
+            }).start(() => latestClose.current())
         } else Animated.spring(y, { toValue: 0, useNativeDriver: native, bounciness: 0, speed: 18 }).start()
       },
+      // Another gesture took over (an edge swipe, the notification shade): settle back open.
+      onPanResponderTerminate: () =>
+        Animated.spring(y, { toValue: 0, useNativeDriver: native, bounciness: 0, speed: 18 }).start(),
     }),
   )
 

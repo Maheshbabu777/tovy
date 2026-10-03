@@ -1,5 +1,5 @@
 import { useRef, useState } from 'react'
-import { Pressable, ScrollView, Text, useWindowDimensions, View } from 'react-native'
+import { Platform, Pressable, ScrollView, Text, useWindowDimensions, View } from 'react-native'
 import { batch } from '@legendapp/state'
 import { localDay } from '../core/today'
 import { upcoming, weekStrip } from '../core/views'
@@ -22,16 +22,29 @@ export function UpcomingScreen() {
   const { store, tasks, projectMap, loaded } = useTaskData()
   const view = upcoming(tasks, now)
   const shared = { all: tasks, projectMap, now, actions }
-  const wide = useWindowDimensions().width >= WIDE_BREAKPOINT
+  const { width, height } = useWindowDimensions()
+  const wide = width >= WIDE_BREAKPOINT
   const scroll = useRef<ScrollView>(null)
   const spots = useRef<Record<string, number>>({})
   const [selected, setSelected] = useState(localDay(now))
   const headHeight = useRef(0)
   const jumping = useRef(false)
 
-  // Where a day's section starts in the scroll. Phone: the sections sit under the large title, and the strip is pinned
-  // over the top of the list. Web: positions are measured inside the page column, below its 40 px top padding.
+  const nodes = useRef<Record<string, View | null>>({})
+
+  // Where a day's section starts in the scroll, so it lands just under the pinned strip (phone) or near the top (web).
+  // In a browser the section is measured when asked, because the web only reports a view's layout when its size
+  // changes, not when it moves (adding a task above would leave an old position). On a phone `onLayout` does report
+  // moves: the sections sit under the large title, and the strip is pinned over the top of the list.
   const offsetOf = (day: string) => {
+    if (Platform.OS === 'web') {
+      const el = nodes.current[day] as unknown as HTMLElement | null
+      const box = (scroll.current as unknown as { getScrollableNode?: () => HTMLElement })?.getScrollableNode?.()
+      if (!el?.getBoundingClientRect || !box) return undefined
+      const strip = document.querySelector<HTMLElement>('[data-testid="week-strip"]')
+      const cover = wide ? 8 : (strip?.parentElement?.offsetHeight ?? 0)
+      return el.getBoundingClientRect().top - box.getBoundingClientRect().top + box.scrollTop - cover
+    }
     const y = spots.current[day]
     if (y === undefined) return undefined
     return wide ? 40 + y - 8 : headHeight.current + y
@@ -105,12 +118,20 @@ export function UpcomingScreen() {
             {...shared}
           />
           {view.days.map((d) => (
-            <View key={d.day} onLayout={(e) => (spots.current[d.day] = e.nativeEvent.layout.y)}>
+            <View
+              key={d.day}
+              ref={(node) => {
+                nodes.current[d.day] = node
+              }}
+              onLayout={(e) => (spots.current[d.day] = e.nativeEvent.layout.y)}
+            >
               <TaskSection id={`day-${d.day}`} title={d.title} rows={d.tasks} keepEmpty {...shared}>
                 <AddTaskRow onAdd={(title) => addOn(d.day, title)} testID={`add-${d.day}`} collapsible />
               </TaskSection>
             </View>
           ))}
+          {/* Room under the last day, so picking a late day in the strip can still bring it to the top. */}
+          <View style={{ height: Math.round(height * 0.5) }} />
         </>
       )}
       {actions.menuElement}
