@@ -20,7 +20,10 @@ import storage from '../core/db/authStorage'
 import { Avatar } from './components/Avatar'
 import { DragSheet } from './components/DragSheet'
 import { useToast } from './components/Toast'
-import { shadow, SHADOWS, transition, useFocusRing, useHover } from './components/web'
+import { shadow, SHADOWS, transition, useFocusRing, useHover, webStyle } from './components/web'
+import { useTaskDrop } from './dragTask'
+import { useDropActions } from './useDropActions'
+import { localDay } from '../core/today'
 import { Logo } from './Brand'
 import { CommandPalette } from './CommandPalette'
 import { moveFocus, toggleFocused } from './keyboardList'
@@ -123,6 +126,8 @@ export function Shell() {
   })
 
   useEffect(() => store.catchUpAfterRealtime(), [store])
+  // A task dragged onto Inbox, Today or a project in the sidebar (web, spec upcoming-drag).
+  const drop = useDropActions(now)
 
   // Quick add: the sidebar button, the phone add button, and N or Q on the web. Inside a project it files the task there.
   const [adding, setAdding] = useState(false)
@@ -312,6 +317,13 @@ export function Shell() {
                     collapsed={collapsed}
                     on={section === m.href}
                     onPress={() => go(m.href)}
+                    onDropTask={
+                      m.href === '/inbox'
+                        ? (id) => drop.toProject(id, null, 'Inbox')
+                        : m.href === '/'
+                          ? (id) => drop.toDay(id, localDay(now))
+                          : undefined
+                    }
                   />
                 ))}
                 <NavItem
@@ -368,6 +380,7 @@ export function Shell() {
                         collapsed={false}
                         on={section === '/projects' && params.id === p.id}
                         onPress={() => router.navigate({ pathname: '/projects', params: { id: p.id } })}
+                        onDropTask={(id) => drop.toProject(id, p.id, p.name)}
                       />
                     ))}
               </NavColumn>
@@ -549,7 +562,9 @@ function NavItem({
   testID,
   style,
   keyHint,
+  onDropTask,
 }: {
+  onDropTask?: (taskId: string) => void // a dragged task can be dropped here (web)
   keyHint?: string
   navKey: string
   label: string
@@ -567,8 +582,11 @@ function NavItem({
   const report = useContext(NavLayout)
   const { hovered, handlers: hover } = useHover()
   const ring = useFocusRing(c.primary)
+  const [attach, held] = useTaskDrop((id) => onDropTask?.(id))
+  const over = !!onDropTask && held
   return (
     <Pressable
+      ref={onDropTask ? attach : undefined}
       testID={testID}
       accessibilityRole="tab"
       accessibilityState={{ selected: on }}
@@ -586,8 +604,9 @@ function NavItem({
           justifyContent: collapsed ? 'center' : 'flex-start',
           gap: 10,
           paddingHorizontal: collapsed ? 0 : 10,
-          backgroundColor: hovered && !on ? c.hover : 'transparent',
+          backgroundColor: (hovered && !on) || over ? c.hover : 'transparent',
         },
+        over ? webStyle({ boxShadow: `inset 0 0 0 1.5px ${c.text}` }) : {},
         transition('background-color'),
         ring.style,
         style ?? {},

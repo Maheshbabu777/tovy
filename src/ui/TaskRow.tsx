@@ -2,6 +2,7 @@ import { Animated, Pressable, Text, View } from 'react-native'
 import { Icons } from './icons'
 import { useEnter } from './motion'
 import { useSwipe } from './components/useSwipe'
+import { useDraggableTask } from './dragTask'
 import type { SwipeAction } from '../core/swipe'
 import { useTheme } from './theme'
 import { type } from './tokens'
@@ -55,9 +56,11 @@ export function TaskRow({
   const keyboardFocus = Object.keys(ring.style).length > 0
   const enter = useEnter({ delay: enterDelay, distance: 6, duration: 200 })
   const swipe = useSwipe(onSwipe, { left: !done })
+  const dragRef = useDraggableTask(task.id) // the web: drag onto a day or a list (spec upcoming-drag)
 
   return (
     <Animated.View
+      ref={dragRef}
       testID="task"
       onLayout={(e) => swipe.onLayout(e.nativeEvent.layout.width)}
       style={[enter, { marginHorizontal: -8, borderBottomWidth: 1, borderBottomColor: c.line, overflow: 'hidden' }]}
