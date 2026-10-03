@@ -19,6 +19,7 @@ export type ConsentRequest = {
   clientId: string
   name: string
   uri: string
+  logoUri: string
   redirectUri: string
   scope: string
   email: string
@@ -42,6 +43,7 @@ export async function loadConsent(
         clientId: d.client.id,
         name: d.client.name,
         uri: d.client.uri,
+        logoUri: /^https:\/\//.test(d.client.logo_uri ?? '') ? d.client.logo_uri : '',
         redirectUri: d.redirect_uri,
         scope: d.scope,
         email: d.user.email,
@@ -75,7 +77,14 @@ export async function saveAccess(clientId: string, name: string, access: AiAcces
   return error ? failed(error) : { ok: true, data: null }
 }
 
-export type ConnectedApp = { clientId: string; name: string; uri: string; grantedAt: string; access: AiAccess }
+export type ConnectedApp = {
+  clientId: string
+  name: string
+  uri: string
+  logoUri: string // the app's own icon, as it registered it ('' when it gave none)
+  grantedAt: string
+  access: AiAccess
+}
 
 // The apps the person approved (Supabase keeps the grants), with the access they gave each.
 export async function loadConnectedApps(): Promise<Loaded<ConnectedApp[]>> {
@@ -92,6 +101,7 @@ export async function loadConnectedApps(): Promise<Loaded<ConnectedApp[]>> {
         clientId: g.client.id,
         name: g.client.name,
         uri: g.client.uri,
+        logoUri: /^https:\/\//.test(g.client.logo_uri ?? '') ? g.client.logo_uri : '',
         grantedAt: g.granted_at,
         access: access.get(g.client.id) ?? 'write',
       }))

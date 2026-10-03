@@ -46,8 +46,9 @@ export function animate(value: Animated.Value, to: number, duration: number, del
 }
 
 // Fade and rise in once, when the component mounts. `distance` is how far it rises, in px.
-export function useEnter({ delay = 0, duration = 220, distance = 8 } = {}) {
-  const [t] = useState(() => new Animated.Value(reduced ? 1 : 0))
+// `skip` (read once, when the thing first shows) puts it in place without moving: for things that were already there.
+export function useEnter({ delay = 0, duration = 220, distance = 8, skip = false } = {}) {
+  const [t] = useState(() => new Animated.Value(reduced || skip ? 1 : 0))
   useEffect(() => {
     animate(t, 1, duration, delay)
   }, [t, duration, delay])

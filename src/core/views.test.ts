@@ -8,6 +8,11 @@ import {
   todayCount,
   upcoming,
   weekStrip,
+  weekStart,
+  monthGrid,
+  monthTitle,
+  shiftMonth,
+  daysThrough,
 } from './views'
 
 const now = new Date(2026, 9, 3, 10) // Sat 3 Oct 2026
@@ -93,12 +98,54 @@ describe('today header', () => {
 })
 
 describe('week strip', () => {
-  it('marks the days that have open tasks', () => {
-    const strip = weekStrip([t('a', { due_date: '2026-10-04' }), t('b', { due_date: '2026-10-05', done_at: 'x' })], now)
-    expect(strip).toHaveLength(7)
-    expect(strip[0]).toEqual({ day: '2026-10-03', weekday: 'Sat', date: 3, busy: false })
-    expect(strip[1].busy).toBe(true)
-    expect(strip[2].busy).toBe(false)
+  it('shows Monday to Sunday of this week and marks busy, past and today', () => {
+    const strip = weekStrip([t('a', { due_date: '2026-10-04' }), t('b', { due_date: '2026-10-02', done_at: 'x' })], now)
+    expect(strip.map((d) => d.day)).toEqual([
+      '2026-09-28',
+      '2026-09-29',
+      '2026-09-30',
+      '2026-10-01',
+      '2026-10-02',
+      '2026-10-03',
+      '2026-10-04',
+    ])
+    expect(strip[0]).toEqual({ day: '2026-09-28', weekday: 'Mon', date: 28, busy: false, past: true, today: false })
+    expect(strip[5]).toMatchObject({ weekday: 'Sat', past: false, today: true })
+    expect(strip[6].busy).toBe(true)
+    expect(strip[4].busy).toBe(false)
+  })
+
+  it('shows any other week', () => {
+    expect(weekStrip([], now, '2026-12-31').map((d) => d.day)[0]).toBe('2026-12-28')
+    expect(weekStart('2026-10-04')).toBe('2026-09-28')
+    expect(weekStart('2026-09-28')).toBe('2026-09-28')
+  })
+})
+
+describe('calendar', () => {
+  it('lays out a month in Monday weeks', () => {
+    const grid = monthGrid([t('a', { due_date: '2026-10-20' })], now, '2026-10-17')
+    expect(grid).toHaveLength(5)
+    expect(grid[0][0]).toMatchObject({ day: '2026-09-28', inMonth: false, past: true })
+    expect(grid[0][3]).toMatchObject({ day: '2026-10-01', inMonth: true })
+    expect(grid[3][1]).toMatchObject({ day: '2026-10-20', busy: true })
+    expect(grid[4][6]).toMatchObject({ day: '2026-11-01', inMonth: false })
+  })
+
+  it('names and moves between months across years', () => {
+    expect(monthTitle('2026-10-03')).toBe('October 2026')
+    expect(shiftMonth('2026-12-15', 1)).toBe('2027-01-01')
+    expect(shiftMonth('2026-01-31', -1)).toBe('2025-12-01')
+  })
+
+  it('counts the days through a date', () => {
+    expect(daysThrough(now, '2026-10-03')).toBe(1)
+    expect(daysThrough(now, '2026-11-01')).toBe(30)
+    expect(daysThrough(now, '2027-10-03')).toBe(366)
+  })
+
+  it('lists as many days as asked', () => {
+    expect(upcoming([], now, 40).days).toHaveLength(40)
   })
 })
 

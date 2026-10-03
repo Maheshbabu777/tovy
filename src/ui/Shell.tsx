@@ -20,7 +20,7 @@ import storage from '../core/db/authStorage'
 import { Avatar } from './components/Avatar'
 import { DragSheet } from './components/DragSheet'
 import { useToast } from './components/Toast'
-import { shadow, SHADOWS, transition, useFocusRing, useHover, webStyle } from './components/web'
+import { shadow, SHADOWS, transition, useFocusRing, useGroupHover, useHover, webStyle } from './components/web'
 import { useTaskDrop } from './dragTask'
 import { useDropActions } from './useDropActions'
 import { localDay } from '../core/today'
@@ -32,6 +32,7 @@ import { KeyCap } from './components/KeyCap'
 import { animate, EASE, prefersReducedMotion, useSlideIn } from './motion'
 import { onQuickAdd, requestPalette, requestQuickAdd } from './quickAdd'
 import { QuickAddSheet } from './QuickAddSheet'
+import { ProjectSheet } from './ProjectSheet'
 import { TaskDetail } from './TaskDetail'
 import { useTheme } from './theme'
 import { fonts, motion, radius, type, WIDE_BREAKPOINT } from './tokens'
@@ -73,25 +74,20 @@ const sectionOf = (pathname: string): Href => {
   return hit ? hit.href : '/'
 }
 
-// A page fades in and rises 8 px every time the route changes (180 ms).
+// Pages switch at once (spec design-v2): fading and rising every page on every switch read as a flicker, and the apps
+// people compare us with (Linear, Cursor, Devin) swap instantly. Motion is kept for things that arrive or leave.
 function RouteEnter({ children }: { children: ReactNode }) {
-  const pathname = usePathname()
-  const [t] = useState(() => new Animated.Value(1))
-  useEffect(() => {
-    t.setValue(prefersReducedMotion() ? 1 : 0)
-    animate(t, 1, motion.route)
-  }, [pathname, t])
-  return (
-    <Animated.View
-      style={{
-        flex: 1,
-        opacity: t,
-        transform: [{ translateY: t.interpolate({ inputRange: [0, 1], outputRange: [8, 0] }) }],
-      }}
-    >
-      {children}
-    </Animated.View>
-  )
+  return <View style={{ flex: 1 }}>{children}</View>
+}
+
+// The sidebar's saved width, read before the first paint on the web so a collapsed sidebar does not open and then shut.
+function savedCollapsed(): boolean {
+  if (Platform.OS !== 'web' || typeof localStorage === 'undefined') return false
+  try {
+    return localStorage.getItem(COLLAPSE_KEY) === '1'
+  } catch {
+    return false
+  }
 }
 
 // The open task: slides in from the right beside the page (wide) or over it (phone).
@@ -112,7 +108,6 @@ export function Shell() {
   const c = theme.colors
   const now = useNow()
   const { store, tasks, projects } = useTaskData()
-  const initials = initialsOf(useProfile())
   const section = sectionOf(pathname)
   const params = useGlobalSearchParams<{ task?: string; id?: string }>()
   const openId = params.task
@@ -141,11 +136,13 @@ export function Shell() {
     else router.navigate(href)
   }
 
-  const [collapsed, setCollapsed] = useState(false)
+  const [collapsed, setCollapsed] = useState(savedCollapsed)
   const [barWidth, setBarWidth] = useState(0)
   const [showKeys, setShowKeys] = useState(false)
-  const [width] = useState(() => new Animated.Value(SIDEBAR.open))
+  const [creatingProject, setCreatingProject] = useState(false)
+  const [width] = useState(() => new Animated.Value(savedCollapsed() ? SIDEBAR.collapsed : SIDEBAR.open))
   useEffect(() => {
+    if (Platform.OS === 'web') return
     void (async () => {
       try {
         if ((await storage.getItem(COLLAPSE_KEY)) === '1') {
@@ -281,15 +278,6 @@ export function Shell() {
                 onPress={toggleCollapsed}
                 testID="collapse-sidebar"
               />
-              <Pressable
-                testID="tab-profile"
-                accessibilityRole="button"
-                accessibilityLabel="Profile and settings"
-                onPress={() => go('/profile')}
-                style={{ borderRadius: 999 }}
-              >
-                <Avatar initials={initials} size={28} />
-              </Pressable>
             </View>
 
             <AddTaskPill collapsed={collapsed} onPress={() => requestQuickAdd(true)} />
@@ -356,16 +344,12 @@ export function Shell() {
                     style={{ marginTop: 12 }}
                   />
                 ) : (
-                  <Pressable
-                    testID="tab-projects"
-                    accessibilityRole="button"
+                  <SectionHead
+                    title="Projects"
+                    on={section === '/projects' && !params.id}
                     onPress={() => go('/projects')}
-                    style={{ marginTop: 20, paddingHorizontal: 10, height: 30, justifyContent: 'center' }}
-                  >
-                    <Text style={[type.label, { color: section === '/projects' && !params.id ? c.text : c.text2 }]}>
-                      Projects
-                    </Text>
-                  </Pressable>
+                    action={{ label: 'New project', icon: Icons.add, onPress: () => setCreatingProject(true) }}
+                  />
                 )}
                 {collapsed
                   ? null
@@ -385,6 +369,12 @@ export function Shell() {
                     ))}
               </NavColumn>
             </ScrollView>
+            <AccountCard
+              collapsed={collapsed}
+              on={section === '/profile'}
+              onOpen={() => go('/profile')}
+              onHelp={() => setShowKeys(true)}
+            />
           </Animated.View>
           <View style={{ flex: 1 }}>
             <RouteEnter>
@@ -405,6 +395,15 @@ export function Shell() {
         {quickAdd}
         <CommandPalette />
         <ShortcutsSheet visible={showKeys} onClose={() => setShowKeys(false)} />
+        <ProjectSheet
+          visible={creatingProject}
+          onClose={() => setCreatingProject(false)}
+          onSave={({ name, color }) => {
+            const id = store.addProject(name, color)
+            toast.show({ message: `Created "${name}"` })
+            router.navigate({ pathname: '/projects', params: { id } })
+          }}
+        />
       </NavigationContent>
     )
   }
@@ -730,7 +729,7 @@ function SidebarIcon({
         {
           width: 32,
           height: 32,
-          borderRadius: radius.pill,
+          borderRadius: radius.sm,
           alignItems: 'center',
           justifyContent: 'center',
           backgroundColor: hovered ? c.hover : 'transparent',
@@ -741,5 +740,137 @@ function SidebarIcon({
     >
       <Icon size={18} color={c.text2} />
     </Pressable>
+  )
+}
+
+// A sidebar section title (Projects) that opens its page, with its own action that shows when you point at it, the way
+// Devin and Cursor head their lists (spec design-v2).
+function SectionHead({
+  title,
+  on,
+  onPress,
+  action,
+}: {
+  title: string
+  on: boolean
+  onPress: () => void
+  action: { label: string; icon: ToolkitIcon; onPress: () => void }
+}) {
+  const { theme } = useTheme()
+  const c = theme.colors
+  const { hovered, handlers } = useGroupHover()
+  const Act = action.icon
+  return (
+    <View style={{ marginTop: 20, flexDirection: 'row', alignItems: 'center', height: 30 }}>
+      <Pressable
+        testID="tab-projects"
+        accessibilityRole="button"
+        onPress={onPress}
+        {...handlers}
+        style={{ flex: 1, paddingHorizontal: 10, height: 30, justifyContent: 'center' }}
+      >
+        <Text style={[type.label, { color: on ? c.text : c.text2 }]}>{title}</Text>
+      </Pressable>
+      <Pressable
+        testID="sidebar-new-project"
+        accessibilityRole="button"
+        accessibilityLabel={action.label}
+        // @ts-expect-error web tooltip
+        title={action.label}
+        onPress={action.onPress}
+        {...handlers}
+        style={({ pressed }) => [
+          {
+            width: 26,
+            height: 26,
+            marginRight: 4,
+            borderRadius: radius.sm,
+            alignItems: 'center',
+            justifyContent: 'center',
+            backgroundColor: pressed ? c.hover : 'transparent',
+            opacity: hovered ? 1 : 0,
+          },
+          transition('opacity, background-color'),
+        ]}
+      >
+        <Act size={16} color={c.text2} />
+      </Pressable>
+    </View>
+  )
+}
+
+// The person at the bottom of the sidebar (spec design-v2, like Devin and Cursor): avatar, name and @username open
+// Profile and settings; the gear does too, and ? shows the keyboard shortcuts. Collapsed, just the avatar.
+function AccountCard({
+  collapsed,
+  on,
+  onOpen,
+  onHelp,
+}: {
+  collapsed: boolean
+  on: boolean
+  onOpen: () => void
+  onHelp: () => void
+}) {
+  const { theme } = useTheme()
+  const c = theme.colors
+  const profile = useProfile()
+  const { hovered, handlers } = useHover()
+  const name = profile ? `${profile.first_name} ${profile.last_name}`.trim() : 'Your profile'
+  return (
+    <View
+      style={{
+        marginTop: 8,
+        paddingTop: 8,
+        borderTopWidth: 1,
+        borderTopColor: c.line,
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 4,
+      }}
+    >
+      <Pressable
+        testID="tab-profile"
+        accessibilityRole="button"
+        accessibilityLabel="Profile and settings"
+        onPress={onOpen}
+        {...handlers}
+        style={[
+          {
+            flex: 1,
+            minWidth: 0,
+            flexDirection: 'row',
+            alignItems: 'center',
+            justifyContent: collapsed ? 'center' : 'flex-start',
+            gap: 10,
+            paddingVertical: 6,
+            paddingHorizontal: collapsed ? 0 : 6,
+            borderRadius: radius.md,
+            backgroundColor: hovered || on ? c.hover : 'transparent',
+          },
+          transition('background-color'),
+        ]}
+      >
+        <Avatar initials={initialsOf(profile)} size={32} />
+        {collapsed ? null : (
+          <View style={{ flex: 1, minWidth: 0 }}>
+            <Text numberOfLines={1} style={[type.bodyS, { color: c.text, fontFamily: fonts.medium }]}>
+              {name}
+            </Text>
+            {profile ? (
+              <Text numberOfLines={1} style={[type.meta, { color: c.text2 }]}>
+                @{profile.username}
+              </Text>
+            ) : null}
+          </View>
+        )}
+      </Pressable>
+      {collapsed ? null : (
+        <>
+          <SidebarIcon icon={Icons.help} label="Keyboard shortcuts" onPress={onHelp} testID="sidebar-help" />
+          <SidebarIcon icon={Icons.settings} label="Settings" onPress={onOpen} testID="sidebar-settings" />
+        </>
+      )}
+    </View>
   )
 }

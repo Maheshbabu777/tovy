@@ -4,7 +4,9 @@ import { useLocalSearchParams, useRouter } from 'expo-router'
 import { Icons, type ToolkitIcon } from './icons'
 import type { AiAccess } from '../core/ai'
 import { approveConsent, denyConsent, loadConsent, type ConsentRequest } from '../core/aiApi'
+import { AppIcon } from './components/AppIcon'
 import { AuthLayout } from './components/AuthLayout'
+import { Logo } from './Brand'
 import { Button } from './components/Button'
 import { Skeleton } from './components/Feedback'
 import { useTheme } from './theme'
@@ -132,18 +134,28 @@ export function ConsentScreen() {
         </View>
       }
     >
-      <View
-        style={{
-          width: 48,
-          height: 48,
-          borderRadius: radius.lg,
-          backgroundColor: c.panel,
-          alignItems: 'center',
-          justifyContent: 'center',
-          marginBottom: 20,
-        }}
-      >
-        <Icons.ai size={24} color={c.text} />
+      {/* The app and Tovy side by side, the way sign-in screens show who connects to whom. */}
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 20 }}>
+        <AppIcon name={request.name} logoUri={request.logoUri} size={48} />
+        <View style={{ flexDirection: 'row', gap: 4 }}>
+          {[0, 1, 2].map((i) => (
+            <View key={i} style={{ width: 4, height: 4, borderRadius: 2, backgroundColor: c.lineStrong }} />
+          ))}
+        </View>
+        <View
+          style={{
+            width: 48,
+            height: 48,
+            borderRadius: radius.md,
+            backgroundColor: c.bg,
+            borderWidth: 1,
+            borderColor: c.line,
+            alignItems: 'center',
+            justifyContent: 'center',
+          }}
+        >
+          <Logo size={26} />
+        </View>
       </View>
       <Text testID="consent-title" style={[type.display, { color: c.text, fontSize: 28, lineHeight: 34 }]}>
         {request.name} wants to use Tovy

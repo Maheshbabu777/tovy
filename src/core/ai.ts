@@ -155,6 +155,13 @@ export function daysLeft(deletedAt: string | null | undefined, now: Date): numbe
 export const mcpUrl = (supabaseUrl: string | undefined) =>
   supabaseUrl ? `${supabaseUrl.replace(/\/+$/, '')}/functions/v1/mcp` : ''
 
+// The address people paste into an AI app. On the web it is Tovy's own site (`/mcp` forwards to the server, see
+// api/mcp.ts), so the app shows Tovy's name and icon. Elsewhere, or on a local dev server, the server's own address.
+export function connectAddress(origin: string | undefined, supabaseUrl: string | undefined): string {
+  if (origin && /^https:\/\//.test(origin) && !/localhost|127\.0\.0\.1/.test(origin)) return `${origin}/mcp`
+  return mcpUrl(supabaseUrl)
+}
+
 // The server side is not switched on yet: the migration has not reached this database (the table is missing), or the
 // OAuth server is off in the dashboard. The screens then explain instead of showing an error.
 export function isNotSetUp(error: { code?: string; message?: string; status?: number } | null | undefined): boolean {

@@ -6,6 +6,7 @@ import { describeAuthError, isValidEmail } from '../core/auth/errors'
 import { AuthLayout } from './components/AuthLayout'
 import { rememberReturn } from './returnTo'
 import { Button } from './components/Button'
+import { GoogleMark } from './components/GoogleMark'
 import { Input } from './components/Input'
 import { OtpInput } from './components/OtpInput'
 import { useTheme } from './theme'
@@ -154,6 +155,7 @@ export function SignInScreen() {
                 <Button
                   testID="google-sign-in"
                   label="Continue with Google"
+                  icon={GoogleMark as never}
                   variant="ghost"
                   bordered
                   fullWidth
