@@ -1,0 +1,57 @@
+name: e2e
+
+# The Playwright sync suite (tests/e2e) against the dev project, run by hand from the Actions tab or `gh workflow run
+# e2e`. It reads the project's API keys with the Supabase access token inside the job, so no key is ever stored in the
+# repo or printed: they are masked as soon as they are read.
+
+on:
+  workflow_dispatch:
+    inputs:
+      grep:
+        description: 'Only tests whose name matches (for example "2:"); empty runs all'
+        required: false
+        default: ''
+
+permissions:
+  contents: read
+
+concurrency: e2e
+
+jobs:
+  e2e:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+      PROJECT_REF: ${{ secrets.DEV_PROJECT_REF }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - uses: supabase/setup-cli@v1
+        with:
+          version: latest
+      - name: Read the dev project's keys
+        run: |
+          keys="$(supabase projects api-keys --project-ref "$PROJECT_REF" -o json)"
+          anon="$(echo "$keys" | jq -r '.[] | select(.name == "anon") | .api_key')"
+          service="$(echo "$keys" | jq -r '.[] | select(.name == "service_role") | .api_key')"
+          echo "::add-mask::$anon"
+          echo "::add-mask::$service"
+          {
+            echo "SUPABASE_URL=https://$PROJECT_REF.supabase.co"
+            echo "SUPABASE_ANON_KEY=$anon"
+            echo "SUPABASE_API_KEY=$service"
+            echo "EXPO_PUBLIC_SUPABASE_URL=https://$PROJECT_REF.supabase.co"
+            echo "EXPO_PUBLIC_SUPABASE_ANON_KEY=$anon"
+          } >> "$GITHUB_ENV"
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+      - name: Build the web app
+        run: npx expo export --platform web
+      - name: Run the suite
+        run: |
+          export CHROMIUM_PATH="$(node -e "console.log(require('playwright-core').chromium.executablePath())")"
+          if [ -n "${{ inputs.grep }}" ]; then npm run test:e2e -- -g "${{ inputs.grep }}"; else npm run test:e2e; fi
