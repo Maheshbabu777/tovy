@@ -12,8 +12,8 @@ import { AIBadge } from './components/AppMark'
 import { ProgressRing } from './components/ProgressRing'
 import { pressScale, transition, useFocusRing, useGroupHover, useHover, webStyle } from './components/web'
 import type { ToolkitIcon } from './icons'
-import { dueLabel, isOverdue } from '../core/today'
-import { deadlineInfo, priorityOf, readRepeat } from '../core/taskFields'
+import { dueLabel, isOverdue, localDay } from '../core/today'
+import { deadlineInfo, priorityOf, readRepeat, repeatLabel } from '../core/taskFields'
 import type { Project, Task } from '../core/sync/tasks'
 
 // Style guide, Task row: a 20 px check on the left (tap to finish or reopen), the title, then one meta line only when
@@ -36,7 +36,9 @@ export function TaskRow({
   onSchedule,
   onMove,
   animateIn = false,
+  habit,
 }: {
+  habit?: { streak: string } // a habit: the square check and "Daily · 12 days in a row" (stage 6)
   onSchedule?: () => void // web hover action
   onMove?: () => void // web hover action
   onSwipe?: (action: SwipeAction) => void // phone: swipe right finishes, left moves to tomorrow
@@ -155,6 +157,7 @@ export function TaskRow({
             done={done}
             doneAt={task.done_at ?? finishedAt}
             strong={priority === 1}
+            square={!!habit}
           />
         </Pressable>
         <Pressable
@@ -209,10 +212,15 @@ export function TaskRow({
             </View>
             {hasMeta && !task.done_at ? (
               <View style={{ flexDirection: 'row', alignItems: 'center', columnGap: 12, rowGap: 4, flexWrap: 'wrap' }}>
-                {task.due_date ? (
+                {habit && repeat ? (
+                  <Text testID={`habit-${task.id}`} style={[type.meta, { color: c.text2 }]}>
+                    {[repeatLabel(repeat), habit.streak].filter(Boolean).join(' · ')}
+                  </Text>
+                ) : null}
+                {task.due_date && !(habit && task.due_date === localDay(now)) ? (
                   <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
                     <Text style={[type.meta, { color: overdue ? c.red : c.text2 }]}>{dueLabel(task, now)}</Text>
-                    {repeat ? <Icons.repeat size={13} color={c.text2} /> : null}
+                    {repeat && !habit ? <Icons.repeat size={13} color={c.text2} /> : null}
                   </View>
                 ) : null}
                 {priority < 4 ? (

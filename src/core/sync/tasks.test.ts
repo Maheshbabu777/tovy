@@ -73,6 +73,23 @@ describe('tasks store', () => {
     expect(s.setDone(plain, true)).toEqual({ next: null })
   })
 
+  it('tracks a habit, skips it without closing and pauses it', () => {
+    const s = fresh()
+    const id = s.addTask({ title: 'Read', dueDate: '2000-01-03', repeat: { every: 'day' } })
+    s.setHabit(id, true)
+    expect(s.tasks$[id].repeat.peek()).toEqual({ every: 'day', habit: true })
+    const { next } = s.skipHabit(id)
+    expect(s.tasks$[id].due_date.peek()).toBe(next)
+    const entries = Object.values(s.logs$.peek() ?? {}) as { note: string; day: string }[]
+    expect(entries).toEqual([expect.objectContaining({ note: 'skipped', day: '2000-01-03' })])
+    s.setPaused(id, true)
+    expect(s.tasks$[id].repeat.peek()).toEqual({ every: 'day', habit: true, paused: true })
+    s.setPaused(id, false)
+    expect(s.tasks$[id].repeat.peek()).toEqual({ every: 'day', habit: true })
+    const once = s.addTask({ title: 'Once' })
+    expect(() => s.skipHabit(once)).toThrow('repeating')
+  })
+
   it('only lets a deep task have subtasks', () => {
     const s = fresh()
     const quick = s.addTask({ title: 'quick' })

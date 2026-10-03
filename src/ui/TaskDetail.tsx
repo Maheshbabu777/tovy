@@ -29,6 +29,7 @@ import { webStyle } from './components/web'
 import { DateSheet } from './DateSheet'
 import { ProjectPickerSheet } from './ProjectPickerSheet'
 import { LabelsSheet } from './LabelsSheet'
+import { HabitCard } from './HabitsScreen'
 import { ContextMenu } from './components/ContextMenu'
 import { useStore } from './StoreContext'
 import { PROJECT_COLORS, useTheme } from './theme'
@@ -257,6 +258,11 @@ function Body({
       </View>
       {isOverdue(task, now) ? (
         <Text style={[type.meta, { color: c.red, marginTop: 8 }]}>This task is overdue.</Text>
+      ) : null}
+      {repeat?.habit ? (
+        <View style={{ marginTop: 16 }}>
+          <HabitCard task={task} logs={Object.values(logsMap ?? {})} now={now} />
+        </View>
       ) : null}
       {task.created_by ? (
         // Added by an AI app (spec mcp-server): what it did is in Activity, where it can be undone.
@@ -533,20 +539,35 @@ function Body({
         title={menu?.kind === 'repeat' ? 'Repeat' : 'Priority'}
         items={
           menu?.kind === 'repeat'
-            ? REPEATS(task.due_date).map((r) => ({
-                label: r.label,
-                icon: Icons.repeat,
-                checked: JSON.stringify(r.value) === JSON.stringify(repeat),
-                testID: `repeat-${r.key}`,
-                onPress: () =>
-                  run(() =>
-                    store.editTask(task.id, {
-                      repeat: r.value,
-                      // A repeat needs a day to start from.
-                      ...(r.value && !task.due_date ? { dueDate: firstOccurrence(r.value, localDay(now)) } : {}),
-                    }),
-                  ),
-              }))
+            ? [
+                ...REPEATS(task.due_date).map((r) => ({
+                  label: r.label,
+                  icon: Icons.repeat,
+                  checked: sameRepeat(r.value, repeat),
+                  testID: `repeat-${r.key}`,
+                  onPress: () =>
+                    run(() =>
+                      store.editTask(task.id, {
+                        // A habit stays a habit when its rhythm changes.
+                        repeat: r.value && repeat?.habit ? { ...r.value, habit: true } : r.value,
+                        // A repeat needs a day to start from.
+                        ...(r.value && !task.due_date ? { dueDate: firstOccurrence(r.value, localDay(now)) } : {}),
+                      }),
+                    ),
+                })),
+                ...(repeat
+                  ? [
+                      {
+                        label: 'Track as a habit',
+                        icon: Icons.habit,
+                        section: 'Habit',
+                        checked: !!repeat.habit,
+                        testID: 'repeat-habit',
+                        onPress: () => run(() => store.setHabit(task.id, !repeat.habit)),
+                      },
+                    ]
+                  : []),
+              ]
             : ([1, 2, 3, 4] as Priority[]).map((p) => ({
                 label: p === 4 ? 'No priority' : `Priority ${p}`,
                 icon: Icons.priority,
@@ -661,3 +682,8 @@ function MenuChip({
     </Pressable>
   )
 }
+
+// The same rhythm, whatever the habit flags say.
+const sameRepeat = (a: Repeat | null, b: Repeat | null) =>
+  JSON.stringify(a ? { every: a.every, days: a.days, interval: a.interval } : null) ===
+  JSON.stringify(b ? { every: b.every, days: b.days, interval: b.interval } : null)

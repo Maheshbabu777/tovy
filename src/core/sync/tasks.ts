@@ -317,6 +317,7 @@ export function createTasksStore(userId: string) {
       const repeat = readRepeat(task.repeat)
       if (done && repeat && !task.done_at) {
         const next = nextOccurrence(task.due_date, repeat, localDay(new Date()))
+        const progressBefore = task.progress ?? 0 // read before the change: the stored row is changed in place
         batch(() => {
           tasks$[id].due_date.set(next)
           tasks$[id].progress.set(0)
@@ -324,7 +325,7 @@ export function createTasksStore(userId: string) {
           logs$[entryId].set({
             id: entryId,
             task_id: rootOf(task, liveTasks()).id,
-            delta: 100 - (task.progress ?? 0),
+            delta: 100 - progressBefore,
             progress_after: 100,
             note: '',
             source: 'you',
@@ -338,6 +339,49 @@ export function createTasksStore(userId: string) {
         tasks$[id].progress.set(done ? 100 : 0)
       })
       return { next: null }
+    },
+
+    // Habits (stage 6). Skipping moves a habit to its next day without breaking its streak (the skip is logged for the
+    // day it was due). Pausing takes it off every list; resuming starts it again from today.
+    skipHabit(id: string): { next: string } {
+      const task = getTask(id)
+      const repeat = readRepeat(task?.repeat)
+      if (!task || !repeat) throw new Error('Only a repeating task can be skipped')
+      const today = localDay(new Date())
+      const due = task.due_date // read before the change: the stored row is changed in place
+      const next = nextOccurrence(due, repeat, today)
+      const entryId = uuidv4()
+      batch(() => {
+        tasks$[id].due_date.set(next)
+        logs$[entryId].set({
+          id: entryId,
+          task_id: id,
+          delta: 0,
+          progress_after: 0,
+          note: 'skipped',
+          source: 'you',
+          day: due && due < today ? due : today,
+        } as LogEntry)
+      })
+      return { next }
+    },
+
+    setHabit(id: string, on: boolean) {
+      const repeat = readRepeat(getTask(id)?.repeat)
+      if (!repeat) throw new Error('A habit needs a repeat')
+      const { habit: _h, paused: _p, ...rest } = repeat
+      tasks$[id].repeat.set(on ? { ...rest, habit: true } : rest)
+    },
+
+    setPaused(id: string, on: boolean) {
+      const task = getTask(id)
+      const repeat = readRepeat(task?.repeat)
+      if (!task || !repeat) throw new Error('A habit needs a repeat')
+      const { paused: _p, ...rest } = repeat
+      batch(() => {
+        tasks$[id].repeat.set(on ? { ...rest, paused: true } : rest)
+        if (!on && task.due_date && task.due_date < localDay(new Date())) tasks$[id].due_date.set(localDay(new Date()))
+      })
     },
 
     setKind(id: string, kind: TaskKind) {

@@ -18,7 +18,9 @@ export function ProgressRing({
   done = false,
   doneAt = null,
   strong = false,
+  square = false,
 }: {
+  square?: boolean // a habit: a soft square instead of a circle (Paper, Components)
   strong?: boolean // priority 1: a solid black ring (style guide, Task row)
   size: number
   stroke: number
@@ -42,6 +44,19 @@ export function ProgressRing({
   }, [target, circumference, offset])
   if (done) {
     return <DoneCircle size={size} doneAt={doneAt} />
+  }
+  if (square) {
+    return (
+      <View
+        style={{
+          width: size,
+          height: size,
+          borderRadius: 6,
+          borderWidth: strong ? 2 : 1.5,
+          borderColor: strong ? c.text : c.text3,
+        }}
+      />
+    )
   }
   return (
     <View style={{ width: size, height: size }}>

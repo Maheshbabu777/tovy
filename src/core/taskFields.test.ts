@@ -33,7 +33,7 @@ describe('repeats', () => {
   })
 
   it('names repeats and reads stored ones defensively', () => {
-    expect(repeatLabel({ every: 'day' })).toBe('Every day')
+    expect(repeatLabel({ every: 'day' })).toBe('Daily')
     expect(repeatLabel({ every: 'day', interval: 3 })).toBe('Every 3 days')
     expect(repeatLabel({ every: 'weekday' })).toBe('Weekdays')
     expect(repeatLabel({ every: 'week', days: [1, 4] })).toBe('Every Mon, Thu')

@@ -6,7 +6,13 @@ export type Priority = 1 | 2 | 3 | 4 // 1 highest, 4 none
 
 // How a task comes back. `days` (0 Sunday to 6 Saturday) only for a weekly repeat on chosen days; `interval` repeats
 // every n days or weeks (1 when left out).
-export type Repeat = { every: 'day' | 'weekday' | 'week' | 'month'; days?: number[]; interval?: number }
+export type Repeat = {
+  every: 'day' | 'weekday' | 'week' | 'month'
+  days?: number[]
+  interval?: number
+  habit?: boolean // tracked as a habit: a streak and a heatmap (stage 6)
+  paused?: boolean // a habit on hold: off every list until it is resumed
+}
 
 const WEEKDAY = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
 const MONTH = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
@@ -28,6 +34,8 @@ export function readRepeat(value: unknown): Repeat | null {
     every: r.every,
     ...(days?.length ? { days: [...new Set(days)].sort() } : {}),
     ...(interval ? { interval } : {}),
+    ...(r.habit === true ? { habit: true } : {}),
+    ...(r.paused === true ? { paused: true } : {}),
   }
 }
 
@@ -84,7 +92,7 @@ export function repeatLabel(repeat: Repeat): string {
   const n = repeat.interval ?? 1
   switch (repeat.every) {
     case 'day':
-      return n > 1 ? `Every ${n} days` : 'Every day'
+      return n > 1 ? `Every ${n} days` : 'Daily'
     case 'weekday':
       return 'Weekdays'
     case 'week':
