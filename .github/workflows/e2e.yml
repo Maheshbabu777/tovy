@@ -35,9 +35,14 @@ jobs:
           version: latest
       - name: Read the dev project's keys
         run: |
-          keys="$(supabase projects api-keys --project-ref "$PROJECT_REF" -o json)"
-          anon="$(echo "$keys" | jq -r '.[] | select(.name == "anon") | .api_key')"
-          service="$(echo "$keys" | jq -r '.[] | select(.name == "service_role") | .api_key')"
+          keys="$(supabase projects api-keys --project-ref "$PROJECT_REF" --reveal -o json 2>/dev/null || supabase projects api-keys --project-ref "$PROJECT_REF" -o json)"
+          # What kinds of keys there are (names and types only, never values).
+          echo "$keys" | jq -r '.[] | "\(.name) \(.type // "legacy")"'
+          anon="$(echo "$keys" | jq -r '[.[] | select(.name == "anon")][0].api_key // empty')"
+          # The admin calls in the tests send the key as `apikey` only, which a new secret key (sb_secret_) supports.
+          # Fall back to the legacy service role key, which the tests then also send as a bearer token.
+          service="$(echo "$keys" | jq -r '[.[] | select(.type == "secret")][0].api_key // empty')"
+          [ -n "$service" ] || service="$(echo "$keys" | jq -r '[.[] | select(.name == "service_role")][0].api_key // empty')"
           echo "::add-mask::$anon"
           echo "::add-mask::$service"
           {
