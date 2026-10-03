@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useRouter } from 'expo-router'
 import { Icons } from './icons'
+import { dateLabel } from '../core/parseTask'
 import type { Task } from '../core/sync/tasks'
 import { addDays, localDay } from '../core/today'
 import { ContextMenu } from './components/ContextMenu'
@@ -40,8 +41,15 @@ export function useTaskActions(now: Date) {
 
   const toggleDone = (task: Task) =>
     run(() => {
-      store.setDone(task.id, !task.done_at)
-      if (!task.done_at)
+      const before = task.due_date
+      const { next } = store.setDone(task.id, !task.done_at)
+      if (next)
+        // A repeating task moved to its next date: say when it is back, and Undo puts the date back.
+        toast.show({
+          message: `Done. Back ${dateLabel(next, new Date())}`,
+          action: { label: 'Undo', onPress: () => run(() => store.editTask(task.id, { dueDate: before })) },
+        })
+      else if (!task.done_at)
         toast.show({
           message: `Done: ${task.title}`,
           action: { label: 'Undo', onPress: () => run(() => store.setDone(task.id, false)) },

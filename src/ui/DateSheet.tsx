@@ -27,14 +27,30 @@ export function DateSheet({
   value,
   time = null,
   onPick,
+  title = 'Schedule',
+  withTime = true,
+  noneLabel = 'No date',
 }: {
+  title?: string // "Deadline" for the date a task must be done by
+  withTime?: boolean
+  noneLabel?: string
   visible: boolean
   onClose: () => void
   value: string | null
   time?: string | null
   onPick: (day: string | null, time: string | null) => void
 }) {
-  return visible ? <ScheduleForm onClose={onClose} value={value} time={time} onPick={onPick} /> : null
+  return visible ? (
+    <ScheduleForm
+      onClose={onClose}
+      value={value}
+      time={time}
+      onPick={onPick}
+      title={title}
+      withTime={withTime}
+      noneLabel={noneLabel}
+    />
+  ) : null
 }
 
 function ScheduleForm({
@@ -42,7 +58,13 @@ function ScheduleForm({
   value,
   time,
   onPick,
+  title,
+  withTime,
+  noneLabel,
 }: {
+  title: string
+  withTime: boolean
+  noneLabel: string
   onClose: () => void
   value: string | null
   time: string | null
@@ -79,7 +101,7 @@ function ScheduleForm({
     <Sheet
       visible
       onClose={onClose}
-      title="Schedule"
+      title={title}
       testID="date-sheet"
       footer={
         <View style={{ flexDirection: 'row', justifyContent: 'flex-end' }}>
@@ -133,12 +155,12 @@ function ScheduleForm({
                 testID={`date-${d.day}`}
               />
             ))}
-            <Chip label="No date" active={value === null} onPress={() => onPick(null, null)} testID="date-none" />
+            <Chip label={noneLabel} active={value === null} onPress={() => onPick(null, null)} testID="date-none" />
           </>,
         )}
 
-        <Text style={[type.label, { color: c.text2, marginTop: 8 }]}>Time</Text>
-        {value ? (
+        {withTime ? <Text style={[type.label, { color: c.text2, marginTop: 8 }]}>Time</Text> : null}
+        {!withTime ? null : value ? (
           chipRow(
             <>
               {TIMES.map((t) => (

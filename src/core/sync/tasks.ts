@@ -6,6 +6,7 @@ import './syncConfig'
 import { createPersistPlugin } from './persistPlugin'
 import { hasSubtasks, percentOf, rootOf, type LogEntry } from '../progress'
 import { localDay } from '../today'
+import { nextOccurrence, readRepeat, type Priority, type Repeat } from '../taskFields'
 
 export type TaskKind = 'quick' | 'deep'
 
@@ -24,6 +25,11 @@ export type Task = {
   // The AI app that added it (its OAuth client id), set only by the MCP server. The app never writes it, so it works
   // before and after migration 0009.
   created_by?: string | null
+  // Spec task-fields (migration 0011). Optional: rows saved on a device before the migration may not have them.
+  priority?: number | null // 1 highest to 4 none
+  deadline?: string | null // YYYY-MM-DD, must be done by
+  labels?: string[] | null
+  repeat?: Repeat | null
   deleted?: boolean
   created_at?: string | null
   updated_at?: string | null
@@ -47,9 +53,22 @@ export type NewTask = {
   kind?: TaskKind
   projectId?: string | null
   parentId?: string | null
+  priority?: Priority
+  deadline?: string | null
+  labels?: string[]
+  repeat?: Repeat | null
 }
 
-export type TaskEdit = { title?: string; note?: string; dueDate?: string | null; dueTime?: string | null }
+export type TaskEdit = {
+  title?: string
+  note?: string
+  dueDate?: string | null
+  dueTime?: string | null
+  priority?: Priority
+  deadline?: string | null
+  labels?: string[]
+  repeat?: Repeat | null
+}
 
 // The plugin does not wait for one save to finish before it sends the next, and a save takes about half a second. So a
 // quick sequence (add a task, make it deep, add a subtask, delete, undo) reaches the server in any order: an update
@@ -263,6 +282,10 @@ export function createTasksStore(userId: string) {
         done_at: null,
         project_id: input.projectId ?? null,
         parent_id: input.parentId ?? null,
+        priority: input.priority ?? 4,
+        deadline: input.deadline ?? null,
+        labels: input.labels ?? [],
+        repeat: input.repeat ?? null,
       })
       return id
     },
@@ -278,16 +301,43 @@ export function createTasksStore(userId: string) {
         if (patch.note !== undefined) tasks$[id].note.set(patch.note)
         if (patch.dueDate !== undefined) tasks$[id].due_date.set(patch.dueDate)
         if (patch.dueTime !== undefined) tasks$[id].due_time.set(patch.dueTime)
+        if (patch.priority !== undefined) tasks$[id].priority.set(patch.priority)
+        if (patch.deadline !== undefined) tasks$[id].deadline.set(patch.deadline)
+        if (patch.labels !== undefined) tasks$[id].labels.set(patch.labels)
+        if (patch.repeat !== undefined) tasks$[id].repeat.set(patch.repeat)
       })
     },
 
     // Finishing a task is worth the rest of its progress, reopening it takes that back (design 7.14).
-    setDone(id: string, done: boolean) {
-      if (!getTask(id)) throw new Error('That task does not exist')
+    // A repeating task is not closed: it moves to its next date, and the finish is logged (spec task-fields). Returns
+    // that next date, so the screen can say when it comes back and undo it.
+    setDone(id: string, done: boolean): { next: string | null } {
+      const task = getTask(id)
+      if (!task) throw new Error('That task does not exist')
+      const repeat = readRepeat(task.repeat)
+      if (done && repeat && !task.done_at) {
+        const next = nextOccurrence(task.due_date, repeat, localDay(new Date()))
+        batch(() => {
+          tasks$[id].due_date.set(next)
+          tasks$[id].progress.set(0)
+          const entryId = uuidv4()
+          logs$[entryId].set({
+            id: entryId,
+            task_id: rootOf(task, liveTasks()).id,
+            delta: 100 - (task.progress ?? 0),
+            progress_after: 100,
+            note: '',
+            source: 'you',
+            day: localDay(new Date()),
+          } as LogEntry)
+        })
+        return { next }
+      }
       applyChange(id, () => {
         tasks$[id].done_at.set(done ? new Date().toISOString() : null)
         tasks$[id].progress.set(done ? 100 : 0)
       })
+      return { next: null }
     },
 
     setKind(id: string, kind: TaskKind) {

@@ -52,6 +52,27 @@ describe('tasks store', () => {
     expect(s.tasks$[id].done_at.peek()).toBeNull()
   })
 
+  it('keeps priority, deadline, labels and repeat, and brings a repeating task back instead of closing it', () => {
+    const s = fresh()
+    const id = s.addTask({
+      title: 'Gym',
+      dueDate: '2000-01-03',
+      priority: 1,
+      labels: ['health'],
+      repeat: { every: 'day' },
+    })
+    expect(s.tasks$[id].peek()).toMatchObject({ priority: 1, labels: ['health'], deadline: null })
+    s.editTask(id, { deadline: '2000-02-01', priority: 2 })
+    expect(s.tasks$[id].peek()).toMatchObject({ priority: 2, deadline: '2000-02-01' })
+    const { next } = s.setDone(id, true)
+    expect(s.tasks$[id].done_at.peek()).toBeNull()
+    expect(next).toEqual(expect.any(String))
+    expect(s.tasks$[id].due_date.peek()).toBe(next)
+    expect(Object.values(s.logs$.peek() ?? {})).toHaveLength(1)
+    const plain = s.addTask({ title: 'Once' })
+    expect(s.setDone(plain, true)).toEqual({ next: null })
+  })
+
   it('only lets a deep task have subtasks', () => {
     const s = fresh()
     const quick = s.addTask({ title: 'quick' })

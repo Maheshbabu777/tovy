@@ -112,6 +112,7 @@ export function BrowseScreen() {
           onPress={() => router.navigate('/completed')}
           testID="browse-completed"
         />
+        <Row label="Labels" icon={Icons.label} onPress={() => router.navigate('/labels')} testID="browse-labels" />
         <Row label="Trash" icon={Icons.delete} onPress={() => router.navigate('/trash')} testID="browse-trash" />
       </Group>
 

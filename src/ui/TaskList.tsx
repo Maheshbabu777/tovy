@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { Pressable, Text, TextInput, useWindowDimensions, View } from 'react-native'
 import { useFocusEffect, useGlobalSearchParams } from 'expo-router'
 import { Icons } from './icons'
+import { byPriority } from '../core/taskFields'
 import { percentOf, subtaskCount } from '../core/progress'
 import type { Project, Task } from '../core/sync/tasks'
 import { SectionHeader } from './components/SectionHeader'
@@ -47,7 +48,8 @@ export function TaskRows({
   }, [])
   return (
     <>
-      {rows.map((task) => (
+      {/* Priority first inside every list, the list's own order otherwise (spec task-fields). */}
+      {byPriority(rows).map((task) => (
         <TaskRow
           key={task.id}
           animateIn={settled && !initial.has(task.id)}
@@ -243,7 +245,15 @@ export function Composer({
         onBlur={() => setFocused(false)}
         onSubmitEditing={() => {
           if (!draft.trim()) return
-          onAdd({ title: read.title, dueDate: read.dueDate, dueTime: read.dueTime, projectId: read.projectId })
+          onAdd({
+            title: read.title,
+            dueDate: read.dueDate,
+            dueTime: read.dueTime,
+            projectId: read.projectId,
+            priority: read.priority,
+            labels: read.labels,
+            repeat: read.repeat,
+          })
           setDraft('')
         }}
         blurOnSubmit={false}

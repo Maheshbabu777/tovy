@@ -2,10 +2,20 @@ import { useState } from 'react'
 import { Pressable, ScrollView, Text, TextInput, useWindowDimensions, View } from 'react-native'
 import { useRouter } from 'expo-router'
 import { use$ } from '@legendapp/state/react'
-import { Icons } from './icons'
+import { Icons, type ToolkitIcon } from './icons'
 import { logStamp, percentOf, hasSubtasks, type LogEntry } from '../core/progress'
 import type { Project, Task } from '../core/sync/tasks'
-import { byCreated, dueLabel, isOverdue } from '../core/today'
+import { byCreated, dueLabel, isOverdue, localDay } from '../core/today'
+import {
+  deadlineInfo,
+  firstOccurrence,
+  labelCounts,
+  priorityOf,
+  readRepeat,
+  repeatLabel,
+  type Priority,
+  type Repeat,
+} from '../core/taskFields'
 import { AIBadge } from './components/AppMark'
 import { Button } from './components/Button'
 import { Checkbox } from './components/Checkbox'
@@ -18,6 +28,8 @@ import { useToast } from './components/Toast'
 import { webStyle } from './components/web'
 import { DateSheet } from './DateSheet'
 import { ProjectPickerSheet } from './ProjectPickerSheet'
+import { LabelsSheet } from './LabelsSheet'
+import { ContextMenu } from './components/ContextMenu'
 import { useStore } from './StoreContext'
 import { PROJECT_COLORS, useTheme } from './theme'
 import { fonts, radius, type, WIDE_BREAKPOINT } from './tokens'
@@ -123,9 +135,14 @@ function Body({
   const logsMap = use$(store.logs$) as Record<string, LogEntry> | undefined
   const [title, setTitle] = useState(task.title)
   const [logNote, setLogNote] = useState('')
-  const [sheet, setSheet] = useState<'date' | 'project' | null>(null)
+  const [sheet, setSheet] = useState<'date' | 'project' | 'deadline' | 'labels' | null>(null)
+  const [menu, setMenu] = useState<{ kind: 'priority' | 'repeat'; at: { x: number; y: number } } | null>(null)
+  const priority = priorityOf(task)
+  const repeat = readRepeat(task.repeat)
+  const labels = task.labels ?? []
   const [subTitle, setSubTitle] = useState('')
   const now = new Date()
+  const deadline = task.deadline ? deadlineInfo(task.deadline, now) : null
   const router = useRouter()
 
   const deep = task.kind === 'deep'
@@ -207,6 +224,35 @@ function Body({
           label={project ? project.name : 'Inbox'}
           dot={project ? (PROJECT_COLORS[project.color] ?? PROJECT_COLORS.slate) : undefined}
           onPress={() => setSheet('project')}
+        />
+        {/* Spec task-fields: priority, deadline, labels and repeat, each one tap away. */}
+        <MenuChip
+          testID="chip-priority"
+          icon={Icons.priority}
+          label={priority < 4 ? `Priority ${priority}` : 'Priority'}
+          active={priority < 4}
+          onOpen={(at) => setMenu({ kind: 'priority', at })}
+        />
+        <Chip
+          testID="chip-deadline"
+          icon={Icons.deadline}
+          label={deadline ? deadline.label : 'Deadline'}
+          active={!!deadline}
+          onPress={() => setSheet('deadline')}
+        />
+        <Chip
+          testID="chip-labels"
+          icon={Icons.label}
+          label={labels.length ? labels.map((l) => `@${l}`).join(' ') : 'Labels'}
+          active={labels.length > 0}
+          onPress={() => setSheet('labels')}
+        />
+        <MenuChip
+          testID="chip-repeat"
+          icon={Icons.repeat}
+          label={repeat ? repeatLabel(repeat) : 'Repeat'}
+          active={!!repeat}
+          onOpen={(at) => setMenu({ kind: 'repeat', at })}
         />
       </View>
       {isOverdue(task, now) ? (
@@ -465,6 +511,51 @@ function Body({
         time={task.due_time}
         onPick={(day, time) => run(() => store.editTask(task.id, { dueDate: day, dueTime: day ? time : null }))}
       />
+      <DateSheet
+        visible={sheet === 'deadline'}
+        onClose={() => setSheet(null)}
+        title="Deadline"
+        withTime={false}
+        noneLabel="No deadline"
+        value={task.deadline ?? null}
+        onPick={(day) => run(() => store.editTask(task.id, { deadline: day }))}
+      />
+      <LabelsSheet
+        visible={sheet === 'labels'}
+        onClose={() => setSheet(null)}
+        value={labels}
+        known={labelCounts(all).map((l) => l.label)}
+        onChange={(next) => run(() => store.editTask(task.id, { labels: next }))}
+      />
+      <ContextMenu
+        at={menu?.at ?? null}
+        onClose={() => setMenu(null)}
+        title={menu?.kind === 'repeat' ? 'Repeat' : 'Priority'}
+        items={
+          menu?.kind === 'repeat'
+            ? REPEATS(task.due_date).map((r) => ({
+                label: r.label,
+                icon: Icons.repeat,
+                checked: JSON.stringify(r.value) === JSON.stringify(repeat),
+                testID: `repeat-${r.key}`,
+                onPress: () =>
+                  run(() =>
+                    store.editTask(task.id, {
+                      repeat: r.value,
+                      // A repeat needs a day to start from.
+                      ...(r.value && !task.due_date ? { dueDate: firstOccurrence(r.value, localDay(now)) } : {}),
+                    }),
+                  ),
+              }))
+            : ([1, 2, 3, 4] as Priority[]).map((p) => ({
+                label: p === 4 ? 'No priority' : `Priority ${p}`,
+                icon: Icons.priority,
+                checked: priority === p,
+                testID: `priority-choice-${p}`,
+                onPress: () => run(() => store.editTask(task.id, { priority: p })),
+              }))
+        }
+      />
       <ProjectPickerSheet
         visible={sheet === 'project'}
         onClose={() => setSheet(null)}
@@ -527,5 +618,46 @@ function LogRow({ entry }: { entry: LogEntry }) {
       </View>
       <Text style={[type.bodyS, { color: c.text }]}>{entry.note || `${from}% to ${entry.progress_after}%`}</Text>
     </View>
+  )
+}
+
+// The repeats people pick most. A weekly or monthly one follows the task's own day.
+const REPEATS = (due: string | null): { key: string; label: string; value: Repeat | null }[] => {
+  const weekday = due ? new Date(`${due}T12:00:00`).getDay() : null
+  return [
+    { key: 'none', label: 'Does not repeat', value: null },
+    { key: 'day', label: 'Every day', value: { every: 'day' } },
+    { key: 'weekday', label: 'Weekdays', value: { every: 'weekday' } },
+    {
+      key: 'week',
+      label: weekday === null ? 'Every week' : repeatLabel({ every: 'week', days: [weekday] }),
+      value: weekday === null ? { every: 'week' } : { every: 'week', days: [weekday] },
+    },
+    { key: 'month', label: 'Every month', value: { every: 'month' } },
+  ]
+}
+
+// A chip that opens a menu where it was pressed.
+function MenuChip({
+  onOpen,
+  ...chip
+}: {
+  onOpen: (at: { x: number; y: number }) => void
+  label: string
+  icon: ToolkitIcon
+  active: boolean
+  testID: string
+}) {
+  return (
+    <Pressable
+      testID={chip.testID}
+      accessibilityRole="button"
+      accessibilityLabel={chip.label}
+      onPress={(e) => onOpen({ x: e.nativeEvent.pageX, y: e.nativeEvent.pageY })}
+    >
+      <View pointerEvents="none">
+        <Chip label={chip.label} icon={chip.icon} active={chip.active} />
+      </View>
+    </Pressable>
   )
 }

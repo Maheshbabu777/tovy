@@ -26,7 +26,7 @@ function fail(error: { message?: string; code?: string } | null, what: string): 
 }
 
 const TASK_FIELDS =
-  'id,title,note,due_date,due_time,kind,done_at,progress,project_id,parent_id,deleted,created_by,created_at,updated_at'
+  'id,title,note,due_date,due_time,kind,done_at,progress,project_id,parent_id,deleted,created_by,priority,deadline,labels,repeat,created_at,updated_at'
 
 export function supabaseRepo(url: string, anonKey: string, token: string): Repo {
   const db: SupabaseClient = createClient(url, anonKey, {

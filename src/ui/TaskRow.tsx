@@ -13,6 +13,7 @@ import { ProgressRing } from './components/ProgressRing'
 import { pressScale, transition, useFocusRing, useGroupHover, useHover, webStyle } from './components/web'
 import type { ToolkitIcon } from './icons'
 import { dueLabel, isOverdue } from '../core/today'
+import { deadlineInfo, priorityOf, readRepeat } from '../core/taskFields'
 import type { Project, Task } from '../core/sync/tasks'
 
 // Style guide, Task row: a 20 px check on the left (tap to finish or reopen), the title, then one meta line only when
@@ -84,7 +85,13 @@ export function TaskRow({
   const overdue = isOverdue(task, now)
   const hasSubs = !!subtasks && subtasks.total > 0
   const byAi = !!task.created_by // added by an AI app (spec mcp-server)
-  const hasMeta = !!task.due_date || partial || hasSubs || byAi
+  // Spec task-fields: a P1 to P3 tag, the deadline (red when close), labels and a repeat mark.
+  const priority = priorityOf(task)
+  const deadline = task.deadline ? deadlineInfo(task.deadline, now) : null
+  const labels = task.labels ?? []
+  const repeat = readRepeat(task.repeat)
+  const hasMeta =
+    !!task.due_date || partial || hasSubs || byAi || priority < 4 || !!deadline || labels.length > 0 || !!repeat
   const keyboardFocus = Object.keys(ring.style).length > 0
   const enter = useEnter({ distance: 6, duration: 200, skip: !animateIn })
   const swipe = useSwipe(onSwipe, { left: !done })
@@ -147,6 +154,7 @@ export function TaskRow({
             progress={(progress ?? 0) / 100}
             done={done}
             doneAt={task.done_at ?? finishedAt}
+            strong={priority === 1}
           />
         </Pressable>
         <Pressable
@@ -202,8 +210,33 @@ export function TaskRow({
             {hasMeta && !task.done_at ? (
               <View style={{ flexDirection: 'row', alignItems: 'center', columnGap: 12, rowGap: 4, flexWrap: 'wrap' }}>
                 {task.due_date ? (
-                  <Text style={[type.meta, { color: overdue ? c.red : c.text2 }]}>{dueLabel(task, now)}</Text>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                    <Text style={[type.meta, { color: overdue ? c.red : c.text2 }]}>{dueLabel(task, now)}</Text>
+                    {repeat ? <Icons.repeat size={13} color={c.text2} /> : null}
+                  </View>
                 ) : null}
+                {priority < 4 ? (
+                  <View
+                    testID={`priority-${task.id}`}
+                    style={{
+                      borderWidth: 1,
+                      borderColor: c.text,
+                      borderRadius: 4,
+                      paddingHorizontal: 5,
+                      paddingVertical: 1,
+                    }}
+                  >
+                    <Text style={[type.monoXs, { color: c.text }]}>P{priority}</Text>
+                  </View>
+                ) : null}
+                {deadline ? (
+                  <Text style={[type.meta, { color: deadline.soon ? c.red : c.text2 }]}>{deadline.label}</Text>
+                ) : null}
+                {labels.slice(0, 3).map((l) => (
+                  <Text key={l} style={[type.meta, { color: c.text2 }]}>
+                    @{l}
+                  </Text>
+                ))}
                 {partial ? <Text style={[type.monoS, { color: c.text2 }]}>{progress}%</Text> : null}
                 {hasSubs ? (
                   <Text style={[type.meta, { color: c.text2 }]}>
