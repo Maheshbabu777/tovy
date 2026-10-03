@@ -5,6 +5,8 @@ import { inboxTasks } from '../core/views'
 import { EmptyState, Skeleton } from './components/Feedback'
 import { Page } from './components/Page'
 import { useToast } from './components/Toast'
+import { addedMessage } from '../core/parseTask'
+import type { NewQuickTask } from './QuickAddSheet'
 import { Composer, ListTop, TaskRows } from './TaskList'
 import { WIDE_BREAKPOINT } from './tokens'
 import { useTaskActions } from './useTaskActions'
@@ -19,10 +21,10 @@ export function InboxScreen() {
   const { store, tasks, projectMap, loaded } = useTaskData()
   const rows = inboxTasks(tasks)
 
-  function addTask(title: string) {
+  function addTask(task: NewQuickTask) {
     actions.run(() => {
-      store.addTask({ title, dueDate: null, projectId: null })
-      toast.show({ message: `Added "${title}"` })
+      store.addTask(task)
+      toast.show({ message: addedMessage(task, now, task.projectId ? projectMap?.[task.projectId]?.name : undefined) })
     })
   }
 

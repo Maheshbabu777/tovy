@@ -8,6 +8,8 @@ import { Banner, EmptyState, Skeleton } from './components/Feedback'
 import { Page } from './components/Page'
 import { IconButton } from './components/IconButton'
 import { useToast } from './components/Toast'
+import { addedMessage } from '../core/parseTask'
+import type { NewQuickTask } from './QuickAddSheet'
 import { Composer, TaskSection } from './TaskList'
 import { requestPalette } from './quickAdd'
 import { useTheme } from './theme'
@@ -60,10 +62,10 @@ export function TodayScreen() {
     })
   }
 
-  function addTask(title: string) {
+  function addTask(task: NewQuickTask) {
     actions.run(() => {
-      store.addTask({ title, dueDate: null, projectId: null })
-      toast.show({ message: `Added "${title}"` })
+      store.addTask(task)
+      toast.show({ message: addedMessage(task, now, task.projectId ? projectMap?.[task.projectId]?.name : undefined) })
     })
   }
 

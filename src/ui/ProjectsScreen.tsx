@@ -3,6 +3,7 @@ import { Pressable, Text, useWindowDimensions, View } from 'react-native'
 import { useLocalSearchParams, useRouter } from 'expo-router'
 import { Icons } from './icons'
 import { projectStats, taskCountLabel } from '../core/projects'
+import { addedMessage } from '../core/parseTask'
 import { byCreated, byDue } from '../core/today'
 import { Button } from './components/Button'
 import { Enter } from './components/Enter'
@@ -234,8 +235,8 @@ function ProjectPage({ id }: { id: string }) {
         defaultProjectId={loose ? null : id}
         onAdd={(t) =>
           actions.run(() => {
-            store.addTask({ title: t.title, dueDate: t.dueDate, projectId: t.projectId })
-            toast.show({ message: `Added "${t.title}"` })
+            store.addTask({ title: t.title, dueDate: t.dueDate, dueTime: t.dueTime, projectId: t.projectId })
+            toast.show({ message: addedMessage(t, now, projects.find((p) => p.id === t.projectId)?.name) })
           })
         }
       />

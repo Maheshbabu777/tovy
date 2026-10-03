@@ -8,6 +8,9 @@ import { SectionHeader } from './components/SectionHeader'
 import { shadow, SHADOWS, transition, webStyle } from './components/web'
 import { KeyCap } from './components/KeyCap'
 import { registerComposer } from './quickAdd'
+import type { NewQuickTask } from './QuickAddSheet'
+import { parseTask } from '../core/parseTask'
+import { useTaskData } from './useTaskData'
 import { TaskRow } from './TaskRow'
 import { useTheme } from './theme'
 import { radius, type, WIDE_BREAKPOINT } from './tokens'
@@ -183,19 +186,24 @@ export function AddTaskRow({
 }
 
 // The composer at the top of Today and Inbox on a wide screen: a bordered field with a plus and the N key cap. N focuses
-// it while its screen is showing. Enter adds the task and keeps the field ready for the next one.
+// it while its screen is showing. Enter adds the task and keeps the field ready for the next one. The words are read as
+// they are typed (spec quick-add-words) and what was read shows at the right of the field.
 export function Composer({
   onAdd,
   placeholder,
   testID,
 }: {
-  onAdd: (title: string) => void
+  onAdd: (task: NewQuickTask) => void
   placeholder: string
   testID: string
 }) {
   const { theme } = useTheme()
   const c = theme.colors
+  const { projects } = useTaskData()
   const [draft, setDraft] = useState('')
+  const now = new Date()
+  const read = parseTask(draft, now, projects)
+  const readLine = read.tokens.map((t) => t.label).join(' · ')
   const [focused, setFocused] = useState(false)
   const input = useRef<TextInput>(null)
   useFocusEffect(useCallback(() => registerComposer(() => input.current?.focus()), []))
@@ -227,9 +235,8 @@ export function Composer({
         onFocus={() => setFocused(true)}
         onBlur={() => setFocused(false)}
         onSubmitEditing={() => {
-          const text = draft.trim()
-          if (!text) return
-          onAdd(text)
+          if (!draft.trim()) return
+          onAdd({ title: read.title, dueDate: read.dueDate, dueTime: read.dueTime, projectId: read.projectId })
           setDraft('')
         }}
         blurOnSubmit={false}
@@ -238,6 +245,14 @@ export function Composer({
         accessibilityLabel={placeholder}
         style={[type.body, { flex: 1, height: 46, color: c.text }, webStyle({ outlineStyle: 'none' })]}
       />
+      {readLine ? (
+        <View testID={`${testID}-read`} style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+          <Icons.ai size={13} color={c.text2} />
+          <Text numberOfLines={1} style={[type.meta, { color: c.text2 }]}>
+            {readLine}
+          </Text>
+        </View>
+      ) : null}
       {focused ? <KeyCap label="Enter" /> : <KeyCap label="N" />}
     </View>
   )

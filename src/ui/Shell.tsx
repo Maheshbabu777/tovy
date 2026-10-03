@@ -14,6 +14,7 @@ import { TabSlot, useTabsWithTriggers } from 'expo-router/ui'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { Icons, type ToolkitIcon } from './icons'
 import { projectStats } from '../core/projects'
+import { addedMessage } from '../core/parseTask'
 import { inboxTasks, todayCount } from '../core/views'
 import storage from '../core/db/authStorage'
 import { Avatar } from './components/Avatar'
@@ -207,8 +208,8 @@ export function Shell() {
       defaultProjectId={projectHere}
       onAdd={(t) => {
         try {
-          store.addTask({ title: t.title, dueDate: t.dueDate, projectId: t.projectId })
-          toast.show({ message: `Added "${t.title}"` })
+          store.addTask({ title: t.title, dueDate: t.dueDate, dueTime: t.dueTime, projectId: t.projectId })
+          toast.show({ message: addedMessage(t, new Date(), projects.find((p) => p.id === t.projectId)?.name) })
         } catch (e) {
           toast.show({ message: e instanceof Error ? e.message : String(e) })
         }
