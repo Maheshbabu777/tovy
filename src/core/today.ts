@@ -75,9 +75,12 @@ export const byDue = (a: Task, b: Task) =>
 // Top level tasks only: a subtask lives under its parent. A task is in one group: Overdue, Due today, In progress,
 // Coming up or Anytime. Deleted tasks never show. A done task shows only on the day
 // it was finished (in "Done today"), after that it is found in its project.
+const paused = (t: Task) => (t.repeat as { paused?: boolean } | null | undefined)?.paused === true
+
 export function groupTasks(tasks: Task[], now: Date): TodayGroups {
   const today = localDay(now)
-  const live = tasks.filter((t) => t && !t.deleted && !t.parent_id)
+  // A paused habit is off every list until it is resumed (stage 6).
+  const live = tasks.filter((t) => t && !t.deleted && !t.parent_id && !paused(t))
   const open = live.filter((t) => !t.done_at)
   const overdue = open.filter((t) => t.due_date && t.due_date < today)
   const dueToday = open.filter((t) => t.due_date === today)

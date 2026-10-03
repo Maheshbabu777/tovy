@@ -59,6 +59,7 @@ type Href =
   | '/profile'
   | '/completed'
   | '/labels'
+  | '/habits'
   | '/apps'
   | '/activity'
   | '/trash'
@@ -71,6 +72,7 @@ const ROUTES: { name: string; href: Href }[] = [
   { name: 'profile', href: '/profile' },
   { name: 'completed', href: '/completed' },
   { name: 'labels', href: '/labels' },
+  { name: 'habits', href: '/habits' },
   { name: 'apps', href: '/apps' },
   { name: 'activity', href: '/activity' },
   { name: 'trash', href: '/trash' },
@@ -355,6 +357,15 @@ export function Shell() {
                   collapsed={collapsed}
                   on={section === '/completed'}
                   onPress={() => go('/completed')}
+                />
+                <NavItem
+                  navKey="/habits"
+                  testID="tab-habits"
+                  label="Habits"
+                  Icon={Icons.habit}
+                  collapsed={collapsed}
+                  on={section === '/habits'}
+                  onPress={() => go('/habits')}
                 />
                 <NavItem
                   navKey="/labels"

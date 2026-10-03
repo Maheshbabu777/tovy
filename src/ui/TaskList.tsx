@@ -2,8 +2,12 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { Pressable, Text, TextInput, useWindowDimensions, View } from 'react-native'
 import { useFocusEffect, useGlobalSearchParams } from 'expo-router'
 import { Icons } from './icons'
-import { byPriority } from '../core/taskFields'
-import { percentOf, subtaskCount } from '../core/progress'
+import { byPriority, readRepeat } from '../core/taskFields'
+import { habitStats, isHabit, streakLabel } from '../core/habits'
+import { localDay } from '../core/today'
+import { use$ } from '@legendapp/state/react'
+import { useStore } from './StoreContext'
+import { percentOf, subtaskCount, type LogEntry } from '../core/progress'
 import type { Project, Task } from '../core/sync/tasks'
 import { SectionHeader } from './components/SectionHeader'
 import { shadow, SHADOWS, transition, webStyle } from './components/web'
@@ -38,6 +42,13 @@ export function TaskRows({
 }) {
   const { task: openId } = useGlobalSearchParams<{ task?: string }>()
   const phone = useWindowDimensions().width < WIDE_BREAKPOINT
+  // Habits show their streak, worked out from the progress log (stage 6).
+  const store = useStore()
+  const logsMap = use$(store.logs$) as Record<string, LogEntry> | undefined
+  const logs = rows.some(isHabit) ? (Object.values(logsMap ?? {}) as LogEntry[]) : []
+  const today = localDay(now)
+  const habitOf = (task: Task) =>
+    isHabit(task) ? { streak: streakLabel(habitStats(task, logs, today).streak, readRepeat(task.repeat)) } : undefined
   // Rows that are there when the list shows are simply there: opening a page or switching tabs never replays an
   // animation (spec design-v2). Only a row that arrives later (you added it, an AI app did, it synced in) rises in.
   const [settled, setSettled] = useState(false)
@@ -53,6 +64,7 @@ export function TaskRows({
         <TaskRow
           key={task.id}
           animateIn={settled && !initial.has(task.id)}
+          habit={habitOf(task)}
           task={task}
           project={task.project_id ? projectMap?.[task.project_id] : undefined}
           progress={percentOf(task, all)}

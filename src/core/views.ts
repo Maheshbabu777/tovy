@@ -3,7 +3,11 @@ import { addDays, byCreated, byDue, dueLabel, localDay } from './today'
 
 // What the Inbox and Upcoming screens and the navigation counts show. Plain functions of the tasks and the clock.
 
-const openTopLevel = (tasks: Task[]) => tasks.filter((t) => t && !t.deleted && !t.parent_id && !t.done_at)
+// Open top level tasks, leaving out paused habits (stage 6): they are off every list until they are resumed.
+const openTopLevel = (tasks: Task[]) =>
+  tasks.filter(
+    (t) => t && !t.deleted && !t.parent_id && !t.done_at && (t.repeat as { paused?: boolean } | null)?.paused !== true,
+  )
 
 // Inbox: captured tasks that are not filed in a project yet, oldest first.
 export function inboxTasks(tasks: Task[]): Task[] {
