@@ -6,6 +6,7 @@ import { prefersReducedMotion } from '../motion'
 import { useTheme } from '../theme'
 import { type, WIDE_BREAKPOINT } from '../tokens'
 import { IconButton } from './IconButton'
+import { webStyle } from './web'
 import { ScreenHeader } from './ScreenHeader'
 
 // The scrolling page every screen sits in.
@@ -17,7 +18,8 @@ import { ScreenHeader } from './ScreenHeader'
 //     each other and nothing else.
 //   - The large title (or the screen's own `hero`) scrolls with the content. Once it has scrolled out of view, the small
 //     title fades into the bar and a hairline appears under it, so you always know where you are.
-//   - `sticky` stays pinned under the bar while the rest scrolls (the Upcoming week strip).
+//   - `sticky` stays pinned under the bar while the rest scrolls (the Upcoming calendar). On the web it sticks to the
+//     top of the page.
 //   - The bottom gap clears the tab bar and the add button.
 export function Page({
   children,
@@ -52,6 +54,7 @@ export function Page({
   const wide = useWindowDimensions().width >= WIDE_BREAKPOINT
   const [scrollY] = useState(() => new Animated.Value(0))
   const [heroHeight, setHeroHeight] = useState(64)
+  const [stuck, setStuck] = useState(false) // web: the sticky part is over the list, so it gets a hairline under it
 
   const column = (node: ReactNode) => <View style={{ width: '100%', maxWidth, alignSelf: 'center' }}>{node}</View>
 
@@ -61,7 +64,11 @@ export function Page({
         <ScrollView
           ref={scrollRef}
           scrollEventThrottle={16}
-          onScroll={(e) => onScroll?.(e.nativeEvent.contentOffset.y)}
+          onScroll={(e) => {
+            const y = e.nativeEvent.contentOffset.y
+            if (sticky && y > 80 !== stuck) setStuck(y > 80)
+            onScroll?.(y)
+          }}
           contentContainerStyle={{ paddingHorizontal: 48, paddingTop: 40, paddingBottom: 64 }}
         >
           {column(
@@ -76,7 +83,25 @@ export function Page({
                     titleTestID={titleTestID}
                   />
                 ) : null)}
-              {sticky}
+              {sticky ? (
+                // Web: the sticky part (the Upcoming calendar) stays at the top of the page while the list scrolls.
+                <View
+                  testID="page-sticky"
+                  style={[
+                    {
+                      backgroundColor: c.bg,
+                      zIndex: 2,
+                      marginHorizontal: -8,
+                      paddingHorizontal: 8,
+                      borderBottomWidth: 1,
+                      borderColor: stuck ? c.line : 'transparent',
+                    },
+                    webStyle({ position: 'sticky', top: 0 }),
+                  ]}
+                >
+                  {sticky}
+                </View>
+              ) : null}
               {children}
             </>,
           )}

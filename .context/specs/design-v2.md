@@ -27,9 +27,17 @@ What the inspiration does (read from the Paper page Inspiration):
 4. App icon, Android adaptive icon, splash, favicon (ico and png), apple touch icon and web manifest come from the Tovy mark.
 5. `https://<tovy site>/mcp` forwards to the MCP server (Vercel edge function `api/mcp.ts`); the server names that address in its sign-in hints (header `x-mcp-public-url`, validated). Connected apps shows this address on the web. Apps' own icons (`logo_uri`) show in Connected apps and on the consent screen, with a letter when there is none.
 
+## Slice 3 acceptance criteria
+
+1. Upcoming lists every day from today on, as far as the person scrolls (it grows near the end, up to a year), then later days that have tasks.
+2. Above the list: the month (press for a month grid, Monday first, dots on busy days, arrows by month; a popover on wide screens, a panel on phones; Escape closes it), previous and next week, and Today.
+3. The week strip shows Monday to Sunday of the week in view; past days are faded and cannot be picked; it follows the scroll.
+4. Picking any future day (strip, grid or week arrows) scrolls to it, adding days first when needed. On the web the calendar stays at the top while the list scrolls.
+
 ## Progress
 
 - [x] Slice 1 built; frame-by-frame check with Playwright: page switch goes straight from one page to the next; reload shows the frame from the first painted frame; hover actions verified; 16 MCP tests, 91 unit tests
 - [ ] Human: after merge, reconnect Claude with https://<tovy site>/mcp so it shows the Tovy icon
 - [x] Slice 2 (in the same PR): sidebar header is the mark, wordmark and collapse only; Projects head shows + New project on hover; the account sits at the bottom (avatar, name, @username, shortcuts and settings); menus can group items under labels, show a check or a key, and set Delete apart after a hairline; Google's own G on "Continue with Google" (from Google's sign-in assets); checked in Chromium at 1440, light and dark
-- [ ] Slices 3 to 5
+- [x] Slice 3: calendar as above; views tests for weeks, month grid and day counts; checked in Chromium at 1440 light and 390 dark (jump two months ahead, next week, scroll into January)
+- [ ] Slices 4 and 5

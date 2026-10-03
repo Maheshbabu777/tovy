@@ -1,8 +1,9 @@
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Platform, Pressable, ScrollView, Text, useWindowDimensions, View } from 'react-native'
 import { batch } from '@legendapp/state'
-import { localDay } from '../core/today'
-import { upcoming, weekStrip } from '../core/views'
+import { addDays, localDay } from '../core/today'
+import { daysThrough, shiftMonth, upcoming, weekStart, weekStrip, type CalendarDay } from '../core/views'
+import { CalendarBar, MonthPicker } from './Calendar'
 import { Skeleton } from './components/Feedback'
 import { Page } from './components/Page'
 import { useToast } from './components/Toast'
@@ -16,22 +17,34 @@ import { useTaskDrop } from './dragTask'
 import { useDropActions } from './useDropActions'
 import { webStyle } from './components/web'
 
-// Upcoming: late tasks first, then the week day by day (empty days too), then later days that have something on them.
-// Each day has its own "Add task" row that adds a task on that day.
+// How many days the list starts with, how many it grows by as the end comes near, and the most it holds (a year).
+const FIRST_DAYS = 21
+const MORE_DAYS = 28
+const MOST_DAYS = 366
+
+// Upcoming: late tasks first, then day after day (empty days too) for as far as the person scrolls or jumps, then later
+// days that have something on them. Each day has its own "Add task" row that adds a task on that day. Above the list:
+// the month (press it for a month grid), the week before and after, Today, and the week's days (spec design-v2).
 export function UpcomingScreen() {
   const toast = useToast()
   const now = useNow()
   const actions = useTaskActions(now)
   const { store, tasks, projectMap, loaded } = useTaskData()
-  const view = upcoming(tasks, now)
+  const today = localDay(now)
+  const [dayCount, setDayCount] = useState(FIRST_DAYS)
+  const view = upcoming(tasks, now, dayCount)
   const shared = { all: tasks, projectMap, now, actions }
   const { width, height } = useWindowDimensions()
   const wide = width >= WIDE_BREAKPOINT
   const scroll = useRef<ScrollView>(null)
   const spots = useRef<Record<string, number>>({})
-  const [selected, setSelected] = useState(localDay(now))
+  const [selected, setSelected] = useState(today)
+  const [week, setWeek] = useState(() => weekStart(today))
+  const [pickerOpen, setPickerOpen] = useState(false)
+  const [pickerMonth, setPickerMonth] = useState(today)
   const headHeight = useRef(0)
   const jumping = useRef(false)
+  const pending = useRef<string | null>(null) // a day picked beyond the list, scrolled to once it is drawn
 
   const nodes = useRef<Record<string, View | null>>({})
   // The web: drop a task on a day's section or on its cell in the strip to move it there (spec upcoming-drag).
@@ -46,8 +59,9 @@ export function UpcomingScreen() {
       const el = nodes.current[day] as unknown as HTMLElement | null
       const box = (scroll.current as unknown as { getScrollableNode?: () => HTMLElement })?.getScrollableNode?.()
       if (!el?.getBoundingClientRect || !box) return undefined
+      // The calendar stays over the top of the list (sticky), so a day lands just under it.
       const strip = document.querySelector<HTMLElement>('[data-testid="week-strip"]')
-      const cover = wide ? 8 : (strip?.parentElement?.offsetHeight ?? 0)
+      const cover = (strip?.parentElement?.offsetHeight ?? 0) + (wide ? 8 : 0)
       return el.getBoundingClientRect().top - box.getBoundingClientRect().top + box.scrollTop - cover
     }
     const y = spots.current[day]
@@ -55,25 +69,82 @@ export function UpcomingScreen() {
     return wide ? 40 + y - 8 : headHeight.current + y
   }
 
-  // Pressing a day in the strip scrolls its section to the top of the page.
-  function jumpTo(day: string) {
-    setSelected(day)
-    const y = offsetOf(day)
-    if (y === undefined) return
+  function scrollTo(y: number, animated = !prefersReducedMotion()) {
     jumping.current = true
-    scroll.current?.scrollTo({ y, animated: !prefersReducedMotion() })
+    scroll.current?.scrollTo({ y, animated })
     setTimeout(() => (jumping.current = false), 500)
   }
 
-  // While scrolling, the strip follows: the last day whose section has reached the top is the one in view.
+  // Picking a day (in the strip, the month grid or with the week arrows) scrolls its section to the top of the page.
+  // A day past the end of the list makes the list longer first; the scroll happens once those days are drawn.
+  function jumpTo(day: string) {
+    const target = day < today ? today : day
+    setSelected(target)
+    setWeek(weekStart(target))
+    const needed = Math.min(MOST_DAYS, daysThrough(now, target) + 7)
+    if (needed > dayCount) {
+      pending.current = target
+      setDayCount(needed)
+      return
+    }
+    const y = offsetOf(target)
+    if (y !== undefined) scrollTo(y)
+  }
+
+  useEffect(() => {
+    const day = pending.current
+    if (!day) return
+    // Wait a frame so the new sections are laid out before measuring where the day is.
+    const frame = requestAnimationFrame(() => {
+      pending.current = null
+      const y = offsetOf(day)
+      if (y !== undefined) scrollTo(y, false)
+    })
+    return () => cancelAnimationFrame(frame)
+  })
+
+  // The web: Escape closes the month grid.
+  useEffect(() => {
+    if (Platform.OS !== 'web' || !pickerOpen) return
+    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && setPickerOpen(false)
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [pickerOpen])
+
+  function goToday() {
+    setSelected(today)
+    setWeek(weekStart(today))
+    setPickerMonth(today)
+    scrollTo(0)
+  }
+
+  // A week back or ahead: the strip moves and the list goes to that week's first day still to come.
+  function stepWeek(step: -1 | 1) {
+    const monday = addDays(week, step * 7)
+    if (monday < weekStart(today)) return
+    jumpTo(monday < today ? today : monday)
+  }
+
+  // While scrolling, the strip follows: the last day whose section has reached the top is the one in view. Near the
+  // end of the list, more days are added, so the calendar never runs out.
   function follow(y: number) {
     if (jumping.current) return
-    let inView = localDay(now)
+    let inView = today
     for (const d of view.days) {
       const at = offsetOf(d.day)
-      if (at !== undefined && at <= y + 12) inView = d.day
+      if (at === undefined) continue
+      if (at > y + 12) break
+      inView = d.day
     }
-    if (inView !== selected) setSelected(inView)
+    if (inView !== selected) {
+      setSelected(inView)
+      if (weekStart(inView) !== week) setWeek(weekStart(inView))
+    }
+    const last = view.days[view.days.length - 1]
+    const end = last ? offsetOf(last.day) : undefined
+    if (end !== undefined && end - y < height * 2 && dayCount < MOST_DAYS) {
+      setDayCount((n) => Math.min(MOST_DAYS, n + MORE_DAYS))
+    }
   }
 
   function rescheduleOverdue() {
@@ -103,17 +174,44 @@ export function UpcomingScreen() {
     <Page
       scrollRef={scroll}
       title="Upcoming"
-      subtitle={monthLine(now)}
       titleTestID="upcoming-title"
       onScroll={follow}
       onHeadHeight={(h) => (headHeight.current = h)}
       sticky={
-        <WeekStrip
-          days={weekStrip(tasks, now)}
-          selected={selected}
-          onPick={jumpTo}
-          onDrop={(id, day) => drop.toDay(id, day)}
-        />
+        <View style={{ zIndex: 3 }}>
+          <CalendarBar
+            month={pickerOpen ? pickerMonth : addDays(week, 3)}
+            open={pickerOpen}
+            onToggle={() => {
+              setPickerMonth(selected)
+              setPickerOpen((o) => !o)
+            }}
+            onPrev={() => stepWeek(-1)}
+            onNext={() => stepWeek(1)}
+            onToday={goToday}
+            canPrev={week > weekStart(today)}
+          />
+          {pickerOpen ? (
+            <MonthPicker
+              floating={wide}
+              tasks={tasks}
+              now={now}
+              month={pickerMonth}
+              selected={selected}
+              onMonth={(step) => setPickerMonth((m) => shiftMonth(m, step))}
+              onPick={(day) => {
+                setPickerOpen(false)
+                jumpTo(day)
+              }}
+            />
+          ) : null}
+          <WeekStrip
+            days={weekStrip(tasks, now, week)}
+            selected={selected}
+            onPick={jumpTo}
+            onDrop={(id, day) => drop.toDay(id, day)}
+          />
+        </View>
       }
     >
       {!loaded ? (
@@ -151,22 +249,6 @@ export function UpcomingScreen() {
   )
 }
 
-const MONTHS = [
-  'January',
-  'February',
-  'March',
-  'April',
-  'May',
-  'June',
-  'July',
-  'August',
-  'September',
-  'October',
-  'November',
-  'December',
-]
-const monthLine = (now: Date) => `${MONTHS[now.getMonth()]} ${now.getFullYear()}`
-
 // One day's section, which takes a dragged task (web). While a task is held over it, the section is outlined.
 function DayDrop({
   day,
@@ -203,30 +285,23 @@ function DayDrop({
   )
 }
 
-// The next seven days as cells: weekday, date, and a dot when something is due. Today has a black ring; the picked day
-// is filled. Pressing a cell scrolls to that day.
+// A week as cells, Monday to Sunday: weekday, date, and a dot when something is due. Today has a black ring; the
+// picked day is filled; days already over are faded and cannot be picked. Pressing a cell scrolls to that day.
 function WeekStrip({
   days,
   selected,
   onPick,
   onDrop,
 }: {
-  days: { day: string; weekday: string; date: number; busy: boolean }[]
+  days: CalendarDay[]
   selected: string
   onPick: (day: string) => void
   onDrop: (taskId: string, day: string) => void
 }) {
   return (
-    <View testID="week-strip" style={{ flexDirection: 'row', gap: 6, paddingTop: 16, paddingBottom: 8 }}>
-      {days.map((d, i) => (
-        <WeekCell
-          key={d.day}
-          d={d}
-          on={d.day === selected}
-          today={i === 0}
-          onPick={onPick}
-          onDrop={(id) => onDrop(id, d.day)}
-        />
+    <View testID="week-strip" style={{ flexDirection: 'row', gap: 6, paddingTop: 12, paddingBottom: 8 }}>
+      {days.map((d) => (
+        <WeekCell key={d.day} d={d} on={d.day === selected} onPick={onPick} onDrop={(id) => onDrop(id, d.day)} />
       ))}
     </View>
   )
@@ -235,31 +310,32 @@ function WeekStrip({
 function WeekCell({
   d,
   on: picked,
-  today,
   onPick,
   onDrop,
 }: {
-  d: { day: string; weekday: string; date: number; busy: boolean }
+  d: CalendarDay
   on: boolean
-  today: boolean
   onPick: (day: string) => void
   onDrop: (taskId: string) => void
 }) {
   const { theme } = useTheme()
   const c = theme.colors
-  const [attach, over] = useTaskDrop(onDrop)
+  const [attach, over] = useTaskDrop(d.past ? () => {} : onDrop)
   // A task held over a cell fills it, like the picked day: that is where it will land.
-  const on = picked || over
+  const on = picked || (over && !d.past)
+  const today = d.today
   return (
     <Pressable
       ref={attach}
+      disabled={d.past}
       testID={`week-${d.day}`}
       accessibilityRole="button"
       accessibilityLabel={`${d.weekday} ${d.date}${d.busy ? ', has tasks' : ''}`}
-      accessibilityState={{ selected: on }}
+      accessibilityState={{ selected: on, disabled: d.past }}
       onPress={() => onPick(d.day)}
       style={{
         flex: 1,
+        opacity: d.past ? 0.4 : 1,
         height: 68,
         borderRadius: radius.lg,
         alignItems: 'center',
@@ -277,7 +353,7 @@ function WeekCell({
           width: 4,
           height: 4,
           borderRadius: 2,
-          backgroundColor: d.busy ? (on ? c.onPrimary : c.text) : 'transparent',
+          backgroundColor: d.busy && !d.past ? (on ? c.onPrimary : c.text) : 'transparent',
         }}
       />
     </Pressable>

@@ -20,8 +20,8 @@ export function todayCount(tasks: Task[], now: Date): number {
 
 export type UpcomingDay = { day: string; title: string; tasks: Task[] }
 
-// Upcoming: late tasks first, then every one of the next `days` days (empty ones too, so the week reads as a week),
-// then any later day that has something on it.
+// Upcoming: late tasks first, then every one of the next `days` days (empty ones too, so the calendar reads as days in
+// a row), then any later day that has something on it. The screen asks for more days as the person scrolls or jumps.
 export function upcoming(tasks: Task[], now: Date, days = 7): { overdue: Task[]; days: UpcomingDay[] } {
   const today = localDay(now)
   const open = openTopLevel(tasks).filter((t) => t.due_date)
@@ -72,20 +72,100 @@ export function daySummary(g: { overdue: unknown[]; dueToday: unknown[]; doneTod
   return parts.length ? parts.join(' · ') : 'Nothing due today'
 }
 
-// The next `count` days for the Upcoming week strip, with whether each has an open task.
-export function weekStrip(
-  tasks: Task[],
-  now: Date,
-  count = 7,
-): { day: string; weekday: string; date: number; busy: boolean }[] {
+const WEEKDAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
+const MONTHS = [
+  'January',
+  'February',
+  'March',
+  'April',
+  'May',
+  'June',
+  'July',
+  'August',
+  'September',
+  'October',
+  'November',
+  'December',
+]
+
+const parts = (day: string) => day.split('-').map(Number) as [number, number, number]
+
+// The Monday of the week a day is in. Weeks in the calendar start on Monday.
+export function weekStart(day: string): string {
+  const [y, m, d] = parts(day)
+  const weekday = new Date(y, m - 1, d).getDay() // 0 is Sunday
+  return addDays(day, -((weekday + 6) % 7))
+}
+
+// "October 2026" for any day in that month.
+export function monthTitle(day: string): string {
+  const [y, m] = parts(day)
+  return `${MONTHS[m - 1]} ${y}`
+}
+
+// The first day of the month `months` away from the month a day is in ("2026-10-17", 2 → "2026-12-01").
+export function shiftMonth(day: string, months: number): string {
+  const [y, m] = parts(day)
+  return localDay(new Date(y, m - 1 + months, 1))
+}
+
+export type CalendarDay = {
+  day: string
+  weekday: string
+  date: number
+  busy: boolean // an open task is due that day
+  past: boolean // before today
+  today: boolean
+}
+
+const calendarDay = (day: string, today: string, busy: Set<string | null>): CalendarDay => {
+  const [y, m, d] = parts(day)
+  return {
+    day,
+    weekday: WEEKDAYS[new Date(y, m - 1, d).getDay()],
+    date: d,
+    busy: busy.has(day),
+    past: day < today,
+    today: day === today,
+  }
+}
+
+const busyDays = (tasks: Task[]) => new Set(openTopLevel(tasks).map((t) => t.due_date))
+
+// The Upcoming week strip: Monday to Sunday of the week that starts on `start` (this week when left out), with
+// whether each day has an open task, is already over or is today.
+export function weekStrip(tasks: Task[], now: Date, start?: string): CalendarDay[] {
   const today = localDay(now)
-  const open = new Set(openTopLevel(tasks).map((t) => t.due_date))
-  const WEEKDAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
-  return Array.from({ length: count }, (_, i) => {
-    const day = addDays(today, i)
-    const [y, m, d] = day.split('-').map(Number)
-    return { day, weekday: WEEKDAYS[new Date(y, m - 1, d).getDay()], date: d, busy: open.has(day) }
-  })
+  const monday = weekStart(start ?? today)
+  const busy = busyDays(tasks)
+  return Array.from({ length: 7 }, (_, i) => calendarDay(addDays(monday, i), today, busy))
+}
+
+// The month picker: the weeks (Monday first) that cover the month a day is in. Days of the next and previous month
+// that fill the first and last week have `inMonth` false.
+export function monthGrid(tasks: Task[], now: Date, month: string): (CalendarDay & { inMonth: boolean })[][] {
+  const today = localDay(now)
+  const first = shiftMonth(month, 0)
+  const next = shiftMonth(month, 1)
+  const busy = busyDays(tasks)
+  const weeks: (CalendarDay & { inMonth: boolean })[][] = []
+  for (let monday = weekStart(first); monday < next; monday = addDays(monday, 7)) {
+    weeks.push(
+      Array.from({ length: 7 }, (_, i) => {
+        const day = addDays(monday, i)
+        return { ...calendarDay(day, today, busy), inMonth: day >= first && day < next }
+      }),
+    )
+  }
+  return weeks
+}
+
+// How many days from today to `day`, counting both (today itself is 1).
+export function daysThrough(now: Date, day: string): number {
+  const today = localDay(now)
+  const [y, m, d] = parts(day)
+  const [ty, tm, td] = parts(today)
+  return Math.round((Date.UTC(y, m - 1, d) - Date.UTC(ty, tm - 1, td)) / 86_400_000) + 1
 }
 
 // The Completed page: finished top level tasks grouped by the day they were finished, newest day first, newest first
