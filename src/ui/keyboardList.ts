@@ -29,13 +29,27 @@ export function moveFocus(step: 1 | -1): boolean {
   return true
 }
 
+// Press one of the focused row's own actions (its hover buttons show while it has focus): S schedules, M moves it.
+export function pressOnFocused(testIdPrefix: string): boolean {
+  const button = currentRow()?.querySelector<HTMLElement>(`[data-testid^="${testIdPrefix}"]`)
+  if (!button) return false
+  button.click()
+  return true
+}
+
+// Set while a keyboard shortcut finishes a task, so the row skips the finishing moment: keys are used all day and
+// should never wait on an animation (Paper "06 Motion"). The row reads and clears it.
+export const keyboardFinish = { now: false }
+
 // Finish or reopen the focused row. The row may move to another section; focus stays where it was in the list.
 export function toggleFocused(): boolean {
   const at = currentRow()
   const done = at?.querySelector<HTMLElement>('[data-testid^="done-"]')
   if (!at || !done) return false
   const index = rows().indexOf(at)
+  keyboardFinish.now = true
   done.click()
+  keyboardFinish.now = false
   setTimeout(() => {
     const list = rows()
     list[Math.min(index, list.length - 1)]?.querySelector<HTMLElement>('[data-testid^="open-"]')?.focus()
@@ -53,6 +67,8 @@ export const SHORTCUTS: { keys: string[]; label: string }[] = [
   { keys: ['J', '↓'], label: 'Next task' },
   { keys: ['K', '↑'], label: 'Previous task' },
   { keys: ['X'], label: 'Finish or reopen the task' },
+  { keys: ['S'], label: 'Schedule the task' },
+  { keys: ['M'], label: 'Move the task to a project' },
   { keys: ['Enter'], label: 'Open the task' },
   { keys: ['Esc'], label: 'Close the task or a sheet' },
   { keys: ['?'], label: 'These shortcuts' },

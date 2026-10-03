@@ -185,20 +185,17 @@ function ProjectPage({ id }: { id: string }) {
     <Page
       title={title}
       subtitle={taskCountLabel(own.length)}
-      onBack={back}
+      // Wide: the sidebar lists every project, so the page has a plain title like the others, no back button.
+      onBack={phone ? back : undefined}
       actions={
         <>
-          {/* On a phone the round add button already adds here; one way to add is enough. */}
-          {phone ? null : (
-            <IconButton icon={Icons.add} label="Add task" onPress={() => setAdding(true)} testID="project-add-task" />
-          )}
           {loose ? null : (
             <IconButton icon={Icons.edit} label="Edit project" onPress={() => setEditing(true)} testID="project-edit" />
           )}
         </>
       }
     >
-      <View style={{ marginTop: 16 }}>
+      <View style={{ marginTop: phone ? 16 : 28 }}>
         {!loaded ? (
           <Skeleton rows={4} />
         ) : own.length === 0 ? (

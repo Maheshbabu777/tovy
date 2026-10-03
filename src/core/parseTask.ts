@@ -246,3 +246,25 @@ export function addedMessage(
     : ''
   return [`Added "${task.title}"`, when, projectName ?? ''].filter(Boolean).join(' · ')
 }
+
+// Splits text into plain and marked pieces, marking each understood phrase where it appears (ignoring case).
+export function markPieces(text: string, marks: string[]): { text: string; marked: boolean }[] {
+  const ranges: [number, number][] = []
+  const lower = text.toLowerCase()
+  for (const m of marks) {
+    if (!m) continue
+    const at = lower.lastIndexOf(m.toLowerCase())
+    if (at >= 0) ranges.push([at, at + m.length])
+  }
+  ranges.sort((a, b) => a[0] - b[0])
+  const out: { text: string; marked: boolean }[] = []
+  let i = 0
+  for (const [from, to] of ranges) {
+    if (from < i) continue
+    if (from > i) out.push({ text: text.slice(i, from), marked: false })
+    out.push({ text: text.slice(from, to), marked: true })
+    i = to
+  }
+  if (i < text.length) out.push({ text: text.slice(i), marked: false })
+  return out
+}

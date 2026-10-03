@@ -130,7 +130,7 @@ function MenuRow({ item, onClose }: { item: MenuItem; onClose: () => void }) {
       }}
       {...handlers}
     >
-      <item.icon size={18} color={item.danger ? c.red : c.text2} />
+      {/* Paper, Components: menu items are words with their key at the right; icons belong to the phone's sheet. */}
       <Text style={[type.bodyS, { color, flex: 1 }]}>{item.label}</Text>
       {item.checked ? <Icons.check size={16} color={c.text} /> : null}
       {item.hint ? <Text style={[type.monoS, { color: c.text3 }]}>{item.hint}</Text> : null}

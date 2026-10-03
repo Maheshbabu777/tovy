@@ -205,7 +205,7 @@ export function SignInScreen() {
     >
       <Text style={[type.display, { color: c.text }]}>Your day, in order.</Text>
       <Text style={[type.body, { color: c.text2, marginTop: 12 }]}>
-        Tasks and routines that work on this device first and sync everywhere. New or returning, it is the same step.
+        Your tasks and routines, on every device you use. New or returning, it is the same step.
       </Text>
     </AuthLayout>
   )

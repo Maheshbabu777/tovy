@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { Animated, Pressable, Text, View } from 'react-native'
 import { Icons } from './icons'
 import { EASE, prefersReducedMotion, useEnter } from './motion'
+import { keyboardFinish } from './keyboardList'
 import { useSwipe } from './components/useSwipe'
 import { useDraggableTask } from './dragTask'
 import type { SwipeAction } from '../core/swipe'
@@ -63,7 +64,7 @@ export function TaskRow({
   const [rowHeight, setRowHeight] = useState(0)
   const done = !!task.done_at || finishing
   function toggle() {
-    if (task.done_at || finishing || prefersReducedMotion()) {
+    if (task.done_at || finishing || prefersReducedMotion() || keyboardFinish.now) {
       onToggleDone()
       return
     }

@@ -79,16 +79,24 @@ export function useTaskActions(now: Date) {
       items={
         menu
           ? [
-              { label: 'Open', icon: Icons.external, testID: 'menu-open', onPress: () => open(menu.task) },
+              {
+                label: 'Open',
+                icon: Icons.external,
+                hint: 'Enter',
+                testID: 'menu-open',
+                onPress: () => open(menu.task),
+              },
               {
                 label: 'Schedule',
                 icon: Icons.time,
+                hint: 'S',
                 testID: 'menu-schedule',
                 onPress: () => setSheet({ task: menu.task, kind: 'date' }),
               },
               {
                 label: 'Move to project',
                 icon: Icons.project,
+                hint: 'M',
                 testID: 'menu-project',
                 onPress: () => setSheet({ task: menu.task, kind: 'project' }),
               },

@@ -17,7 +17,11 @@ export function Sheet({
   children,
   footer,
   testID,
+  bare = false,
+  width: cardWidth,
 }: {
+  bare?: boolean // no title row: the content is its own header (quick add); the title still names it for screen readers
+  width?: number // wide screens: the card's width (512 by default)
   visible: boolean
   onClose: () => void
   title: string
@@ -66,7 +70,7 @@ export function Sheet({
           style={[
             {
               width: '100%',
-              maxWidth: wide ? 512 : undefined,
+              maxWidth: wide ? (cardWidth ?? 512) : undefined,
               maxHeight: height * 0.88,
               backgroundColor: c.raised,
               borderRadius: wide ? radius.lg : 0,
@@ -97,19 +101,23 @@ export function Sheet({
               }}
             />
           )}
-          <View
-            style={{
-              flexDirection: 'row',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-              paddingHorizontal: 20,
-              paddingTop: 12,
-              paddingBottom: 8,
-            }}
-          >
-            <Text style={[type.title, { color: c.text }]}>{title}</Text>
-            {wide ? <IconButton icon={Icons.close} label="Close" onPress={onClose} testID="sheet-close" /> : null}
-          </View>
+          {bare ? (
+            <View style={{ height: wide ? 16 : 8 }} />
+          ) : (
+            <View
+              style={{
+                flexDirection: 'row',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                paddingHorizontal: 20,
+                paddingTop: 12,
+                paddingBottom: 8,
+              }}
+            >
+              <Text style={[type.title, { color: c.text }]}>{title}</Text>
+              {wide ? <IconButton icon={Icons.close} label="Close" onPress={onClose} testID="sheet-close" /> : null}
+            </View>
+          )}
           <View style={{ paddingHorizontal: 20 }}>{children}</View>
           {footer ? (
             <View

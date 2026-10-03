@@ -25,9 +25,7 @@ export function Segmented<T extends string>({
         flexDirection: 'row',
         backgroundColor: c.panel,
         borderRadius: radius.pill,
-        padding: 3,
-        borderWidth: 1,
-        borderColor: c.line,
+        padding: 2,
         alignSelf: 'flex-start',
       }}
     >
@@ -50,18 +48,19 @@ function Segment({ selected, label, onPress }: { selected: boolean; label: strin
       onPress={onPress}
       style={[
         {
-          height: 32,
-          paddingHorizontal: 16,
+          // Paper, Components: the chosen one is a raised white pill on the grey track, not a black one.
+          height: 28,
+          paddingHorizontal: 12,
           borderRadius: radius.pill,
           justifyContent: 'center',
-          backgroundColor: selected ? c.primary : 'transparent',
+          backgroundColor: selected ? (theme.mode === 'dark' ? c.line : c.bg) : 'transparent',
         },
         selected ? shadow(SHADOWS.raisedS) : {},
         ring.style,
       ]}
       {...ring.handlers}
     >
-      <Text style={[type.label, { color: selected ? c.onPrimary : c.text2 }]}>{label}</Text>
+      <Text style={[type.meta, { color: selected ? c.text : c.text2 }]}>{label}</Text>
     </Pressable>
   )
 }

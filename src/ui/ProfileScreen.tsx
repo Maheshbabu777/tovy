@@ -13,7 +13,8 @@ import { Group, Row } from './components/SettingsList'
 import { IdCardStage, type CardInfo } from './IdCard'
 import { loadConnectedApps } from '../core/aiApi'
 import { useTaskData } from './useTaskData'
-import { AboutPage, AppearancePage, EditProfilePage, THEME_LABEL } from './ProfilePages'
+import { AboutPage, AppearancePage, EditProfilePage, THEMES } from './ProfilePages'
+import { Segmented } from './components/Segmented'
 import { useStore } from './StoreContext'
 import { useTheme } from './theme'
 import { radius, type, WIDE_BREAKPOINT } from './tokens'
@@ -66,7 +67,7 @@ export function ProfileScreen() {
 function ProfileHome({ profile, open }: { profile: Profile | null; open: (page: SubPage) => void }) {
   const router = useRouter()
   const wide = useWindowDimensions().width >= WIDE_BREAKPOINT
-  const { theme, preference } = useTheme()
+  const { theme, preference, setPreference } = useTheme()
   const c = theme.colors
   const store = useStore()
   const online = useOnline()
@@ -112,13 +113,14 @@ function ProfileHome({ profile, open }: { profile: Profile | null; open: (page: 
 
   const name = profile ? `${profile.first_name} ${profile.last_name}`.trim() : ''
   const initials = profile ? `${profile.first_name[0] ?? ''}${profile.last_name[0] ?? ''}`.toUpperCase() : ''
-  const syncLabel = failed
-    ? 'Error'
+  // Only said when it matters to the person: their changes are not saved everywhere yet. All fine says nothing.
+  const saveNote = failed
+    ? 'Some changes could not be saved yet'
     : !online
-      ? 'Offline'
+      ? 'Offline. Changes are kept on this device'
       : pending > 0
-        ? `${pending} ${pending === 1 ? 'change' : 'changes'} waiting`
-        : 'Up to date'
+        ? `${pending} ${pending === 1 ? 'change' : 'changes'} saving`
+        : null
 
   const card: CardInfo = {
     name,
@@ -158,14 +160,13 @@ function ProfileHome({ profile, open }: { profile: Profile | null; open: (page: 
       </Group>
 
       <Group title="Settings">
+        {/* Paper, Components: the theme is chosen right in the row. */}
         <Row
-          label="Appearance"
-          icon={Icons.themeLight}
-          value={THEME_LABEL[preference]}
-          onPress={() => open('appearance')}
+          label="Theme"
           testID="appearance"
+          control={<Segmented options={THEMES} value={preference} onChange={setPreference} testID="theme-choice" />}
         />
-        <Row label="Sync status" icon={Icons.sync} value={syncLabel} valueTestID="sync-status" />
+        {saveNote ? <Row label="Your changes" value={saveNote} valueTestID="sync-status" chevron={false} /> : null}
       </Group>
 
       {/* On a phone these are in Browse, one tap from here. The web has no Browse, so they live with the settings. */}
