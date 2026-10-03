@@ -26,11 +26,9 @@ export function SectionHeader({
         flexDirection: 'row',
         alignItems: 'baseline',
         gap: 8,
-        paddingTop: 24,
-        paddingBottom: 8,
-        // The hairline runs as wide as the rows' lines (they reach 8 px past the column for their hover fill).
-        marginHorizontal: -8,
-        paddingHorizontal: 8,
+        // Paper, Web Today: 28 above, 10 below, the hairline as wide as the column.
+        paddingTop: 28,
+        paddingBottom: 10,
         borderBottomWidth: 1,
         borderBottomColor: c.line,
       }}

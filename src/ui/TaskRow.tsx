@@ -69,9 +69,14 @@ export function TaskRow({
       ref={dragRef}
       testID="task"
       onLayout={(e) => swipe.onLayout(e.nativeEvent.layout.width)}
-      style={[enter, { marginHorizontal: -8, borderBottomWidth: 1, borderBottomColor: c.line, overflow: 'hidden' }]}
+      style={[enter, { marginHorizontal: -8, overflow: 'hidden' }]}
     >
       {onSwipe ? <SwipeBackdrop x={swipe.x} done={done} /> : null}
+      {/* The hairline is as wide as the column (Paper, Web Today); the hover fill reaches 8 px past it. */}
+      <View
+        pointerEvents="none"
+        style={{ position: 'absolute', left: 8, right: 8, bottom: 0, height: 1, backgroundColor: c.line, zIndex: 1 }}
+      />
       <Animated.View
         {...swipe.handlers}
         style={[
@@ -99,7 +104,7 @@ export function TaskRow({
           }}
           {...hover}
           hitSlop={6}
-          style={{ width: 32, paddingTop: 13, paddingBottom: 12 }}
+          style={{ width: 34, paddingTop: 14, paddingBottom: 14 }}
         >
           <ProgressRing
             size={20}
@@ -122,13 +127,13 @@ export function TaskRow({
             onMenu({ x: e.pageX, y: e.pageY })
           }}
           style={[
-            { flex: 1, flexDirection: 'row', gap: 12, paddingVertical: 12, minHeight: 48 },
+            { flex: 1, flexDirection: 'row', gap: 12, paddingVertical: 14, minHeight: 48 },
             webStyle({ outlineStyle: 'none' }),
           ]}
           {...ring.handlers}
           {...hover}
         >
-          <View style={{ flex: 1, gap: 2 }}>
+          <View style={{ flex: 1, gap: 4 }}>
             <Text
               testID={`title-${task.id}`}
               numberOfLines={2}
@@ -140,7 +145,7 @@ export function TaskRow({
               {task.title}
             </Text>
             {hasMeta && !done ? (
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', columnGap: 12, rowGap: 4, flexWrap: 'wrap' }}>
                 {task.due_date ? (
                   <Text style={[type.meta, { color: overdue ? c.red : c.text2 }]}>{dueLabel(task, now)}</Text>
                 ) : null}
@@ -155,13 +160,13 @@ export function TaskRow({
             ) : null}
           </View>
           {(hovered || keyboardFocus) && (onSchedule || onMove) ? null : showProject && project ? (
-            <Text numberOfLines={1} style={[type.meta, { color: c.text2, maxWidth: 140, paddingTop: 2 }]}>
+            <Text numberOfLines={1} style={[type.meta, { color: c.text2, maxWidth: 140, paddingTop: 1 }]}>
               {project.name}
             </Text>
           ) : null}
         </Pressable>
         {(hovered || keyboardFocus) && (onSchedule || onMove) ? (
-          <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 2, paddingTop: 10 }}>
+          <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 2, paddingTop: 10, paddingBottom: 10 }}>
             {onSchedule && !done ? (
               <RowAction
                 icon={Icons.date}

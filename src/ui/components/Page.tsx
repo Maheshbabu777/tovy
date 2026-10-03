@@ -28,6 +28,7 @@ export function Page({
   title,
   subtitle,
   titleTestID,
+  subtitleTestID,
   onBack,
   actions,
   hero,
@@ -41,6 +42,7 @@ export function Page({
   title?: string
   subtitle?: string
   titleTestID?: string
+  subtitleTestID?: string
   onBack?: () => void
   actions?: ReactNode // icon buttons for the header (web) or the bar (phone)
   hero?: ReactNode // a screen's own large header (Today), shown instead of the plain title
@@ -69,7 +71,7 @@ export function Page({
             if (sticky && y > 80 !== stuck) setStuck(y > 80)
             onScroll?.(y)
           }}
-          contentContainerStyle={{ paddingHorizontal: 48, paddingTop: 40, paddingBottom: 64 }}
+          contentContainerStyle={{ paddingHorizontal: 64, paddingTop: 48, paddingBottom: 64 }}
         >
           {column(
             <>
@@ -81,6 +83,7 @@ export function Page({
                     onBack={onBack}
                     right={actions}
                     titleTestID={titleTestID}
+                    subtitleTestID={subtitleTestID}
                   />
                 ) : null)}
               {sticky ? (
@@ -114,7 +117,11 @@ export function Page({
   const reveal = prefersReducedMotion()
     ? scrollY.interpolate({ inputRange: [heroHeight - 1, heroHeight], outputRange: [0, 1], extrapolate: 'clamp' })
     : scrollY.interpolate({ inputRange: [heroHeight - 24, heroHeight], outputRange: [0, 1], extrapolate: 'clamp' })
-  const head = hero ?? (title ? <LargeTitle title={title} subtitle={subtitle} testID={titleTestID} /> : null)
+  const head =
+    hero ??
+    (title ? (
+      <LargeTitle title={title} subtitle={subtitle} testID={titleTestID} subtitleTestID={subtitleTestID} />
+    ) : null)
 
   return (
     <View style={{ flex: 1, backgroundColor: c.bg }}>
@@ -186,7 +193,17 @@ export function Page({
 }
 
 // The phone's large title: 34 regular with tight tracking, an optional line under it.
-function LargeTitle({ title, subtitle, testID }: { title: string; subtitle?: string; testID?: string }) {
+function LargeTitle({
+  title,
+  subtitle,
+  testID,
+  subtitleTestID,
+}: {
+  title: string
+  subtitle?: string
+  testID?: string
+  subtitleTestID?: string
+}) {
   const { theme } = useTheme()
   const c = theme.colors
   return (
@@ -194,7 +211,11 @@ function LargeTitle({ title, subtitle, testID }: { title: string; subtitle?: str
       <Text testID={testID} accessibilityRole="header" style={[type.display, { color: c.text }]}>
         {title}
       </Text>
-      {subtitle ? <Text style={[type.bodyS, { color: c.text2, marginTop: 4 }]}>{subtitle}</Text> : null}
+      {subtitle ? (
+        <Text testID={subtitleTestID} style={[type.bodyS, { color: c.text2, marginTop: 4 }]}>
+          {subtitle}
+        </Text>
+      ) : null}
     </View>
   )
 }

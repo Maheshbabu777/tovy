@@ -13,9 +13,11 @@ export function ScreenHeader({
   onBack,
   right,
   titleTestID,
+  subtitleTestID,
 }: {
   title: string
   titleTestID?: string
+  subtitleTestID?: string
   subtitle?: string
   onBack?: () => void
   right?: ReactNode
@@ -39,13 +41,25 @@ export function ScreenHeader({
           {title}
         </Text>
         {subtitle ? (
-          <Text numberOfLines={1} style={[type.bodyS, { color: c.text2, marginTop: 4 }]}>
+          <Text
+            testID={subtitleTestID}
+            numberOfLines={1}
+            style={[type.bodyS, { color: c.text2, marginTop: 6, lineHeight: 18 }]}
+          >
             {subtitle}
           </Text>
         ) : null}
       </View>
       {right ? (
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: level }}>{right}</View>
+        // With a subtitle the actions sit level with its last line (Paper, Web Today: the View button).
+        <View
+          style={[
+            { flexDirection: 'row', alignItems: 'center', gap: 4 },
+            subtitle ? { alignSelf: 'flex-end' } : { marginTop: level },
+          ]}
+        >
+          {right}
+        </View>
       ) : null}
     </View>
   )

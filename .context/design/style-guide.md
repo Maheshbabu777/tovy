@@ -64,7 +64,7 @@ Geist for everything, Geist Mono for times, percentages, counts in section heade
 
 ## Icons
 
-Phosphor, regular weight, filled only for the active tab or nav item. Sizes 13 to 16 in meta and chips, 18 to 20 in rows, menus and the sidebar, 24 in the tab bar. Screens import icons by meaning from `src/ui/icons.ts`, never from the library. The map is in the Paper Foundations page, section 04.
+Tovy's own set (`src/ui/iconSet.ts`, spec design-v2): 24 grid, 1.65 line with round ends and joins, soft corners, a solid dot (a stone) where a symbol needs a point of focus. The active tab or nav item gets a soft fill inside the outline (18%). New icons are drawn in the same way and checked on a preview sheet at 40, 20 and 16 px. Sizes 13 to 16 in meta and chips, 18 to 20 in rows, menus and the sidebar, 24 in the tab bar. Screens import icons by meaning from `src/ui/icons.ts`, never from the library. The map is in the Paper Foundations page, section 04.
 
 ## Mark
 
@@ -74,7 +74,7 @@ The three stacked stones. Files: `assets/brand/tovy-mark-black.png` (light theme
 
 One curve, cubic-bezier(0.2, 0.8, 0.2, 1). Hover 150ms, menus 120ms, sheets and dialogs 200 to 250ms. No bounce. Reduce motion shows final states at once.
 
-- Route change, and moving between pages inside a tab: fade and rise 8 px, 180ms.
+- Route change, and moving between pages inside a tab: instant, no fade (spec design-v2). Only rows that arrive later rise in.
 - Task panel: slides in from the right, 24 px on the web (220ms), 48 px on a phone (260ms).
 - Menus and the command palette: pop from 0.96, 120 to 140ms. Sheets rise 24 px, 250ms. Toast rises 24 px, 250ms.
 - Lists: rows fade and rise 6 px; on first show they follow each other 30ms apart (at most 240ms).

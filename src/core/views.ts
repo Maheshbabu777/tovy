@@ -62,6 +62,14 @@ export function timelyGreeting(now: Date, firstName?: string | null): string {
   return name ? `${line}, ${name}` : line
 }
 
+// The line under the Today title (Paper, Today): "Saturday 3 October · 5 tasks", counting what is late, due today and
+// already done today.
+export function todayLine(now: Date, count: number): string {
+  const day = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'][now.getDay()]
+  const tasks = count === 0 ? 'nothing due' : count === 1 ? '1 task' : `${count} tasks`
+  return `${day} ${now.getDate()} ${MONTHS[now.getMonth()]} · ${tasks}`
+}
+
 // One line under the Today title: what is late, what is due and what is done today. Parts that are zero are left out.
 export function daySummary(g: { overdue: unknown[]; dueToday: unknown[]; doneToday: unknown[] }): string {
   const parts = [

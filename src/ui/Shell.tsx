@@ -29,7 +29,7 @@ import { CommandPalette } from './CommandPalette'
 import { moveFocus, toggleFocused } from './keyboardList'
 import { ShortcutsSheet } from './ShortcutsSheet'
 import { KeyCap } from './components/KeyCap'
-import { animate, EASE, prefersReducedMotion, useSlideIn } from './motion'
+import { EASE, prefersReducedMotion, useSlideIn } from './motion'
 import { onQuickAdd, requestPalette, requestQuickAdd } from './quickAdd'
 import { QuickAddSheet } from './QuickAddSheet'
 import { ProjectSheet } from './ProjectSheet'
@@ -137,7 +137,6 @@ export function Shell() {
   }
 
   const [collapsed, setCollapsed] = useState(savedCollapsed)
-  const [barWidth, setBarWidth] = useState(0)
   const [showKeys, setShowKeys] = useState(false)
   const [creatingProject, setCreatingProject] = useState(false)
   const [width] = useState(() => new Animated.Value(savedCollapsed() ? SIDEBAR.collapsed : SIDEBAR.open))
@@ -282,7 +281,7 @@ export function Shell() {
 
             <AddTaskPill collapsed={collapsed} onPress={() => requestQuickAdd(true)} />
 
-            <ScrollView style={{ flex: 1, marginTop: 12 }} showsVerticalScrollIndicator={false}>
+            <ScrollView style={{ flex: 1, marginTop: 16 }} showsVerticalScrollIndicator={false}>
               <NavColumn activeKey={activeKey}>
                 <NavItem
                   navKey="search"
@@ -425,7 +424,6 @@ export function Shell() {
           </RouteEnter>
         </View>
         <View
-          onLayout={(e) => setBarWidth(e.nativeEvent.layout.width)}
           style={{
             height: 60 + insets.bottom,
             paddingBottom: insets.bottom,
@@ -435,7 +433,6 @@ export function Shell() {
             flexDirection: 'row',
           }}
         >
-          <TabIndicator index={tabs.findIndex((t) => t.on)} count={tabs.length} width={barWidth} />
           {tabs.map((t) => (
             <Pressable
               key={t.href}
@@ -633,33 +630,6 @@ function NavItem({
   )
 }
 
-// A 2 px bar on top of the phone tab bar, over the selected tab. It slides between tabs (200 ms).
-function TabIndicator({ index, count, width }: { index: number; count: number; width: number }) {
-  const { theme } = useTheme()
-  const [x] = useState(() => new Animated.Value(0))
-  const cell = width / count
-  useEffect(() => {
-    if (index < 0 || !width) return
-    animate(x, index * cell, 200)
-  }, [index, cell, width, x])
-  if (index < 0 || !width) return null
-  return (
-    <Animated.View
-      pointerEvents="none"
-      style={{
-        position: 'absolute',
-        top: -1,
-        left: 0,
-        width: cell,
-        alignItems: 'center',
-        transform: [{ translateX: x }],
-      }}
-    >
-      <View style={{ width: 28, height: 2, borderRadius: 1, backgroundColor: theme.colors.text }} />
-    </Animated.View>
-  )
-}
-
 // The black "Add task" pill at the top of the sidebar, with its key hint.
 function AddTaskPill({ collapsed, onPress }: { collapsed: boolean; onPress: () => void }) {
   const { theme } = useTheme()
@@ -676,7 +646,7 @@ function AddTaskPill({ collapsed, onPress }: { collapsed: boolean; onPress: () =
       onPress={onPress}
       style={[
         {
-          height: 40,
+          height: 36,
           borderRadius: radius.pill,
           backgroundColor: c.primary,
           flexDirection: 'row',
@@ -692,7 +662,7 @@ function AddTaskPill({ collapsed, onPress }: { collapsed: boolean; onPress: () =
       {...hover}
       {...ring.handlers}
     >
-      <Icons.add size={18} color={c.onPrimary} />
+      <Icons.add size={16} color={c.onPrimary} />
       {collapsed ? null : (
         <>
           <Text style={{ flex: 1, fontFamily: fonts.medium, fontSize: 14, color: c.onPrimary }}>Add task</Text>
@@ -761,7 +731,7 @@ function SectionHead({
   const { hovered, handlers } = useGroupHover()
   const Act = action.icon
   return (
-    <View style={{ marginTop: 20, flexDirection: 'row', alignItems: 'center', height: 30 }}>
+    <View style={{ marginTop: 18, flexDirection: 'row', alignItems: 'center', height: 30 }}>
       <Pressable
         testID="tab-projects"
         accessibilityRole="button"
@@ -769,7 +739,9 @@ function SectionHead({
         {...handlers}
         style={{ flex: 1, paddingHorizontal: 10, height: 30, justifyContent: 'center' }}
       >
-        <Text style={[type.label, { color: on ? c.text : c.text2 }]}>{title}</Text>
+        <Text style={{ fontFamily: fonts.medium, fontSize: 12, lineHeight: 16, color: on ? c.text : c.text2 }}>
+          {title}
+        </Text>
       </Pressable>
       <Pressable
         testID="sidebar-new-project"
