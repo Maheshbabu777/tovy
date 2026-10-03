@@ -1,66 +1,12 @@
 import { createElement } from 'react'
 import type { StyleProp, ViewStyle } from 'react-native'
-import {
-  ArrowCounterClockwiseIcon,
-  ArrowRightIcon,
-  ArrowsClockwiseIcon,
-  ArrowsDownUpIcon,
-  ArrowUpRightIcon,
-  BellIcon,
-  CalendarBlankIcon,
-  CalendarCheckIcon,
-  CalendarDotsIcon,
-  CaretDownIcon,
-  CaretLeftIcon,
-  CaretRightIcon,
-  ChartDonutIcon,
-  CheckIcon,
-  ClockCounterClockwiseIcon,
-  ClockIcon,
-  CloudIcon,
-  CloudSlashIcon,
-  CommandIcon,
-  DotsSixVerticalIcon,
-  DotsThreeIcon,
-  ExportIcon,
-  FireIcon,
-  FlagIcon,
-  FolderSimpleIcon,
-  FolderSimplePlusIcon,
-  FunnelIcon,
-  GearIcon,
-  HashIcon,
-  InfoIcon,
-  KeyboardIcon,
-  ListChecksIcon,
-  MagnifyingGlassIcon,
-  MoonIcon,
-  NotePencilIcon,
-  PaperclipIcon,
-  PencilSimpleIcon,
-  PlugsIcon,
-  PlusIcon,
-  QuestionIcon,
-  RepeatIcon,
-  SidebarSimpleIcon,
-  SignOutIcon,
-  SparkleIcon,
-  SquaresFourIcon,
-  StarIcon,
-  SunIcon,
-  TagIcon,
-  TargetIcon,
-  TrashIcon,
-  TrayIcon,
-  UserCircleIcon,
-  WarningCircleIcon,
-  XIcon,
-  type Icon,
-} from 'phosphor-react-native'
+import Svg, { Circle, Path, Rect } from 'react-native-svg'
+import { BOLD, ICON_SET, LINE, TINT_OPACITY, type Shape } from './iconSet'
 
-// The icon toolkit (`.context/design/style-guide.md`, Icons). One icon per meaning, Phosphor regular weight, and the
-// filled weight only for the active tab or nav item. Screens import icons from here by meaning, never from the library,
-// so the set can change in one place. `strokeWidth` is accepted and ignored so older call sites keep compiling.
+// The icon toolkit (`.context/design/style-guide.md`, Icons). One icon per meaning, from Tovy's own set (src/ui/iconSet.ts,
+// spec design-v2): a line icon, with a soft fill inside for the active tab or nav item (`filled`). Screens import icons
+// from here by meaning, never by drawing, so the set can change in one place. `strokeWidth` is accepted and ignored so
+// older call sites keep compiling.
 export type IconProps = {
   size?: number
   color?: string
@@ -72,67 +18,93 @@ export type IconProps = {
 }
 export type ToolkitIcon = (props: IconProps) => ReturnType<typeof createElement>
 
-function make(source: Icon): ToolkitIcon {
-  const ToolkitIconComponent = ({ size = 20, color, filled, bold, style, testID }: IconProps) =>
-    createElement(source, { size, color, weight: filled ? 'fill' : bold ? 'bold' : 'regular', style, testID })
+function shape(s: Shape, i: number, color: string, filled: boolean, width: number) {
+  const solid = 'solid' in s && s.solid
+  const paint = solid
+    ? { fill: color }
+    : {
+        fill: filled && s.tint ? color : 'none',
+        fillOpacity: filled && s.tint ? TINT_OPACITY : undefined,
+        stroke: color,
+        strokeWidth: width,
+        strokeLinecap: 'round' as const,
+        strokeLinejoin: 'round' as const,
+      }
+  if ('d' in s) return createElement(Path, { key: i, d: s.d, ...paint })
+  if ('circle' in s) {
+    const [cx, cy, r] = s.circle
+    return createElement(Circle, { key: i, cx, cy, r, ...paint })
+  }
+  const [x, y, width_, height, r] = s.rect
+  return createElement(Rect, { key: i, x, y, width: width_, height, rx: r, ry: r, ...paint })
+}
+
+function make(name: keyof typeof ICON_SET): ToolkitIcon {
+  const shapes = ICON_SET[name]
+  const ToolkitIconComponent = ({ size = 20, color = 'currentColor', filled, bold, style, testID }: IconProps) =>
+    createElement(
+      Svg,
+      { width: size, height: size, viewBox: '0 0 24 24', style, testID },
+      shapes.map((s, i) => shape(s, i, color, !!filled, bold ? BOLD : LINE)),
+    )
   return ToolkitIconComponent
 }
 
 export const Icons = {
-  inbox: make(TrayIcon),
-  today: make(CalendarCheckIcon),
-  upcoming: make(CalendarDotsIcon),
-  browse: make(SquaresFourIcon),
-  search: make(MagnifyingGlassIcon),
-  add: make(PlusIcon),
-  check: make(CheckIcon),
-  close: make(XIcon),
-  back: make(CaretLeftIcon),
-  forward: make(CaretRightIcon),
-  expand: make(CaretDownIcon),
-  more: make(DotsThreeIcon),
-  date: make(CalendarBlankIcon),
-  deadline: make(TargetIcon),
-  time: make(ClockIcon),
-  reminder: make(BellIcon),
-  repeat: make(RepeatIcon),
-  priority: make(FlagIcon),
-  label: make(TagIcon),
-  project: make(HashIcon),
-  projects: make(FolderSimpleIcon),
-  newProject: make(FolderSimplePlusIcon),
-  subtasks: make(ListChecksIcon),
-  note: make(NotePencilIcon),
-  attachment: make(PaperclipIcon),
-  progress: make(ChartDonutIcon),
-  habit: make(ArrowsClockwiseIcon),
-  streak: make(FireIcon),
-  ai: make(SparkleIcon),
-  connectedApps: make(PlugsIcon),
-  activity: make(ClockCounterClockwiseIcon),
-  undo: make(ArrowCounterClockwiseIcon),
-  edit: make(PencilSimpleIcon),
-  delete: make(TrashIcon),
-  drag: make(DotsSixVerticalIcon),
-  filter: make(FunnelIcon),
-  sort: make(ArrowsDownUpIcon),
-  favorite: make(StarIcon),
-  settings: make(GearIcon),
-  account: make(UserCircleIcon),
-  themeLight: make(SunIcon),
-  themeDark: make(MoonIcon),
-  signOut: make(SignOutIcon),
-  export: make(ExportIcon),
-  keyboard: make(KeyboardIcon),
-  command: make(CommandIcon),
-  help: make(QuestionIcon),
-  info: make(InfoIcon),
-  sync: make(CloudIcon),
-  offline: make(CloudSlashIcon),
-  overdue: make(WarningCircleIcon),
-  sidebar: make(SidebarSimpleIcon),
-  arrow: make(ArrowRightIcon),
-  external: make(ArrowUpRightIcon),
+  inbox: make('inbox'),
+  today: make('today'),
+  upcoming: make('upcoming'),
+  browse: make('browse'),
+  search: make('search'),
+  add: make('add'),
+  check: make('check'),
+  close: make('close'),
+  back: make('back'),
+  forward: make('forward'),
+  expand: make('expand'),
+  more: make('more'),
+  date: make('date'),
+  deadline: make('deadline'),
+  time: make('time'),
+  reminder: make('reminder'),
+  repeat: make('repeat'),
+  priority: make('priority'),
+  label: make('label'),
+  project: make('project'),
+  projects: make('projects'),
+  newProject: make('newProject'),
+  subtasks: make('subtasks'),
+  note: make('note'),
+  attachment: make('attachment'),
+  progress: make('progress'),
+  habit: make('habit'),
+  streak: make('streak'),
+  ai: make('ai'),
+  connectedApps: make('connectedApps'),
+  activity: make('activity'),
+  undo: make('undo'),
+  edit: make('edit'),
+  delete: make('delete'),
+  drag: make('drag'),
+  filter: make('filter'),
+  sort: make('sort'),
+  favorite: make('favorite'),
+  settings: make('settings'),
+  account: make('account'),
+  themeLight: make('themeLight'),
+  themeDark: make('themeDark'),
+  signOut: make('signOut'),
+  export: make('export'),
+  keyboard: make('keyboard'),
+  command: make('command'),
+  help: make('help'),
+  info: make('info'),
+  sync: make('sync'),
+  offline: make('offline'),
+  overdue: make('overdue'),
+  sidebar: make('sidebar'),
+  arrow: make('arrow'),
+  external: make('external'),
 }
 
 export type IconName = keyof typeof Icons

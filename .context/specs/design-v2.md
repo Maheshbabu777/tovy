@@ -40,4 +40,5 @@ What the inspiration does (read from the Paper page Inspiration):
 - [ ] Human: after merge, reconnect Claude with https://<tovy site>/mcp so it shows the Tovy icon
 - [x] Slice 2 (in the same PR): sidebar header is the mark, wordmark and collapse only; Projects head shows + New project on hover; the account sits at the bottom (avatar, name, @username, shortcuts and settings); menus can group items under labels, show a check or a key, and set Delete apart after a hairline; Google's own G on "Continue with Google" (from Google's sign-in assets); checked in Chromium at 1440, light and dark
 - [x] Slice 3: calendar as above; views tests for weeks, month grid and day counts; checked in Chromium at 1440 light and 390 dark (jump two months ahead, next week, scroll into January)
-- [ ] Slices 4 and 5
+- [x] Slice 4: Tovy's own icon set (src/ui/iconSet.ts): 54 icons on a 24 grid, round ends and joins, one 1.65 line, solid dots as the stones motif, a soft fill for the active nav item; drawn with react-native-svg, Phosphor no longer imported (the package can be removed later); checked on a preview sheet at 40/20/16 px and in the app at 1440 light and 390 dark
+- [ ] Slice 5
