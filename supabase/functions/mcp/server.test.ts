@@ -256,6 +256,27 @@ Deno.test('complete_task logs the rest of the progress on the top level task', a
   assertEquals(store.log[1].delta, -50)
 })
 
+Deno.test('task fields: added and changed by an app, and a repeating task comes back instead of closing', async () => {
+  const { call, store } = setup()
+  const added = await call('add_task', {
+    title: 'Gym',
+    due_date: '2026-10-05',
+    priority: 1,
+    labels: ['@Health', 'gym'],
+    repeat: { every: 'week', days: [1, 4] },
+  })
+  const id = added.structuredContent.id
+  let t = store.tasks.find((x) => x.id === id)!
+  assertEquals([t.priority, t.labels, t.repeat], [1, ['health', 'gym'], { every: 'week', days: [1, 4] }])
+  await call('update_task', { id, deadline: '2026-10-30', priority: 2 })
+  t = store.tasks.find((x) => x.id === id)!
+  assertEquals([t.priority, t.deadline], [2, '2026-10-30'])
+  const done = await call('complete_task', { id, today: '2026-10-05' })
+  t = store.tasks.find((x) => x.id === id)!
+  assertEquals([t.done_at, t.due_date], [null, '2026-10-08'])
+  assertMatch(done.content[0].text, /back on 2026-10-08/)
+})
+
 Deno.test('log_progress: makes a quick task deep, 100 finishes, refuses a task with subtasks', async () => {
   const { call, store } = setup()
   await call('log_progress', { id: T_REPORT, progress: 40, note: 'outline done' })

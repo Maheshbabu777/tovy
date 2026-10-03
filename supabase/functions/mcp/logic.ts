@@ -16,8 +16,51 @@ export type TaskRow = {
   parent_id: string | null
   deleted?: boolean
   created_by?: string | null
+  // Spec task-fields (migration 0011).
+  priority?: number | null
+  deadline?: string | null
+  labels?: string[] | null
+  repeat?: Repeat | null
   created_at?: string | null
   updated_at?: string | null
+}
+
+export type Repeat = { every: 'day' | 'weekday' | 'week' | 'month'; days?: number[]; interval?: number }
+
+const plusDays = (d: string, n: number) => {
+  const t = new Date(`${d}T00:00:00Z`)
+  t.setUTCDate(t.getUTCDate() + n)
+  return t.toISOString().slice(0, 10)
+}
+const weekdayOf = (d: string) => new Date(`${d}T00:00:00Z`).getUTCDay()
+
+// When a repeating task comes back after it is finished: counted from its due date (today without one), never on or
+// before today. A copy of `nextOccurrence` in `src/core/taskFields.ts`; keep them in step.
+export function nextOccurrence(from: string | null, repeat: Repeat, today: string): string {
+  const n = repeat.interval ?? 1
+  const start = from ?? today
+  const step = (d: string): string => {
+    if (repeat.every === 'day') return plusDays(d, n)
+    if (repeat.every === 'weekday') {
+      let next = plusDays(d, 1)
+      while ([0, 6].includes(weekdayOf(next))) next = plusDays(next, 1)
+      return next
+    }
+    if (repeat.every === 'week') {
+      if (!repeat.days?.length) return plusDays(d, 7 * n)
+      let next = plusDays(d, 1)
+      for (let i = 0; i < 7 * n + 7 && !repeat.days.includes(weekdayOf(next)); i++) next = plusDays(next, 1)
+      return next
+    }
+    const [y, m] = d.split('-').map(Number)
+    const want = Number(start.slice(8, 10))
+    const last = new Date(Date.UTC(y, m - 1 + n + 1, 0)).getUTCDate()
+    return new Date(Date.UTC(y, m - 1 + n, Math.min(want, last))).toISOString().slice(0, 10)
+  }
+  let at = start
+  do at = step(at)
+  while (at <= today)
+  return at
 }
 
 export type ProjectRow = { id: string; name: string; color: string; deleted?: boolean }
@@ -111,6 +154,12 @@ export function taskLine(task: TaskRow, all: TaskRow[], projects: ProjectRow[], 
           ? `overdue, ${task.due_date}`
           : task.due_date
     bits.push(`due ${when}${task.due_time ? ` ${task.due_time.slice(0, 5)}` : ''}`)
+  }
+  if (task.priority && task.priority < 4) bits.push(`P${task.priority}`)
+  if (task.deadline) bits.push(`deadline ${task.deadline}`)
+  if (task.labels?.length) bits.push(task.labels.map((l) => `@${l}`).join(' '))
+  if (task.repeat) {
+    bits.push(`repeats ${task.repeat.every}${task.repeat.days ? ` on ${task.repeat.days.join(',')}` : ''}`)
   }
   const percent = percentOf(task, all)
   if (!task.done_at && percent > 0) bits.push(`${percent}%`)

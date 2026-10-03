@@ -6,6 +6,7 @@ import {
   hasSubtasks,
   isDay,
   isTime,
+  nextOccurrence,
   percentOf,
   type ProjectRow,
   rootOf,
@@ -26,6 +27,32 @@ export type Caller = { repo: Repo; clientId: string; now: () => Date }
 const day = z.string().refine(isDay, 'Use a date like 2026-10-05')
 const time = z.string().refine(isTime, 'Use a 24 hour time like 09:30')
 const id = z.string().uuid('Use the task id in square brackets from a list')
+// Spec task-fields: priority, deadline, labels and repeat.
+const priority = z.number().int().min(1).max(4).describe('1 is the highest, 4 is none')
+const labels = z
+  .array(z.string().trim().min(1).max(40))
+  .max(20)
+  .describe('Words without the @, like ["home", "calls"]; replaces the labels')
+const repeat = z
+  .object({
+    every: z.enum(['day', 'weekday', 'week', 'month']),
+    days: z.array(z.number().int().min(0).max(6)).optional().describe('For a weekly repeat: 0 Sunday to 6 Saturday'),
+    interval: z.number().int().min(1).max(365).optional().describe('Every n days or weeks'),
+  })
+  .describe('How it comes back after it is finished')
+const cleanLabels = (ls: string[]) =>
+  [
+    ...new Set(
+      ls.map((l) =>
+        l
+          .replace(/^@/, '')
+          .toLowerCase()
+          .replace(/[^\p{L}\p{N}-]+/gu, '-')
+          .replace(/^-+|-+$/g, ''),
+      ),
+    ),
+  ].filter(Boolean)
+
 const todayArg = day
   .optional()
   .describe("The person's local date today, YYYY-MM-DD. Pass it whenever you know it: Tovy follows the person's clock.")
@@ -268,6 +295,10 @@ export function registerTools(mcp: McpServer) {
         .enum(['quick', 'deep'])
         .optional()
         .describe('deep for work tracked in percent; quick (default) otherwise'),
+      priority: priority.optional(),
+      deadline: day.optional().describe('The date it must be done by (separate from the due date)'),
+      labels: labels.optional(),
+      repeat: repeat.optional(),
     }),
     handler: guard(
       async (
@@ -279,6 +310,10 @@ export function registerTools(mcp: McpServer) {
           project?: string
           parent_id?: string
           kind?: 'quick' | 'deep'
+          priority?: number
+          deadline?: string
+          labels?: string[]
+          repeat?: { every: 'day' | 'weekday' | 'week' | 'month'; days?: number[]; interval?: number }
         },
         c,
       ) => {
@@ -310,6 +345,10 @@ export function registerTools(mcp: McpServer) {
           project_id: parent ? parent.project_id : projectId,
           parent_id: parent?.id ?? null,
           created_by: c.clientId,
+          priority: args.priority ?? 4,
+          deadline: args.deadline ?? null,
+          labels: cleanLabels(args.labels ?? []),
+          repeat: args.repeat ?? null,
         }
         await c.repo.insertTask(row)
         const where = parent
@@ -324,7 +363,7 @@ export function registerTools(mcp: McpServer) {
 
   mcp.tool('update_task', {
     description:
-      'Change a task: title, note, due date and time (null clears them), project ("inbox" for none) or kind. Only the fields you pass change.',
+      'Change a task: title, note, due date and time (null clears them), project ("inbox" for none), kind, priority, deadline, labels or repeat (null clears them). Only the fields you pass change.',
     inputSchema: z.object({
       id,
       title: z.string().trim().min(1).max(500).optional(),
@@ -333,6 +372,10 @@ export function registerTools(mcp: McpServer) {
       due_time: time.nullable().optional(),
       project: z.string().max(100).optional(),
       kind: z.enum(['quick', 'deep']).optional(),
+      priority: priority.optional(),
+      deadline: day.nullable().optional(),
+      labels: labels.optional(),
+      repeat: repeat.nullable().optional(),
     }),
     handler: guard(
       async (
@@ -344,6 +387,10 @@ export function registerTools(mcp: McpServer) {
           due_time?: string | null
           project?: string
           kind?: 'quick' | 'deep'
+          priority?: number
+          deadline?: string | null
+          labels?: string[]
+          repeat?: { every: 'day' | 'weekday' | 'week' | 'month'; days?: number[]; interval?: number } | null
         },
         c,
       ) => {
@@ -355,6 +402,10 @@ export function registerTools(mcp: McpServer) {
         if (args.note !== undefined) patch.note = args.note
         if (args.due_date !== undefined) patch.due_date = args.due_date
         if (args.due_time !== undefined) patch.due_time = args.due_time
+        if (args.priority !== undefined) patch.priority = args.priority
+        if (args.deadline !== undefined) patch.deadline = args.deadline
+        if (args.labels !== undefined) patch.labels = cleanLabels(args.labels)
+        if (args.repeat !== undefined) patch.repeat = args.repeat
         // Clearing the date clears the time with it, as in the app.
         if (args.due_date === null) patch.due_time = null
         const dueDate = patch.due_date !== undefined ? patch.due_date : task.due_date
@@ -385,6 +436,12 @@ export function registerTools(mcp: McpServer) {
       const task = all.find((t) => t.id === args.id)
       if (!task) return refuse('That task does not exist, or it was deleted.')
       if (!!task.done_at === args.done) return text(`"${task.title}" is already ${args.done ? 'done' : 'open'}.`)
+      // A repeating task is not closed: it moves to its next date, as in the app (spec task-fields).
+      if (args.done && task.repeat) {
+        const next = nextOccurrence(task.due_date, task.repeat, args.today ?? utcDay(c.now()))
+        await c.repo.updateTasks([task.id], { due_date: next, progress: 0 })
+        return text(`Finished "${task.title}" for now. It repeats, so it is back on ${next}.`, { id: task.id, next })
+      }
       const patch = { done_at: args.done ? c.now().toISOString() : null, progress: args.done ? 100 : 0 }
       await changeWithLog(c, all, task, patch, args.today, '')
       return text(`${args.done ? 'Finished' : 'Reopened'} "${task.title}".`, { id: task.id })

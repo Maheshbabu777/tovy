@@ -36,5 +36,5 @@ Stage 3 of `foundation-reset.md` lists priorities, labels, deadlines and repeats
 - [x] Approved by the human (2026-10-03, "go do every one"), with the proposed answers: no colour for priorities; repeats count from the due date
 - [x] PR A: migration 0011 and its row security checks (defaults, priority range, repeat must be an object)
 - [x] PR B and C together (the migration was live on dev first): store fields and repeat finishing (moves to the next date, logs the finish, Undo puts the date back), quick add words (p1 to p3, @label, every ...), Paper's P1 ring and P tags, deadline in red within two days, labels and a repeat mark on rows, priority first in every list, detail chips with menus and sheets, a Labels page (sidebar and Browse); checked in Chromium
-- [ ] Later: the MCP tools do not set these fields yet, and complete_task does not repeat (it closes the task)
+- [x] MCP tools: add_task and update_task take priority, deadline, labels and repeat; complete_task moves a repeating task to its next date; task lines show them
 - [ ] e2e for `p1 @home every monday` once the suite runs again
