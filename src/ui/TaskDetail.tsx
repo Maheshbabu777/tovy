@@ -202,7 +202,7 @@ function Body({
         />
         <Chip
           testID="chip-project"
-          label={project ? project.name : 'No project'}
+          label={project ? project.name : 'Inbox'}
           dot={project ? (PROJECT_COLORS[project.color] ?? PROJECT_COLORS.slate) : undefined}
           onPress={() => setSheet('project')}
         />
