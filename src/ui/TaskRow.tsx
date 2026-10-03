@@ -3,6 +3,7 @@ import { Animated, Pressable, Text, View } from 'react-native'
 import { Icons } from './icons'
 import { EASE, prefersReducedMotion, useEnter } from './motion'
 import { keyboardFinish } from './keyboardList'
+import { haptic } from './haptics'
 import { useSwipe } from './components/useSwipe'
 import { useDraggableTask } from './dragTask'
 import type { SwipeAction } from '../core/swipe'
@@ -67,6 +68,7 @@ export function TaskRow({
   const [rowHeight, setRowHeight] = useState(0)
   const done = !!task.done_at || finishing
   function toggle() {
+    if (!task.done_at) haptic.success()
     if (task.done_at || finishing || prefersReducedMotion() || keyboardFinish.now) {
       onToggleDone()
       return
@@ -166,7 +168,10 @@ export function TaskRow({
           onPress={() => {
             if (!swipe.justSwiped()) onOpen()
           }}
-          onLongPress={(e) => onMenu({ x: e.nativeEvent.pageX, y: e.nativeEvent.pageY })}
+          onLongPress={(e) => {
+            haptic.bump()
+            onMenu({ x: e.nativeEvent.pageX, y: e.nativeEvent.pageY })
+          }}
           // @ts-expect-error the right-click event only exists on the web
           onContextMenu={(e: { preventDefault: () => void; pageX: number; pageY: number }) => {
             e.preventDefault()

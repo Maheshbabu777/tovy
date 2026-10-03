@@ -15,6 +15,7 @@ import { useTaskActions } from './useTaskActions'
 import { useNow, useTaskData } from './useTaskData'
 import { useTaskDrop } from './dragTask'
 import { useDropActions } from './useDropActions'
+import { haptic } from './haptics'
 import { webStyle } from './components/web'
 
 // How many days the list starts with, how many it grows by as the end comes near, and the most it holds (a year).
@@ -78,6 +79,7 @@ export function UpcomingScreen() {
   // Picking a day (in the strip, the month grid or with the week arrows) scrolls its section to the top of the page.
   // A day past the end of the list makes the list longer first; the scroll happens once those days are drawn.
   function jumpTo(day: string) {
+    haptic.select()
     const target = day < today ? today : day
     setSelected(target)
     setWeek(weekStart(target))

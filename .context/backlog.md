@@ -20,10 +20,9 @@ Things agreed to do later. Each becomes a spec in `specs/` when its turn comes. 
 ## Later stages (order from the spec)
 
 - Stage 2 leftovers: drop the proposals table in a migration once every device runs without its sync (`specs/drop-proposals-sync.md` removed the app side). Search and Filters and labels in the sidebar once they exist.
-- Stage 3, tasks: priorities, labels, deadline and repeats (`specs/task-fields.md`, draft), sections in projects. Done overnight: quick add that reads words, overdue Reschedule, the Completed list, times on a task.
+- Stage 3, tasks: sections in projects (priorities, labels, deadlines and repeats are in, `specs/task-fields.md`). Done overnight: quick add that reads words, overdue Reschedule, the Completed list, times on a task.
 - Stage 4, Upcoming: reorder tasks within a day (needs a sort order column). Drag to a day or list is done (`specs/upcoming-drag.md`).
-- Stage 5, motion and gestures: haptics, and moving the PanResponder swipe and sheet drag to Reanimated and Gesture Handler if they feel slow on a phone (checked in Expo Go).
-- Stage 6, habits with per habit streaks, skip and pause, heatmap.
+- Stage 5, motion and gestures: haptics are in (expo-haptics: finishing, swipe point, long press, the ID card, deleting, picking a day). Left: moving the PanResponder swipe and sheet drag to Reanimated and Gesture Handler if they feel slow on a phone (checked in Expo Go).
 - Stage 7 leftovers (`specs/mcp-server.md` built the rest): purge Trash after 30 days with pg_cron, elicitation for deletes once the transport keeps sessions, `check_in_routine` and `add_reminder` tools with their phases.
 
 ## Ideas from the human

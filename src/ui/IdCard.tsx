@@ -13,6 +13,7 @@ import Svg, {
 } from 'react-native-svg'
 import { Logo } from './Brand'
 import { bandPath, barcode, cardNumber, Lanyard } from './lanyard'
+import { haptic } from './haptics'
 import { useReducedMotion } from './motion'
 import { PALETTE, useTheme } from './theme'
 import { fonts } from './tokens'
@@ -119,6 +120,7 @@ export function IdBadge({
   function grant(e: GestureResponderEvent) {
     const page = { x: e.nativeEvent.pageX, y: e.nativeEvent.pageY }
     press.current = { ...page, t: Date.now(), moved: false }
+    haptic.tap()
     const hold = () => {
       const l = sim.current
       if (!l || reduced) return
@@ -159,6 +161,7 @@ export function IdBadge({
     press.current = null
     if (start && !start.moved && Date.now() - start.t < 400) {
       flip.current.target = flip.current.target === 0 ? 180 : 0
+      haptic.bump()
     }
     wake()
   }
