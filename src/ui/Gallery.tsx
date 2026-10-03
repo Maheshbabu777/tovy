@@ -170,7 +170,7 @@ function Board({ mode }: { mode: ThemeMode }) {
 
       <Block title="Feedback">
         <Banner kind="offline">Offline. Changes are saved on this device and sync later.</Banner>
-        <Banner kind="error">Sync failed. Your data is safe locally.</Banner>
+        <Banner kind="error">Some changes are not saved everywhere yet. They are safe on this device.</Banner>
         <Skeleton rows={2} />
         <EmptyState icon={Icons.inbox} title="Your inbox is clear" body="Capture anything here." />
         <Button

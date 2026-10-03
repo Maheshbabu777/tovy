@@ -25,7 +25,7 @@ export function Group({ title, children }: { title?: string; children: ReactNode
   )
 }
 
-// A row at least 52 tall: an optional 18 px icon, the label, an optional value, then a chevron (it opens something) or a
+// A row at least 52 tall: the label, an optional value, then a chevron (it opens something) or a
 // control on the right.
 export function Row({
   label,
@@ -75,7 +75,7 @@ export function Row({
       {...hover}
       {...ring.handlers}
     >
-      {Icon ? <Icon size={18} color={danger ? c.red : c.text2} /> : null}
+      {/* Paper, Components: settings rows are words only, the label and its value. */}
       <Text style={[type.body, { flex: 1, color: tint }]}>{label}</Text>
       {value ? (
         <Text testID={valueTestID} style={[type.bodyS, { color: c.text2 }]}>

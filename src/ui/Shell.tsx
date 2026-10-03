@@ -35,7 +35,7 @@ import { useDropActions } from './useDropActions'
 import { localDay } from '../core/today'
 import { Logo } from './Brand'
 import { CommandPalette } from './CommandPalette'
-import { moveFocus, toggleFocused } from './keyboardList'
+import { moveFocus, pressOnFocused, toggleFocused } from './keyboardList'
 import { ShortcutsSheet } from './ShortcutsSheet'
 import { KeyCap } from './components/KeyCap'
 import { EASE, prefersReducedMotion, useSlideIn } from './motion'
@@ -207,6 +207,10 @@ export function Shell() {
         if (moveFocus(-1)) e.preventDefault()
       } else if (key === 'x') {
         if (toggleFocused()) e.preventDefault()
+      } else if (key === 's') {
+        if (pressOnFocused('row-schedule-')) e.preventDefault()
+      } else if (key === 'm') {
+        if (pressOnFocused('row-move-')) e.preventDefault()
       } else if (e.key === '?') {
         e.preventDefault()
         setShowKeys(true)
@@ -239,7 +243,13 @@ export function Shell() {
       defaultProjectId={projectHere}
       onAdd={(t) => {
         try {
-          store.addTask({ title: t.title, dueDate: t.dueDate, dueTime: t.dueTime, projectId: t.projectId })
+          store.addTask({
+            title: t.title,
+            note: t.note,
+            dueDate: t.dueDate,
+            dueTime: t.dueTime,
+            projectId: t.projectId,
+          })
           toast.show({ message: addedMessage(t, new Date(), projects.find((p) => p.id === t.projectId)?.name) })
         } catch (e) {
           toast.show({ message: e instanceof Error ? e.message : String(e) })

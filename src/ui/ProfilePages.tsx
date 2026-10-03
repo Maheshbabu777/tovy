@@ -12,7 +12,7 @@ import { useTheme, type ThemePreference } from './theme'
 import { fonts, type } from './tokens'
 import { useUsernameFree } from './useUsernameFree'
 
-const THEMES: { value: ThemePreference; label: string }[] = [
+export const THEMES: { value: ThemePreference; label: string }[] = [
   { value: 'light', label: 'Light' },
   { value: 'dark', label: 'Dark' },
   { value: 'system', label: 'System' },
@@ -142,7 +142,7 @@ export function AboutPage() {
         Version {Constants.expoConfig?.version ?? ''}
       </Text>
       <Text style={[type.bodyS, { color: c.ink6, textAlign: 'center', maxWidth: 320 }]}>
-        Tasks and routines that work on this device first and sync when you are online. Your data stays yours.
+        Your tasks and routines, on every device you use, even offline. Your data stays yours.
       </Text>
     </View>
   )

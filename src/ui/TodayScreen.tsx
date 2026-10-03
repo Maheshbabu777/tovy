@@ -101,7 +101,9 @@ export function TodayScreen() {
     >
       <View style={{ gap: 8 }}>
         {!online ? <Banner kind="offline">Offline. Changes are saved on this device and sync later.</Banner> : null}
-        {online && syncError ? <Banner kind="error">Sync failed. Your data is safe locally.</Banner> : null}
+        {online && syncError ? (
+          <Banner kind="error">Some changes are not saved everywhere yet. They are safe on this device.</Banner>
+        ) : null}
       </View>
 
       {!loaded ? (

@@ -1,4 +1,4 @@
-import { addedMessage, parseTask } from './parseTask'
+import { addedMessage, markPieces, parseTask } from './parseTask'
 
 // Saturday 3 October 2026, 10:00 in the morning.
 const now = new Date(2026, 9, 3, 10, 0)
@@ -128,5 +128,19 @@ describe('the added toast', () => {
       'Added "Call mum" · Tomorrow, 5 PM · Home',
     )
     expect(addedMessage({ title: 'Read', dueDate: null, dueTime: null }, now)).toBe('Added "Read"')
+  })
+})
+
+describe('quick add marks', () => {
+  it('underlines the understood words where they are', () => {
+    expect(markPieces('Call mum tomorrow 5pm #Personal', ['tomorrow', '5pm', '#personal'])).toEqual([
+      { text: 'Call mum ', marked: false },
+      { text: 'tomorrow', marked: true },
+      { text: ' ', marked: false },
+      { text: '5pm', marked: true },
+      { text: ' ', marked: false },
+      { text: '#Personal', marked: true },
+    ])
+    expect(markPieces('plain', [])).toEqual([{ text: 'plain', marked: false }])
   })
 })
