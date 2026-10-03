@@ -5,7 +5,7 @@ Things agreed to do later. Each becomes a spec in `specs/` when its turn comes. 
 ## Left over from stage 1 (`specs/foundation-reset.md`)
 
 - The human checks the Vercel preview (https://tovy-git-feat-foundation-reset-maheshbabu777s-projects.vercel.app) himself: every signed-in screen (Inbox, Today, Upcoming, Browse, Projects, a project, task detail, Profile, Appearance, and `/gallery`) at phone and wide width in light and dark next to the Paper file, and reports what differs.
-- Run the e2e suite with the Supabase secrets (`h1`, `t2`, `d1`, `t4` and the dark background check were edited without a run; `i1` was removed with the approval screen).
+- The e2e suite runs in CI by hand: `gh workflow run e2e` (or with `-f grep="t4:"`). All 27 passed on 2026-10-03.
 - Project colours: every project shows grey for now (`PROJECT_COLORS` in `src/ui/theme.tsx`). Decide in the information architecture stage whether projects keep any colour.
 - Local shell on the human's Windows machine cannot finish `npm ci` in one run; checks run in a cloud copy. Worth a note in `project.md` Gotchas if it keeps happening.
 
